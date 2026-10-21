@@ -1,0 +1,31 @@
+appId: com.pixmint.desktop
+productName: Pixmint
+executableName: Pixmint
+directories:
+  output: release
+electronDist: node_modules/electron/dist
+files:
+  - out/**/*
+  - package.json
+  - assets/icon.png
+  - assets/icon.ico
+  - assets/icon-mark.png
+  - assets/icon-mark.ico
+extraResources:
+  - from: assets
+    to: assets
+    filter:
+      - icon.png
+      - icon.ico
+      - icon-mark.png
+      - icon-mark.ico
+asar: true
+win:
+  icon: assets/icon-mark.ico
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target: dmg
+  category: public.app-category.productivity

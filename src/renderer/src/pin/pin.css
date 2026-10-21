@@ -1,0 +1,81 @@
+.pin-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  padding: 20px;
+  overflow: hidden;
+  background: transparent;
+  cursor: grab;
+}
+
+.pin-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 0 20px rgba(0, 0, 0, 0.45),
+    0 8px 28px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+}
+
+.pin-root.dragging .pin-image {
+  cursor: grabbing;
+}
+
+.pin-actions {
+  position: absolute;
+  top: 26px;
+  right: 26px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.pin-root:hover .pin-actions {
+  opacity: 1;
+}
+
+.pin-actions button {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #1c1c1c;
+  -webkit-app-region: no-drag;
+}
+
+.pin-actions button:hover {
+  background: var(--accent);
+}
+
+.pin-badge,
+.pin-toast {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  color: #fff;
+  background: #1c1c1c;
+  pointer-events: none;
+}
+
+.pin-toast {
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.pin-empty {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+}

@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>P2 GIF 录制 · 交互 Demo</title>
+    <style>
+      :root {
+        --bg: #1e1e28;
+        --bg-2: #262633;
+        --bg-3: #303041;
+        --text: #f2f3f7;
+        --text-2: #a0a5b8;
+        --border: rgba(255, 255, 255, 0.1);
+        --border-strong: rgba(255, 255, 255, 0.18);
+        --accent: #0a84ff;
+        --accent-soft: rgba(10, 132, 255, 0.16);
+        --danger: #ff453a;
+        --shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0b1220;
+        color: var(--text);
+        font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+        display: grid;
+        place-items: center;
+      }
+      button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+      .screen {
+        position: relative;
+        width: 1280px;
+        height: 800px;
+        overflow: hidden;
+        background: #0b1220;
+      }
+      .desktop {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 22% 18%, rgba(80, 180, 255, 0.22), transparent 34%),
+          radial-gradient(circle at 82% 70%, rgba(255, 120, 90, 0.14), transparent 40%),
+          linear-gradient(135deg, #0c1628 0%, #12233c 55%, #0b1220 100%);
+      }
+      .desktop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+        background-size: 48px 48px;
+        opacity: 0.6;
+      }
+      .fake-window {
+        position: absolute;
+        left: 80px;
+        top: 90px;
+        width: 1040px;
+        height: 610px;
+        border-radius: 18px;
+        background: rgba(20, 30, 48, 0.86);
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 30px 90px rgba(0,0,0,0.35);
+        padding: 22px 26px;
+      }
+      .fake-window .top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #8fa3c4;
+        font-size: 13px;
+        margin-bottom: 22px;
+      }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: #4a5a75; }
+      .fake-title { margin-left: 12px; color: #cfe0ff; font-weight: 600; }
+      .fake-cards { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; }
+      .fake-card {
+        border-radius: 14px;
+        background: rgba(255,255,255,0.045);
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 18px;
+        min-height: 430px;
+      }
+      .fake-card h3 { margin: 0 0 10px; font-size: 18px; color: #e8f1ff; }
+      .fake-card p { margin: 0; color: #8fa3c4; font-size: 14px; line-height: 1.7; }
+      .bars { display: flex; align-items: flex-end; gap: 10px; height: 210px; margin-top: 30px; }
+      .bars i {
+        flex: 1;
+        display: block;
+        border-radius: 6px 6px 2px 2px;
+        background: linear-gradient(180deg, #5ac8fa, #0a84ff);
+        opacity: 0.85;
+      }
+      .selection {
+        position: absolute;
+        left: 180px;
+        top: 140px;
+        width: 700px;
+        height: 420px;
+        z-index: 4;
+        border: 1.5px solid var(--accent);
+        box-shadow: 0 0 0 9999px rgba(8, 10, 18, 0.62);
+        border-radius: 2px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 22% 18%, rgba(80, 180, 255, 0.22), transparent 34%),
+          radial-gradient(circle at 82% 70%, rgba(255, 120, 90, 0.14), transparent 40%),
+          linear-gradient(135deg, #0c1628 0%, #12233c 55%, #0b1220 100%);
+      }
+      .selection .inside {
+        position: absolute;
+        left: 70px;
+        top: 70px;
+        width: 560px;
+        height: 280px;
+        border-radius: 16px;
+        background: rgba(20, 30, 48, 0.9);
+        border: 1px solid rgba(255,255,255,0.12);
+        padding: 20px;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+      }
+      .selection .inside h2 { margin: 0 0 8px; font-size: 22px; }
+      .selection .inside p { margin: 0; color: #91a7c9; font-size: 14px; line-height: 1.7; }
+      .size-tag {
+        position: absolute;
+        left: 0;
+        top: -24px;
+        padding: 2px 7px;
+        border-radius: 5px;
+        background: var(--accent);
+        color: #fff;
+        font: 11px "Consolas", monospace;
+      }
+      .countdown {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 10, 18, 0.35);
+        z-index: 8;
+      }
+      .countdown b {
+        font-size: 180px;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 10px 50px rgba(0,0,0,0.45);
+      }
+      .countdown small {
+        position: absolute;
+        bottom: 42px;
+        color: rgba(255,255,255,0.8);
+        letter-spacing: 2px;
+        font-size: 13px;
+      }
+      .record-pill {
+        position: absolute;
+        left: 50%;
+        top: -26px;
+        transform: translateX(-50%);
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(18, 18, 26, 0.94);
+        border: 1px solid rgba(255,255,255,0.16);
+        box-shadow: 0 8px 26px rgba(0,0,0,0.4);
+        z-index: 12;
+        white-space: nowrap;
+      }
+      .record-pill .rec-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--danger);
+        box-shadow: 0 0 0 4px rgba(255,69,58,0.16);
+        animation: pulse 1.2s infinite;
+      }
+      @keyframes pulse { 50% { opacity: 0.45; } }
+      .record-pill .timer { font: 12px "Consolas", monospace; color: #fff; }
+      .record-pill .stop {
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--danger);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .record-pill .cancel { color: var(--text-2); font-size: 12px; }
+      .toolbar {
+        position: absolute;
+        left: 200px;
+        top: 572px;
+        width: 680px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 8px;
+        border-radius: 14px;
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        box-shadow: var(--shadow);
+        z-index: 20;
+      }
+      .tb {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        color: var(--text-2);
+        font-size: 14px;
+      }
+      .tb:hover { background: var(--bg-3); color: var(--text); }
+      .tb.active { background: var(--accent); color: #fff; }
+      .tb.gif { width: 46px; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; }
+      .divider { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+      .spacer { flex: 1; }
+      .tb.close:hover { background: rgba(255,69,58,0.85); color: #fff; }
+      .setup {
+        position: absolute;
+        left: 190px;
+        top: 588px;
+        width: 680px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        box-shadow: var(--shadow);
+        z-index: 30;
+        display: none;
+      }
+      .setup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+      .setup-head strong { font-size: 14px; }
+      .setup-head span { color: var(--text-2); font-size: 12px; }
+      .setup-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 14px; align-items: end; }
+      .field label { display: block; color: var(--text-2); font-size: 11px; margin-bottom: 6px; }
+      .seg { display: flex; padding: 3px; border-radius: 9px; background: var(--bg-3); }
+      .seg button { flex: 1; padding: 6px 8px; border-radius: 7px; color: var(--text-2); font-size: 12px; }
+      .seg button.on { background: var(--accent); color: #fff; }
+      .start {
+        height: 38px;
+        padding: 0 18px;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .setup-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+      .setup-foot span { color: var(--text-2); font-size: 11px; }
+      .setup-foot button { color: var(--text-2); font-size: 12px; }
+      .preview-mask {
+        position: absolute;
+        inset: 0;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(6, 8, 14, 0.62);
+        backdrop-filter: blur(3px);
+      }
+      .preview {
+        position: absolute;
+        left: 340px;
+        top: 160px;
+        width: 600px;
+        border-radius: 20px;
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        box-shadow: var(--shadow);
+        z-index: 70;
+        padding: 18px;
+        display: none;
+      }
+      .preview-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+      .preview-head strong { font-size: 15px; }
+      .preview-head button { color: var(--text-2); font-size: 18px; }
+      .gif-box {
+        height: 280px;
+        border-radius: 14px;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid var(--border);
+        background:
+          radial-gradient(circle at 30% 30%, rgba(90,200,250,0.45), transparent 45%),
+          linear-gradient(135deg, #0b1220, #0b2e63 55%, #0a84ff);
+      }
+      .gif-box::before {
+        content: "";
+        position: absolute;
+        inset: -30%;
+        background: conic-gradient(from 0deg, transparent, rgba(255,255,255,0.2), transparent 35%);
+        animation: spin 5s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .gif-box .badge {
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        padding: 4px 8px;
+        border-radius: 7px;
+        background: rgba(0,0,0,0.45);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1px;
+      }
+      .gif-meta { display: flex; justify-content: space-between; margin: 12px 2px 4px; color: var(--text-2); font-size: 12px; }
+      .preview-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+      .preview-actions .primary { padding: 8px 16px; border-radius: 9px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; }
+      .preview-actions .ghost { padding: 8px 14px; border-radius: 9px; color: var(--text-2); font-size: 13px; }
+      .preview-actions .ghost:hover { background: var(--bg-3); color: var(--text); }
+      .switcher {
+        position: absolute;
+        left: 18px;
+        top: 18px;
+        display: flex;
+        gap: 6px;
+        padding: 5px;
+        border-radius: 10px;
+        background: rgba(12, 16, 26, 0.72);
+        border: 1px solid rgba(255,255,255,0.1);
+        z-index: 100;
+      }
+      .switcher button {
+        padding: 5px 9px;
+        border-radius: 7px;
+        color: #9fb0cc;
+        font-size: 11px;
+      }
+      .switcher button.on { background: rgba(10,132,255,0.9); color: #fff; }
+      .demo-note {
+        position: absolute;
+        left: 18px;
+        bottom: 14px;
+        color: rgba(200, 215, 240, 0.55);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        z-index: 100;
+      }
+      .toast {
+        position: absolute;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(20,20,28,0.92);
+        border: 1px solid var(--border-strong);
+        color: #fff;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 120;
+      }
+      .toast.show { opacity: 1; }
+      body[data-state="setup"] .setup { display: block; }
+      body:not([data-state="tools"]) .toolbar { display: none; }
+      body[data-state="countdown"] .countdown { display: flex; }
+      body[data-state="recording"] .record-pill { display: flex; }
+      body[data-state="preview"] .preview-mask,
+      body[data-state="preview"] .preview { display: block; }
+    </style>
+  </head>
+  <body data-state="tools">
+    <div class="screen">
+      <div class="desktop"></div>
+      <div class="fake-window">
+        <div class="top"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="fake-title">Pixmint · 产品截图</span></div>
+        <div class="fake-cards">
+          <div class="fake-card">
+            <h3>截图与标注</h3>
+            <p>框选、箭头、文字、马赛克和序号。右侧是本次要录制的区域。</p>
+            <div class="bars">
+              <i style="height: 42%"></i><i style="height: 68%"></i><i style="height: 35%"></i><i style="height: 82%"></i><i style="height: 56%"></i><i style="height: 74%"></i><i style="height: 48%"></i><i style="height: 90%"></i>
+            </div>
+          </div>
+          <div class="fake-card">
+            <h3>GIF 录制</h3>
+            <p>选区录制、倒计时、帧率和尺寸可调。录制完成后直接预览、保存或复制。</p>
+            <div class="bars" style="height: 120px">
+              <i style="height: 65%"></i><i style="height: 40%"></i><i style="height: 78%"></i><i style="height: 55%"></i><i style="height: 88%"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="selection" id="selection">
+        <div class="inside">
+          <h2>录制这个区域</h2>
+          <p>点击工具条上的 GIF，选择帧率、尺寸和倒计时，然后开始录制。</p>
+        </div>
+        <span class="size-tag">700 × 420</span>
+        <div class="countdown"><b>3</b><small>准备录制</small></div>
+        <div class="record-pill">
+          <span class="rec-dot"></span>
+          <span class="timer" id="timer">00:00 / 00:30</span>
+          <button class="stop" id="stop">停止</button>
+          <button class="cancel" id="cancel">取消</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="tb active" title="框选">▭</button>
+        <button class="tb" title="箭头">↗</button>
+        <button class="tb" title="马赛克">▦</button>
+        <button class="tb" title="文字">T</button>
+        <button class="tb" title="序号">①</button>
+        <span class="divider"></span>
+        <button class="tb" title="撤销">↶</button>
+        <button class="tb" title="重做">↷</button>
+        <span class="divider"></span>
+        <button class="tb" title="识别">识</button>
+        <button class="tb" title="翻译">译</button>
+        <button class="tb gif active" id="gifButton" title="GIF 录制">GIF</button>
+        <span class="spacer"></span>
+        <button class="tb close" title="关闭">×</button>
+        <button class="tb" title="钉图">⌖</button>
+        <button class="tb" title="保存">⤓</button>
+        <button class="tb" title="复制">⧉</button>
+      </div>
+
+      <div class="setup">
+        <div class="setup-head">
+          <strong>GIF 录制</strong>
+          <span>选区 700 × 420 · 最长 30 秒</span>
+        </div>
+        <div class="setup-grid">
+          <div class="field">
+            <label>帧率</label>
+            <div class="seg"><button class="on">10 FPS</button><button>15 FPS</button></div>
+          </div>
+          <div class="field">
+            <label>输出尺寸</label>
+            <div class="seg"><button class="on">原始</button><button>720</button><button>480</button></div>
+          </div>
+          <div class="field">
+            <label>倒计时</label>
+            <div class="seg"><button class="on">3 秒</button><button>1 秒</button><button>关闭</button></div>
+          </div>
+          <button class="start" id="start">开始录制</button>
+        </div>
+        <div class="setup-foot">
+          <span>建议先把鼠标移到选区外，避免录进点击动作。</span>
+          <button id="setupCancel">取消</button>
+        </div>
+      </div>
+
+      <div class="preview-mask"></div>
+      <div class="preview">
+        <div class="preview-head"><strong>GIF 预览</strong><button id="previewClose">×</button></div>
+        <div class="gif-box"><span class="badge">GIF</span></div>
+        <div class="gif-meta"><span>700 × 420 · 10 FPS · 6.2s</span><span>2.4 MB</span></div>
+        <div class="preview-actions">
+          <button class="ghost" id="copyGif">复制</button>
+          <button class="ghost" id="retry">重新录制</button>
+          <button class="primary" id="saveGif">保存 GIF</button>
+        </div>
+      </div>
+
+      <div class="switcher">
+        <button data-state="tools" class="on">0 工具条</button>
+        <button data-state="setup">1 设置</button>
+        <button data-state="countdown">2 倒计时</button>
+        <button data-state="recording">3 录制中</button>
+        <button data-state="preview">4 预览</button>
+      </div>
+      <div class="demo-note">P2 GIF 录制 · 交互 Demo（仅用于确认流程与视觉）</div>
+      <div class="toast" id="toast">已复制</div>
+    </div>
+
+    <script>
+      const body = document.body
+      const switcher = [...document.querySelectorAll('.switcher button')]
+      const toast = document.getElementById('toast')
+      let tick = null
+      let seconds = 0
+
+      const stopTimer = () => {
+        if (tick) clearInterval(tick)
+        tick = null
+      }
+
+      const showToast = (message) => {
+        toast.textContent = message
+        toast.classList.add('show')
+        window.setTimeout(() => toast.classList.remove('show'), 1400)
+      }
+
+      const setState = (state) => {
+        stopTimer()
+        body.dataset.state = state
+        switcher.forEach((button) => button.classList.toggle('on', button.dataset.state === state))
+        if (state === 'recording') {
+          seconds = 0
+          const timer = document.getElementById('timer')
+          timer.textContent = '00:00 / 00:30'
+          tick = setInterval(() => {
+            seconds += 1
+            const text = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+            timer.textContent = `${text} / 00:30`
+            if (seconds >= 30) setState('preview')
+          }, 1000)
+        }
+        if (state === 'countdown') {
+          const number = document.querySelector('.countdown b')
+          let remain = 3
+          number.textContent = String(remain)
+          tick = setInterval(() => {
+            remain -= 1
+            if (remain <= 0) {
+              setState('recording')
+              return
+            }
+            number.textContent = String(remain)
+          }, 1000)
+        }
+      }
+
+      document.getElementById('gifButton').addEventListener('click', () => setState('setup'))
+      document.getElementById('start').addEventListener('click', () => setState('countdown'))
+      document.getElementById('stop').addEventListener('click', () => setState('preview'))
+      document.getElementById('cancel').addEventListener('click', () => setState('tools'))
+      document.getElementById('setupCancel').addEventListener('click', () => setState('tools'))
+      document.getElementById('previewClose').addEventListener('click', () => setState('tools'))
+      document.getElementById('retry').addEventListener('click', () => setState('setup'))
+      document.getElementById('saveGif').addEventListener('click', () => showToast('保存对话框（Demo）'))
+      document.getElementById('copyGif').addEventListener('click', () => showToast('GIF 已复制（Demo）'))
+      switcher.forEach((button) => button.addEventListener('click', () => setState(button.dataset.state)))
+      setState('tools')
+    </script>
+  </body>
+</html>

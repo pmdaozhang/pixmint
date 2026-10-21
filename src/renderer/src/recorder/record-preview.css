@@ -1,0 +1,297 @@
+.preview-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.preview-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.preview-head {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  flex: none;
+}
+
+.preview-head strong {
+  display: block;
+  font-size: 14px;
+}
+
+.preview-head span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-3);
+  font: 11px var(--mono);
+  max-width: 620px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-close {
+  -webkit-app-region: no-drag;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-2);
+  font-size: 20px;
+  line-height: 1;
+  flex: none;
+}
+
+.preview-close:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.preview-media {
+  flex: 1;
+  min-height: 0;
+  margin: 0 16px;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%) 0 9px / 18px 18px,
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.035) 75%) 9px -9px / 18px 18px,
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.035) 75%) -9px 0 / 18px 18px,
+    #0d0d0d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-media img,
+.preview-media video {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-media.video video {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px 0;
+  color: var(--text-2);
+  font: 11px var(--mono);
+  flex: none;
+}
+
+.preview-note {
+  padding: 6px 18px 0;
+  color: var(--text-3);
+  font-size: 11px;
+  flex: none;
+}
+
+.preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  flex: none;
+}
+
+.preview-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.preview-btn:hover {
+  border-color: var(--border-strong);
+}
+
+.preview-btn.primary {
+  background: var(--primary-bg);
+  border-color: transparent;
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.preview-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.preview-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 0.3.2 紧凑结果卡：对齐初始 Demo 的右下角通知 */
+.preview-root {
+  padding: 4px;
+}
+
+.preview-card {
+  border-radius: var(--radius-xl);
+  background: rgba(24, 24, 24, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  color: #ffffff;
+}
+
+.preview-head {
+  padding: 14px 16px 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-head strong {
+  font-size: 13px;
+  color: #fff;
+}
+
+.preview-close {
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 18px;
+}
+
+.preview-close:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 16px;
+}
+
+.preview-thumb {
+  width: 84px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #212121, #303030);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.62);
+  font: 10px var(--mono);
+}
+
+.preview-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-name {
+  font: 11.5px var(--mono);
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-meta {
+  display: block;
+  padding: 3px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font: 10.5px var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-sub {
+  padding: 3px 0 0;
+  color: rgba(255, 255, 255, 0.42);
+  font: 10px var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.preview-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.preview-btn:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.preview-btn.primary {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  border-color: transparent;
+}
+
+.preview-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

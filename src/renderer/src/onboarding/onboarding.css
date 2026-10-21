@@ -1,0 +1,1134 @@
+.onboarding-root {
+  width: 100%;
+  height: 100%;
+  padding: 28px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.onb-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.onb-top {
+  -webkit-app-region: drag;
+  position: relative;
+  flex: none;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 22px 0 26px;
+  border-bottom: 1px solid var(--border);
+}
+
+.onb-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 148px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.onb-brand-mark {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--primary-text);
+  background: var(--primary-bg);
+}
+
+.onb-brand-mark svg {
+  width: 17px;
+  height: 17px;
+}
+
+.onb-stepper {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transform: translate(-50%, -50%);
+}
+
+.onb-step-dot {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text-3);
+  font: 600 10px/1 var(--mono);
+  transition: all 160ms ease;
+}
+
+.onb-step-dot.active {
+  color: var(--primary-text);
+  border-color: var(--primary-bg);
+  background: var(--primary-bg);
+}
+
+.onb-step-line {
+  width: 26px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.onb-skip {
+  -webkit-app-region: no-drag;
+  margin-left: auto;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: 11.5px;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.onb-skip:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.onb-pages {
+  position: relative;
+  flex: none;
+  height: 408px;
+  overflow: hidden;
+}
+
+.onb-page {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 48% 52%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px) scale(0.996);
+  transition:
+    opacity 300ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 420ms;
+  pointer-events: none;
+}
+
+.onb-page.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+  pointer-events: auto;
+}
+
+.onb-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px 34px 30px 50px;
+  min-width: 0;
+}
+
+.onb-copy-two {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+.onb-eyebrow {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 15px;
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.onb-eyebrow::before {
+  content: '';
+  width: 15px;
+  height: 1px;
+  background: currentColor;
+}
+
+.onb-copy h1 {
+  margin: 0;
+  max-width: 390px;
+  font-size: 34px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.onb-copy-two h1 {
+  font-size: 30px;
+}
+
+.onb-lead {
+  max-width: 350px;
+  margin: 16px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.onb-copy-two .onb-lead {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.onb-shortcut-card {
+  width: 292px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-2);
+}
+
+.onb-keycap {
+  min-width: 48px;
+  height: 44px;
+  padding: 0 8px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 3px;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-weight: 750;
+  animation: onbKeyPress 4.8s ease-in-out infinite;
+}
+
+.onb-shortcut-copy strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.onb-shortcut-copy span {
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.onb-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 19px;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+
+.onb-feature-row i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.onb-visual {
+  position: relative;
+  overflow: hidden;
+  margin: 0 22px 22px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 76% 18%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 34%),
+    linear-gradient(145deg, var(--bg-2), var(--bg-3));
+}
+
+.onb-visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.52;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 82%);
+}
+
+.onb-desk-window {
+  position: absolute;
+  left: 36px;
+  top: 44px;
+  width: 350px;
+  height: 250px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  box-shadow: 0 22px 46px rgba(34, 56, 90, 0.12);
+}
+
+.onb-desk-top {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.onb-desk-top i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.onb-desk-body {
+  position: relative;
+  height: calc(100% - 28px);
+  display: grid;
+  grid-template-columns: 78px 1fr;
+}
+
+.onb-desk-side {
+  padding: 15px 12px;
+  border-right: 1px solid var(--border);
+}
+
+.onb-desk-side span,
+.onb-desk-lines span {
+  display: block;
+  height: 5px;
+  margin-bottom: 10px;
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+
+.onb-desk-main {
+  padding: 18px;
+}
+
+.onb-desk-hero {
+  height: 76px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 72% 24%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 28%),
+    linear-gradient(120deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(255, 255, 255, 0.02));
+}
+
+.onb-desk-lines {
+  margin-top: 16px;
+}
+
+.onb-desk-lines span:nth-child(1) {
+  width: 84%;
+}
+
+.onb-desk-lines span:nth-child(2) {
+  width: 64%;
+}
+
+.onb-desk-lines span:nth-child(3) {
+  width: 72%;
+}
+
+.onb-capture-rect {
+  position: absolute;
+  left: 112px;
+  top: 73px;
+  width: 2px;
+  height: 2px;
+  z-index: 2;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 3.5%, transparent);
+}
+
+.onb-capture-rect::before {
+  content: '区域截图';
+  position: absolute;
+  left: -1px;
+  bottom: calc(100% + 7px);
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  background: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.onb-capture-rect i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--accent);
+  background: var(--bg-2);
+}
+
+.onb-capture-rect i:nth-child(1) {
+  left: -3px;
+  top: -3px;
+}
+
+.onb-capture-rect i:nth-child(2) {
+  right: -3px;
+  top: -3px;
+}
+
+.onb-capture-rect i:nth-child(3) {
+  left: -3px;
+  bottom: -3px;
+}
+
+.onb-capture-rect i:nth-child(4) {
+  right: -3px;
+  bottom: -3px;
+}
+
+.onb-capture-cursor {
+  position: absolute;
+  left: 112px;
+  top: 73px;
+  z-index: 4;
+  color: var(--text);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.22));
+}
+
+.onb-capture-cursor svg {
+  width: 21px;
+  height: 25px;
+}
+
+.onb-capture-start {
+  position: absolute;
+  left: 112px;
+  top: 73px;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  z-index: 5;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.onb-pressed-bubble {
+  position: absolute;
+  left: 28px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-sm);
+  font-size: 10.5px;
+  animation: onbBubbleReveal 5s ease-in-out infinite;
+}
+
+.onb-pressed-bubble b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.onb-pressed-bubble i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.13);
+}
+
+.onb-method-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.onb-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+}
+
+.onb-method-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.onb-method-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.onb-method strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.onb-method span span {
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+.onb-style-note {
+  margin-top: 12px;
+}
+
+.onb-style-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.onb-style-head::before {
+  content: '';
+  width: 13px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.onb-style-row {
+  width: fit-content;
+  display: flex;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+}
+
+.onb-style-cell {
+  width: 72px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+}
+
+.onb-style-cell:hover {
+  background: var(--bg-3);
+}
+
+.onb-style-canvas {
+  display: block;
+}
+
+.onb-tip-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.onb-tip-line svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.onb-draw-stage {
+  position: absolute;
+  inset: 30px 34px 28px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-2) 78%, transparent);
+}
+
+.onb-demo-content {
+  position: absolute;
+  inset: 0;
+}
+
+.onb-mode-chips {
+  position: absolute;
+  left: 16px;
+  top: 15px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+}
+
+.onb-chip {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.onb-chip-drag {
+  animation: onbChipDrag 8s ease-in-out infinite;
+}
+
+.onb-chip-two {
+  animation: onbChipTwo 8s ease-in-out infinite;
+}
+
+.onb-draw-canvas {
+  position: absolute;
+  inset: 42px 12px 38px;
+}
+
+.onb-draw-canvas svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.onb-demo-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.onb-arrow-head {
+  fill: var(--accent);
+  opacity: 0;
+}
+
+.onb-arrow-drag {
+  animation: onbDragArrow 8s ease-in-out infinite;
+}
+
+.onb-arrow-two {
+  animation: onbTwoArrow 8s ease-in-out infinite;
+}
+
+.onb-pointer {
+  opacity: 0;
+  color: var(--text);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+}
+
+.onb-click-point {
+  fill: var(--accent);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.onb-click-start {
+  animation: onbStartPoint 8s ease-in-out infinite;
+}
+
+.onb-click-end {
+  animation: onbEndPoint 8s ease-in-out infinite;
+}
+
+.onb-click-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.onb-ring-start {
+  animation: onbStartRing 8s ease-in-out infinite;
+}
+
+.onb-ring-end {
+  animation: onbEndRing 8s ease-in-out infinite;
+}
+
+.onb-mode-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.onb-replay {
+  position: absolute;
+  right: 13px;
+  bottom: 9px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: 9.5px;
+}
+
+.onb-replay:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.onb-replay svg {
+  width: 12px;
+  height: 12px;
+}
+
+.onb-foot {
+  position: relative;
+  flex: none;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  padding: 0 26px 0 50px;
+  border-top: 1px solid var(--border);
+}
+
+.onb-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.onb-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: width 160ms ease, background 160ms ease;
+}
+
+.onb-dots i.active {
+  width: 18px;
+  border-radius: 99px;
+  background: var(--text);
+}
+
+.onb-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.onb-ghost,
+.onb-primary {
+  height: 38px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: transform 150ms ease, opacity 150ms ease, background 150ms ease;
+}
+
+.onb-ghost {
+  padding: 0 15px;
+  color: var(--text-2);
+}
+
+.onb-ghost:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.onb-primary {
+  min-width: 102px;
+  padding: 0 20px;
+  color: var(--primary-text);
+  background: var(--primary-bg);
+  box-shadow: 0 9px 24px rgba(18, 22, 31, 0.18);
+}
+
+.onb-primary:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+.onb-primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+@keyframes onbPageIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes onbKeyPress {
+  0%,
+  22%,
+  42%,
+  100% {
+    transform: translateY(0);
+    border-bottom-width: 3px;
+    background: var(--bg);
+  }
+  29% {
+    transform: translateY(2px);
+    border-bottom-width: 1px;
+    background: var(--accent-soft);
+  }
+  35% {
+    transform: translateY(0);
+    border-bottom-width: 3px;
+    background: var(--bg);
+  }
+}
+
+@keyframes onbCaptureGrow {
+  0%,
+  18% {
+    opacity: 0;
+    width: 2px;
+    height: 2px;
+  }
+  20% {
+    opacity: 1;
+    width: 2px;
+    height: 2px;
+  }
+  24% {
+    width: 2px;
+    height: 2px;
+  }
+  56%,
+  84% {
+    opacity: 1;
+    width: 156px;
+    height: 106px;
+  }
+  90%,
+  100% {
+    opacity: 0;
+    width: 156px;
+    height: 106px;
+  }
+}
+
+@keyframes onbCapturePointer {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translate(2px, 2px);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(2px, 2px);
+  }
+  24% {
+    transform: translate(2px, 2px);
+  }
+  56%,
+  84% {
+    opacity: 1;
+    transform: translate(156px, 106px);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translate(156px, 106px);
+  }
+}
+
+@keyframes onbCaptureStart {
+  0%,
+  18% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  21% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  30%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes onbBubbleReveal {
+  0%,
+  26% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  32%,
+  84% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+@keyframes onbChipDrag {
+  0%,
+  45% {
+    color: var(--primary-text);
+    background: var(--primary-bg);
+  }
+  50%,
+  100% {
+    color: var(--text-2);
+    background: transparent;
+  }
+}
+
+@keyframes onbChipTwo {
+  0%,
+  47% {
+    color: var(--text-2);
+    background: transparent;
+  }
+  52%,
+  96% {
+    color: var(--primary-text);
+    background: var(--primary-bg);
+  }
+  100% {
+    color: var(--text-2);
+    background: transparent;
+  }
+}
+
+@keyframes onbDragLine {
+  0%,
+  6% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  8% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  45%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes onbDragArrow {
+  0%,
+  34% {
+    opacity: 0;
+  }
+  39%,
+  45% {
+    opacity: 1;
+  }
+  47%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onbDragPointer {
+  0%,
+  5% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  44% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onbTwoLine {
+  0%,
+  61% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  63% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  90% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes onbTwoArrow {
+  0%,
+  81% {
+    opacity: 0;
+  }
+  84%,
+  92% {
+    opacity: 1;
+  }
+  94%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onbTwoPointer {
+  0%,
+  54% {
+    opacity: 0;
+  }
+  57% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onbStartPoint {
+  0%,
+  53% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  57%,
+  63% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  68%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes onbEndPoint {
+  0%,
+  79% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  82%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes onbStartRing {
+  0%,
+  54% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  58% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes onbEndRing {
+  0%,
+  80% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  83% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  89%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-card *,
+  .onb-card *::before,
+  .onb-card *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

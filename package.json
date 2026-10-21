@@ -1,0 +1,39 @@
+{
+  "name": "snapglass",
+  "version": "0.3.7",
+  "private": true,
+  "description": "Pixmint - cross-platform screenshot, pin, OCR and recording tool",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc --noEmit && electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "electron . --smoke-test",
+    "smoke:capture": "electron . --smoke-capture",
+    "smoke:overlay": "electron . --smoke-overlay",
+    "e2e:overlay": "node e2e-overlay.cjs",
+    "e2e:pin": "node e2e-pin.cjs",
+    "e2e:recording": "node e2e-recording.cjs",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "gifenc": "^1.0.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^40.9.3",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^6.0.0",
+    "playwright-core": "^1.64.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}
