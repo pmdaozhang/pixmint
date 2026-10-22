@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, Menu, screen } from 'electron'
 import { join } from 'node:path'
 import { clamp } from '../../shared/geometry'
-import type { PinInit, Point } from '../../shared/types'
+import type { PinEditLayout, PinInit, Point } from '../../shared/types'
 import { clampOpacity, nextPinSize } from '../pin-state'
 import { copyImageBytes, notify, saveImageBytes } from '../image-utils'
 import { loadRoute } from './load'
@@ -14,9 +14,13 @@ interface PinState {
   opacity: number
   ignoreMouse: boolean
   dragging: boolean
+  normalBounds: Electron.Rectangle | null
 }
 
 const SHADOW_PADDING = 20
+const EDIT_TOOLBAR_HEIGHT = 104
+const EDIT_TOOLBAR_WIDTH = 739
+const EDIT_GAP = 8
 
 export class PinManager {
   private readonly pins = new Map<number, PinState>()
@@ -75,7 +79,8 @@ export class PinManager {
       height: pinHeight,
       opacity: 1,
       ignoreMouse: false,
-      dragging: false
+      dragging: false,
+      normalBounds: null
     }
     this.pins.set(id, state)
     window.on('closed', () => this.pins.delete(id))
@@ -175,6 +180,60 @@ export class PinManager {
       height: totalHeight
     })
     return next
+  }
+
+  /**
+   * 背景：钉图进入编辑模式后要在图片下方放完整工具栏，原窗口高度不够。
+   * 设计意图：进入时向下扩展并在工作区内夹取，退出时恢复原 bounds，避免钉图位置漂移。
+   * 关键约束：编辑期间禁用拖拽/缩放；扩展尺寸必须和 PinApp 的布局常量保持一致。
+   */
+  setEditMode(webContentsId: number, active: boolean): PinEditLayout | null {
+    const state = this.pins.get(webContentsId)
+    if (!state || state.window.isDestroyed()) return null
+    if (active) {
+      if (!state.normalBounds) state.normalBounds = state.window.getBounds()
+      const bounds = state.window.getBounds()
+      const workArea = screen.getDisplayMatching(bounds).workArea
+      const width = Math.min(
+        workArea.width,
+        Math.max(state.width, EDIT_TOOLBAR_WIDTH) + SHADOW_PADDING * 2
+      )
+      const height = Math.min(
+        workArea.height,
+        state.height + EDIT_TOOLBAR_HEIGHT + EDIT_GAP + SHADOW_PADDING * 2
+      )
+      state.window.setBounds({
+        x: clamp(bounds.x, workArea.x, workArea.x + workArea.width - width),
+        y: clamp(bounds.y, workArea.y, workArea.y + workArea.height - height),
+        width,
+        height
+      })
+      return {
+        width,
+        height,
+        imageWidth: state.width,
+        imageHeight: state.height,
+        toolbarWidth: EDIT_TOOLBAR_WIDTH
+      }
+    }
+    if (state.normalBounds) {
+      state.window.setBounds(state.normalBounds)
+      state.normalBounds = null
+    }
+    return {
+      width: state.width + SHADOW_PADDING * 2,
+      height: state.height + SHADOW_PADDING * 2,
+      imageWidth: state.width,
+      imageHeight: state.height,
+      toolbarWidth: EDIT_TOOLBAR_WIDTH
+    }
+  }
+
+  commitEdit(webContentsId: number, imageBytes: Uint8Array): boolean {
+    const state = this.pins.get(webContentsId)
+    if (!state) return false
+    state.imageBytes = imageBytes
+    return true
   }
 
   contextMenu(webContentsId: number): void {

@@ -392,7 +392,6 @@ export function OverlayApp(): JSX.Element {
       }
       if (recordCancelledRef.current) return
       setCountdownNumber(0)
-      setCaptureClean(true)
       // 两帧等待让透明覆盖层先完成一次合成，再开始采集第一帧。
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
@@ -589,8 +588,7 @@ export function OverlayApp(): JSX.Element {
   const recorderModeActive = recorderMode !== null
   const hideFrozenImage =
     recorderModeActive &&
-    (recordPhase === 'preparing' ||
-      captureClean ||
+    (captureClean ||
       recordPhase === 'recording' ||
       recordPhase === 'paused' ||
       recordPhase === 'encoding')
@@ -703,14 +701,16 @@ export function OverlayApp(): JSX.Element {
               </div>
             </>
           )}
-          {showRecordingChrome && recordPhase !== 'preparing' && (
+          {showRecordingChrome && (
             <DimAround rect={selection} className="recording-dim" />
           )}
           {phase === 'editing' && !recorderModeActive && (
             <>
               <AnnotationCanvas
                 ref={annotationRef}
-                init={init}
+                imageWidth={init.imageWidth}
+                imageHeight={init.imageHeight}
+                bounds={init.bounds}
                 imageCanvasRef={imageCanvasRef}
                 selection={selection}
                 options={options}

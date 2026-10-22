@@ -103,6 +103,14 @@ export interface PinInit {
   opacity: number
 }
 
+export interface PinEditLayout {
+  width: number
+  height: number
+  imageWidth: number
+  imageHeight: number
+  toolbarWidth: number
+}
+
 export interface AnnoStyle {
   color: string
   lineW: number

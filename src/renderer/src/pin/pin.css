@@ -20,6 +20,41 @@
   cursor: grab;
 }
 
+.pin-root.editing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: default;
+  user-select: none;
+}
+
+.pin-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pin-edit-image {
+  position: relative;
+  flex: none;
+}
+
+.pin-base {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 0 20px rgba(0, 0, 0, 0.45),
+    0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.pin-edit-toolbar {
+  flex: none;
+  display: flex;
+  justify-content: flex-start;
+}
+
 .pin-root.dragging .pin-image {
   cursor: grabbing;
 }

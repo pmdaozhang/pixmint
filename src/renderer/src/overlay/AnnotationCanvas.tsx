@@ -15,7 +15,6 @@ import type {
   AnnoStyle,
   LineAnno,
   MosaicAnno,
-  OverlayInit,
   Point,
   Rect,
   TextAnno
@@ -40,7 +39,9 @@ export interface AnnotationCanvasHandle {
 }
 
 interface Props {
-  init: OverlayInit
+  imageWidth: number
+  imageHeight: number
+  bounds: Rect
   imageCanvasRef: RefObject<HTMLCanvasElement | null>
   selection: Rect
   options: OverlayOptions
@@ -58,7 +59,16 @@ interface TextDraft {
 
 export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
   function AnnotationCanvas(
-    { init, imageCanvasRef, selection, options, onTextInputStart, onHistoryChange },
+    {
+      imageWidth,
+      imageHeight,
+      bounds,
+      imageCanvasRef,
+      selection,
+      options,
+      onTextInputStart,
+      onHistoryChange
+    },
     ref
   ) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -241,8 +251,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       backgroundCanvasRef.current = null
       const source = imageCanvasRef.current
       if (!source || !source.width || !source.height) return
-      const scaleX = init.imageWidth / init.bounds.width
-      const scaleY = init.imageHeight / init.bounds.height
+      const scaleX = imageWidth / bounds.width
+      const scaleY = imageHeight / bounds.height
       const width = Math.max(1, Math.round(selection.width))
       const height = Math.max(1, Math.round(selection.height))
       const offscreen = document.createElement('canvas')
@@ -265,10 +275,10 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       redraw()
     }, [
       imageCanvasRef,
-      init.imageWidth,
-      init.imageHeight,
-      init.bounds.width,
-      init.bounds.height,
+      imageWidth,
+      imageHeight,
+      bounds.width,
+      bounds.height,
       selection.x,
       selection.y,
       selection.width,

@@ -55,7 +55,9 @@ const api: SnapglassApi = {
     dragStart: () => ipcRenderer.send('pin:drag-start'),
     dragMove: (dx: number, dy: number) => ipcRenderer.send('pin:drag-move', dx, dy),
     dragEnd: () => ipcRenderer.send('pin:drag-end'),
-    contextMenu: () => ipcRenderer.send('pin:context-menu')
+    contextMenu: () => ipcRenderer.send('pin:context-menu'),
+    setEditMode: (active: boolean) => ipcRenderer.invoke('pin:set-edit-mode', active),
+    commitEdit: (imageBytes: Uint8Array) => ipcRenderer.invoke('pin:commit-edit', imageBytes)
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

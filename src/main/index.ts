@@ -39,6 +39,7 @@ import { createPlatformServices, type PlatformServices } from './platform'
 import { createSettingsWindow } from './windows/settings-window'
 import { createOnboardingWindow } from './windows/onboarding-window'
 import { loadRoute } from './windows/load'
+import { StatusToast } from './windows/status-toast'
 import { FAKE_SCREEN_PNG } from './test-fixture'
 import { recognizeImageDataUrl } from './ocr'
 import { translateText } from '../shared/translation'
@@ -117,6 +118,7 @@ const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
+const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
 const isOcrFileSmoke = Boolean(ocrFileSmokePath)
 const isSoakOcr = process.argv.includes('--soak-ocr')
@@ -259,11 +261,15 @@ async function handleOverlayComplete(
     return
   }
   if (payload.action === 'ocr') {
+    let toastTimer: ReturnType<typeof setTimeout> | null = null
     try {
-      notify('正在识别文字…')
+      // 快速识别不闪 toast；超过 150ms 才提示，避免短任务频繁闪窗。
+      toastTimer = setTimeout(() => statusToast.show('识别中...'), 150)
       const result = await platformServices.ocr.recognizeDataUrl(
         imageFromBytes(payload.pngBytes).toDataURL()
       )
+      if (toastTimer) clearTimeout(toastTimer)
+      statusToast.hide()
       const settings = settingsStore.get()
       ocrManager.open({
         text: result.text,
@@ -274,6 +280,8 @@ async function handleOverlayComplete(
         hasTranslationKey: secretStore.hasTranslationKey()
       })
     } catch (error) {
+      if (toastTimer) clearTimeout(toastTimer)
+      statusToast.hide()
       const message = error instanceof Error ? error.message : String(error)
       dialog.showErrorBox('OCR 失败', message)
     }
@@ -363,6 +371,12 @@ function registerIpc(): void {
     pinManager.copy(event.sender.id)
   })
   ipcMain.handle('pin:save', (event) => pinManager.save(event.sender.id))
+  ipcMain.handle('pin:set-edit-mode', (event, active: boolean) =>
+    pinManager.setEditMode(event.sender.id, active)
+  )
+  ipcMain.handle('pin:commit-edit', (event, imageBytes: Uint8Array) =>
+    pinManager.commitEdit(event.sender.id, imageBytes)
+  )
   ipcMain.handle('pin:set-opacity', (event, value: number) =>
     pinManager.setOpacity(event.sender.id, value)
   )
@@ -930,6 +944,7 @@ if (
 
   app.on('before-quit', () => {
     addBreadcrumb('app', 'before-quit')
+    statusToast.hide()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()

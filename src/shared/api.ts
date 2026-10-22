@@ -3,6 +3,7 @@ import type {
   OverlayCompletePayload,
   OverlayInit,
   OcrInit,
+  PinEditLayout,
   PinInit,
   Rect,
   RecorderBeginPayload,
@@ -43,6 +44,8 @@ export interface SnapglassApi {
     dragMove(dx: number, dy: number): void
     dragEnd(): void
     contextMenu(): void
+                setEditMode(active: boolean): Promise<PinEditLayout | null>
+                commitEdit(imageBytes: Uint8Array): Promise<boolean>
   }
   settings: {
     get(): Promise<Settings>
