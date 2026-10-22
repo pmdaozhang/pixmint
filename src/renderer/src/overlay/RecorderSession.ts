@@ -91,6 +91,7 @@ export class RecorderSession {
   private chunkChain: Promise<void> = Promise.resolve()
   private videoMeta: VideoDoneMeta | null = null
   private gifDone: { resolve(value: WorkerDone): void; reject(error: Error): void } | null = null
+  private systemAudioUnavailable = false
   private outputWidth = 2
   private outputHeight = 2
 
@@ -107,19 +108,40 @@ export class RecorderSession {
   }
 
   async prepare(sourceId: string): Promise<void> {
-    const constraints = {
-      audio: false,
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: sourceId,
-          maxFrameRate: Math.max(30, this.options.fps),
-          maxWidth: Math.max(2, this.init.imageWidth),
-          maxHeight: Math.max(2, this.init.imageHeight)
-        }
+    const videoConstraints = {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: sourceId,
+        maxFrameRate: Math.max(30, this.options.fps),
+        maxWidth: Math.max(2, this.init.imageWidth),
+        maxHeight: Math.max(2, this.init.imageHeight)
       }
-    } as unknown as MediaStreamConstraints
-    this.stream = await navigator.mediaDevices.getUserMedia(constraints)
+    }
+    const videoOnly = { audio: false, video: videoConstraints } as unknown as MediaStreamConstraints
+    const wantsSystemAudio = this.options.mode === 'video' && this.options.systemAudio
+    if (wantsSystemAudio) {
+      try {
+        // 系统音和视频必须一次 getUserMedia 取得；第二次桌面捕获会让渲染进程崩溃。
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId
+            }
+          },
+          video: videoConstraints
+        } as unknown as MediaStreamConstraints)
+        if (this.stream.getAudioTracks().length === 0) {
+          this.systemAudioUnavailable = true
+        }
+      } catch (error) {
+        console.warn('SYSTEM_AUDIO_CAPTURE_FAILED', error)
+        this.systemAudioUnavailable = true
+        this.stream = await navigator.mediaDevices.getUserMedia(videoOnly)
+      }
+    } else {
+      this.stream = await navigator.mediaDevices.getUserMedia(videoOnly)
+    }
     if (this.cancelled) {
       this.stream.getTracks().forEach((track) => track.stop())
       this.stream = null
@@ -177,7 +199,7 @@ export class RecorderSession {
     this.drawFrame()
 
     if (this.options.mode === 'video') {
-      await this.prepareVideoRecorder(sourceId)
+      await this.prepareVideoRecorder()
     }
   }
 
@@ -458,7 +480,7 @@ export class RecorderSession {
     })
   }
 
-  private async prepareVideoRecorder(sourceId: string): Promise<void> {
+  private async prepareVideoRecorder(): Promise<void> {
     if (!this.canvas) throw new Error('录制画布未准备好')
     const mime = pickVideoMime((candidate) => MediaRecorder.isTypeSupported(candidate))
     if (!mime) throw new Error('当前系统不支持视频录制编码')
@@ -478,19 +500,10 @@ export class RecorderSession {
       }
     }
     if (this.options.systemAudio) {
-      try {
-        const system = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: sourceId
-            }
-          } as unknown as MediaTrackConstraints,
-          video: false
-        })
-        this.audioStreams.push(system)
-        audioTracks.push(...system.getAudioTracks())
-      } catch {
+      const systemTracks = this.stream?.getAudioTracks() ?? []
+      if (systemTracks.length > 0 && !this.systemAudioUnavailable) {
+        audioTracks.push(...systemTracks)
+      } else {
         notes.push('系统音不可用')
       }
     }

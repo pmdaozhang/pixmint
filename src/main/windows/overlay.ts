@@ -418,7 +418,13 @@ export class OverlayManager {
   }
 
   private send(entry: OverlayEntry, channel: string, payload?: unknown): void {
-    if (entry.window.isDestroyed() || entry.window.webContents.isDestroyed()) return
+    if (
+      entry.rendererGone ||
+      entry.window.isDestroyed() ||
+      entry.window.webContents.isDestroyed()
+    ) {
+      return
+    }
     try {
       entry.window.webContents.send(channel, payload)
     } catch (error) {
