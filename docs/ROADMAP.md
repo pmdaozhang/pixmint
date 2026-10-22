@@ -82,7 +82,8 @@
 - [x] ScreenCaptureProvider / OcrProvider / WindowProvider 抽取
 - [ ] 平台契约测试
 - [x] 覆盖层/OCR/录制压测脚本
-- [ ] 200 次覆盖层、100 次 OCR、3 次 10 分钟录制压测
+- [x] 200 次覆盖层压测通过（0 失败，p95 163ms）
+- [ ] 100 次 OCR、3 次 10 分钟录制压测
 - [x] Windows CI：typecheck + unit + build
 - [ ] CI 双平台矩阵与发版门禁
 - [x] 外部导航/新窗口/webview 限制

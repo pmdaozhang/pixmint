@@ -171,6 +171,27 @@
 - `pnpm typecheck` 通过。
 - `pnpm build` 三层构建通过。
 
+### 渲染层独立验证（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/dev/vite.renderer.config.mjs`，可单独启动渲染层 Vite 服务。
+- 新增仅开发环境启用的 `dev-mock.ts`，在 Electron preload 缺失时提供设置、诊断和覆盖层初始数据，用于浏览器 UI 回归。
+- 通过 Explorer 在原生 Windows 会话启动 Electron，完成 smoke、设置 E2E、覆盖层 E2E；覆盖层 200 次压测通过。
+
+#### Fixed
+
+- 移除 meta CSP 中会被浏览器忽略并报错的 `frame-ancestors`，保留 `object-src` 和 `base-uri` 限制。
+
+#### Verified
+
+- Electron smoke：`SMOKE_OK`
+- 设置页 E2E：`SETTINGS_E2E_OK`，启动 1607ms
+- 覆盖层 E2E：`E2E_OK`，watchdog 按预期隐藏无响应覆盖层
+- 覆盖层压测：200 次、0 失败、p50 154ms、p95 163ms、max 755ms
+- 压测后 renderer working set 从约 88.6MB 增至 144.6MB，需后续确认是否为 Chromium 分配器缓存
+- 真实录制 E2E 在 GIF 阶段被 WebRTC `Failed to assign the desktop` 卡住，需在普通本地桌面复测
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
