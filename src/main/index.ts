@@ -27,8 +27,6 @@ import type {
   Settings,
   VideoDoneMeta
 } from '../shared/types'
-import { captureDisplay, captureDisplayFast, captureDisplays } from './capture'
-import { fastCapture } from './fast-capture'
 import { copyImage, imageFromDataUrl, notify, saveImage } from './image-utils'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
@@ -37,6 +35,7 @@ import { OverlayManager } from './windows/overlay'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
 import { WindowSnapHelper } from './window-snap'
+import { createPlatformServices, type PlatformServices } from './platform'
 import { createSettingsWindow } from './windows/settings-window'
 import { createOnboardingWindow } from './windows/onboarding-window'
 import { loadRoute } from './windows/load'
@@ -114,6 +113,7 @@ let pinManager: PinManager
 let ocrManager: OcrManager
 let recorderManager: RecorderManager
 let windowSnap: WindowSnapHelper
+let platformServices: PlatformServices
 let tray: Tray | null = null
 let preloadPath = ''
 let overlayReadyCount = 0
@@ -184,9 +184,9 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
       scaleFactor: display.scaleFactor
     })
     const started = Date.now()
-    const fast = await captureDisplayFast(display)
+    const fast = await platformServices.capture.captureFast(display)
     console.log('CAPTURE_KIND', fast ? 'fast' : 'fallback')
-    const capture = fast ?? (await captureDisplay(display))
+    const capture = fast ?? (await platformServices.capture.captureDisplay(display))
     console.log('CAPTURE_MS', Date.now() - started)
     addBreadcrumb('capture', 'captured', {
       fast: Boolean(fast),
@@ -234,7 +234,7 @@ async function handleOverlayComplete(
   if (payload.action === 'ocr') {
     try {
       notify('正在识别文字…')
-      const result = await recognizeImageDataUrl(payload.pngDataUrl)
+      const result = await platformServices.ocr.recognizeDataUrl(payload.pngDataUrl)
       const settings = settingsStore.get()
       ocrManager.open({
         imageDataUrl: payload.pngDataUrl,
@@ -279,7 +279,7 @@ function registerIpc(): void {
     const pointY = Number(y)
     if (!Number.isFinite(pointX) || !Number.isFinite(pointY)) return null
     const physical = screen.dipToScreenPoint({ x: pointX, y: pointY })
-    const rect = await windowSnap.query(physical.x, physical.y)
+    const rect = await platformServices.windowQuery.query(physical.x, physical.y)
     if (!rect) return null
     return screen.screenToDipRect(null, rect)
   })
@@ -427,6 +427,7 @@ function initServices(): void {
   pinManager = new PinManager(preloadPath)
   ocrManager = new OcrManager(preloadPath, () => createSettingsWindow(preloadPath))
   windowSnap = new WindowSnapHelper()
+  platformServices = createPlatformServices(windowSnap)
   overlayManager = new OverlayManager(
     preloadPath,
     () => settingsStore.get(),
@@ -459,8 +460,8 @@ function initServices(): void {
     }
     return net.fetch(pathToFileURL(filePath).toString())
   })
-  fastCapture.prewarm()
-  windowSnap.prewarm()
+  platformServices.capture.prewarm()
+  platformServices.windowQuery.prewarm()
   registerIpc()
   applySystemSettings()
   app.on('web-contents-created', (_event, contents) => {
@@ -524,7 +525,7 @@ function runSmokeTest(): void {
 
 async function runCaptureSmoke(): Promise<void> {
   try {
-    const captures = await captureDisplays()
+    const captures = await platformServices.capture.captureAll()
     console.log('SMOKE_CAPTURES', captures.length)
     overlayReadyCount = 0
     overlayManager.prewarm(
@@ -805,8 +806,7 @@ if (
     ocrManager?.destroyAll()
     recorderManager?.destroyAll()
     overlayManager?.destroyAll()
-    fastCapture.dispose()
-    windowSnap?.dispose()
+    platformServices.dispose()
     tray?.destroy()
     tray = null
     stopMetricsSampling()

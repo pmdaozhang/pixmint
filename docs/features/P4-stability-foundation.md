@@ -47,7 +47,7 @@ flowchart TD
 - [x] 设置页可查看日志路径、崩溃报告数量、兼容模式并打开目录。
 - [ ] 崩溃报告和诊断包导出为单个压缩包。
 - [x] 通用 SidecarClient 抽取完成。
-- [ ] 平台 Provider 抽取完成。
+- [x] 平台 Provider 抽取完成（Windows 捕获/窗口/OCR）。
 - [ ] 压测脚本覆盖 200 次覆盖层、100 次 OCR、3 次 10 分钟录制。
 - [ ] CI 双平台矩阵和发版门禁。
 
@@ -72,6 +72,9 @@ flowchart TD
   - `src/main/sidecar/client.ts`
   - `src/main/fast-capture.ts`
   - `src/main/window-snap.ts`
+  - `src/main/platform/types.ts`
+  - `src/main/platform/index.ts`
+  - `src/main/platform/win32/index.ts`
   - `src/main/index.ts`
   - `src/preload/index.ts`
   - `src/shared/api.ts`

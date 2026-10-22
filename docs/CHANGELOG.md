@@ -48,6 +48,25 @@
 - 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
 - `pnpm build` 三层构建通过。
 
+### 平台 Provider 抽象（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/platform/types.ts`：`ScreenCaptureProvider`、`WindowQueryProvider`、`OcrProvider` 和 `PlatformServices` 契约。
+- 新增 `src/main/platform/win32/index.ts`：把 Windows 截图、窗口吸附和 OCR 实现收进适配器。
+- 新增 `src/main/platform/index.ts`：按平台创建服务；未接入平台提供可启动的占位实现。
+
+#### Changed
+
+- `src/main/index.ts` 的截图、窗口查询和 OCR 改为只依赖 `PlatformServices`，不再直接 import Windows 实现。
+- 主进程启动仍保持单实例锁、托盘和现有窗口行为；平台差异集中到 `platform/`。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
+- `pnpm build` 主进程、preload 和渲染层均通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
