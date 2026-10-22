@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && electron-vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --pool=threads --exclude tests/windows-ocr.test.ts",
     "test:watch": "vitest",
     "smoke": "electron . --smoke-test",
     "smoke:capture": "electron . --smoke-capture",

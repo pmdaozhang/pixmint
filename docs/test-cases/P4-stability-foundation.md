@@ -28,6 +28,7 @@
 | TC-110 | 运行 `pnpm soak:ocr` | 生成 `test-results/ocr-*.json`，失败数为 0 时退出码为 0 |
 | TC-111 | 运行 `pnpm soak:recording` | 生成 `test-results/recording-*.json`，超过 1MB 的临时残留会使脚本失败 |
 | TC-112 | 设置页点击“导出报告”并选择路径 | 生成可读 JSON，包含日志尾部、最近崩溃、指标、面包屑；不包含截图/OCR 文字/密钥 |
+| TC-113 | 推送分支或创建 PR | GitHub Actions 在 Windows 上跑 typecheck、81 个单元测试和构建，全部通过 |
 
 ## 异常场景
 

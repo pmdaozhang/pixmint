@@ -50,6 +50,7 @@ flowchart TD
 - [x] 平台 Provider 抽取完成（Windows 捕获/窗口/OCR）。
 - [x] 压测脚本覆盖 200 次覆盖层、100 次 OCR、可配置录制时长。
 - [ ] 压测已在目标 Windows 机器通过并记录结果。
+- [x] Windows CI 运行 typecheck、单元测试和构建。
 - [ ] CI 双平台矩阵和发版门禁。
 
 ## 变更记录

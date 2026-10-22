@@ -104,6 +104,18 @@
 
 - `pnpm typecheck` 通过。
 
+### CI 门禁（2026-10-22）
+
+#### Added
+
+- 新增 `.github/workflows/ci.yml`：Windows GitHub Actions 自动运行 typecheck、单元测试和构建。
+- 新增 `test:unit` 脚本，排除依赖本机 Windows OCR 语言包的集成测试。
+
+#### Verified
+
+- CI 同等测试集在本地线程池下 14 个文件、81 个用例通过。
+- `pnpm typecheck` 通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
