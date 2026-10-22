@@ -78,7 +78,7 @@
 - [x] 设置页诊断入口
 - [x] 架构文档与跨平台依赖规则
 - [ ] 诊断包压缩导出
-- [ ] 通用 SidecarClient 抽取
+- [x] 通用 SidecarClient 抽取
 - [ ] ScreenCaptureProvider / OcrProvider / WindowProvider 抽取
 - [ ] 平台契约测试
 - [ ] 200 次覆盖层、100 次 OCR、3 次 10 分钟录制压测

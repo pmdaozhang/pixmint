@@ -27,6 +27,27 @@
 - 全量单测在沙箱线程池下 74 个通过；`tests/windows-ocr.test.ts` 因沙箱禁止启动 PowerShell 失败，属于环境限制。
 - `electron-vite build` 在主进程、preload 和渲染层均通过；沙箱环境需临时屏蔽 Vite 的 `net use` 探测，普通桌面会话应直接复跑 `pnpm build` 确认。
 
+### Sidecar 抽象（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/sidecar/protocol.ts`：行缓冲、请求编码、响应解析。
+- 新增 `src/main/sidecar/client.ts`：统一 spawn、请求 ID、超时、最新请求优先、进程退出、重启和日志。
+- 新增 Sidecar 协议与客户端单测，覆盖分片响应、非法响应、超时重启和 dispose。
+
+#### Changed
+
+- `fast-capture.ts` 和 `window-snap.ts` 改为复用 `SidecarClient`，删除两套重复的进程管理代码。
+- 临时 PowerShell 脚本改为带进程 ID 的唯一路径，并在 dispose 时清理。
+- PowerShell stderr、超时和异常退出进入统一诊断日志。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- Sidecar/诊断/设置相关 4 个测试文件、15 个用例通过。
+- 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
+- `pnpm build` 三层构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
