@@ -274,7 +274,7 @@ export function PinApp(): JSX.Element {
           </div>
         </div>
       ) : (
-        <img className="pin-image" src={imageUrl} alt="" draggable={false} />
+        imageUrl && <img className="pin-image" src={imageUrl} alt="" draggable={false} />
       )}
       {!editing && (
         <div className="pin-actions">
