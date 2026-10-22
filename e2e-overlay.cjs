@@ -423,7 +423,11 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   const largeDimPanels = await window.locator('.dim-panel').count()
   console.log('LARGE_SELECTION', largeSelection, 'DIM_PANELS', largeDimPanels)
   console.log('LARGE_SELECTION_MS', Date.now() - largeStarted)
-  if (!largeSelection || largeSelection.width < 1800 || largeSelection.height < 1000) {
+  if (
+    !largeSelection ||
+    largeSelection.width < viewport.width - 60 ||
+    largeSelection.height < viewport.height - 80
+  ) {
     throw new Error('large selection was not created')
   }
   if (largeDimPanels !== 4) {

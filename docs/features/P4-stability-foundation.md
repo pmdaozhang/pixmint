@@ -66,6 +66,8 @@ flowchart TD
 - [x] 五路径内存回归（Esc / 保存 / 复制 / 钉图 / OCR）。
 - [x] 3×590 秒录制 + 空闲 60 秒复测（private +23.9MB）。
 - [x] 内存门禁接入 CI 快速压测与发版检查单。
+- [x] 150% DPI 真机 E2E 通过（VIEWPORT 1280×720）。
+- [ ] 200% DPI 复测（当前显示器不提供 200% 选项）。
 - [x] OverlayApp 第一批拆分：几何计算和 DimAround 独立模块 + 5 个单测。
 - [x] OverlayApp 图片会话状态抽入 `useOverlayImageSession`，保留解码令牌和 preparing/imageReady。
 - [x] OverlayApp 键盘快捷键抽入 `useOverlayKeyboard`。
@@ -86,6 +88,7 @@ flowchart TD
 | 2026-10-22 | v1 | 选择/标注状态抽入 `useOverlaySelection` | 降低 OverlayApp 耦合 |
 | 2026-10-22 | v1 | 3×590s 录制压测通过；真实截图 300 次确认内存线性增长 | 长时间驻留风险 |
 | 2026-10-22 | v1 | 覆盖层改用常驻 canvas，导出改传字节；五路径和录制空闲复测通过 | 内存治理 |
+| 2026-10-22 | v1 | 150% DPI E2E 通过；200% 当前硬件不可测 | 高分屏验证 |
 
 ## 关联文件
 

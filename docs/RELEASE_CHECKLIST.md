@@ -43,8 +43,8 @@ pnpm soak:recording
 
 ## DPI
 
-- Windows 缩放切到 150%，运行 `pnpm e2e:overlay`
-- 再切到 200%，运行 `pnpm e2e:overlay`
+- Windows 缩放切到 150%，运行 `pnpm e2e:overlay`（已在本机通过，VIEWPORT 1280×720）
+- 再切到 200%，运行 `pnpm e2e:overlay`（当前显示器不提供 200%，需换支持 200% 的机器）
 - 记录两次的 `E2E_OK` 和选区/缩放手柄坐标
 
 ## 报告
