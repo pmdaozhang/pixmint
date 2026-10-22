@@ -309,6 +309,19 @@
 - 两个压测脚本通过 `node --check`。
 - 当前实测 p95：覆盖层约 169ms，OCR 约 952ms，均低于默认预算。
 
+### OverlayApp 键盘 hook（2026-10-22）
+
+#### Changed
+
+- 抽出 `useOverlayKeyboard`，集中处理 Escape、复制、保存、钉图和撤销/重做。
+- `OverlayApp.tsx` 从约 1056 行降至约 1027 行。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 覆盖层 E2E：`E2E_OK`，框选、标注、复制、watchdog 正常。
+- 生产构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

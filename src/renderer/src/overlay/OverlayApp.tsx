@@ -24,6 +24,7 @@ import {
 } from './selection-geometry'
 import { Toolbar } from './Toolbar'
 import { useOverlayImageSession } from './useOverlayImageSession'
+import { useOverlayKeyboard } from './useOverlayKeyboard'
 import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import './overlay.css'
 
@@ -655,46 +656,16 @@ export function OverlayApp(): JSX.Element {
     [exportImage, openRecorder]
   )
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      const tag = (event.target as HTMLElement | null)?.tagName
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
-        if (event.key === 'Escape') event.stopPropagation()
-        return
-      }
-      if (recorderModeRef.current) {
-        if (event.key === 'Escape') {
-          event.preventDefault()
-          if (recordPhaseRef.current === 'idle') setRecorderMode(null)
-          else cancelRecording()
-        }
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        window.snapglass.overlay.cancel()
-        return
-      }
-      if (phase !== 'editing' || !selection) return
-      const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === 'c') {
-        event.preventDefault()
-        exportImage('copy')
-      } else if (mod && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        exportImage('save')
-      } else if (event.key === 'F3') {
-        event.preventDefault()
-        exportImage('pin')
-      } else if (mod && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) annotationRef.current?.redo()
-        else annotationRef.current?.undo()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [phase, selection, exportImage, cancelRecording])
+  useOverlayKeyboard({
+    phase,
+    selection,
+    exportImage,
+    cancelRecording,
+    setRecorderMode,
+    annotationRef,
+    recorderModeRef,
+    recordPhaseRef
+  })
 
   const point = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
     const rect = event.currentTarget.getBoundingClientRect()

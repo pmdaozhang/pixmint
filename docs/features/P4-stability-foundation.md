@@ -64,6 +64,7 @@ flowchart TD
 - [x] 覆盖层/OCR 压测接入 p95 和内存增长预算，超限直接失败。
 - [x] OverlayApp 第一批拆分：几何计算和 DimAround 独立模块 + 5 个单测。
 - [x] OverlayApp 图片会话状态抽入 `useOverlayImageSession`，保留解码令牌和 preparing/imageReady。
+- [x] OverlayApp 键盘快捷键抽入 `useOverlayKeyboard`。
 - [x] 所有 BrowserWindow 开启 sandbox，并通过 smoke/设置/覆盖层/贴图 E2E。
 - [x] 生产 CSP 移除开发地址，开发服务器通过插件注入 HMR 地址。
 - [ ] CI 双平台矩阵和发版门禁。
