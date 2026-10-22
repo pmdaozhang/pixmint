@@ -89,6 +89,22 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   if (hasUndo !== 1 || hasRedo !== 1 || !checkText.includes('完成')) {
     throw new Error('pin edit toolbar is missing undo/redo/confirm')
   }
+  const textTool = await pinWindow.locator('.pin-edit-toolbar button[title="文字"]').count()
+  console.log('PIN_EDIT_TEXT_TOOL', textTool)
+  if (textTool !== 1) throw new Error('pin edit toolbar is missing text tool')
+  await pinWindow.locator('.pin-edit-toolbar button[title="文字"]').click()
+  await pinWindow.waitForSelector('.pin-edit-toolbar .row2', { timeout: 3000 })
+  await pinWindow.locator('.pin-edit-toolbar button[title="文字"]').click()
+  const textBox = await pinWindow.locator('.anno-canvas').boundingBox()
+  if (!textBox) throw new Error('annotation canvas is missing for text tool')
+  await pinWindow.mouse.click(textBox.x + 60, textBox.y + 50)
+  await pinWindow.waitForSelector('.text-draft', { timeout: 3000 })
+  await pinWindow.locator('.text-draft').fill('钉图文字')
+  await pinWindow.locator('.text-draft').press('Enter')
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  const textDraftGone = (await pinWindow.locator('.text-draft').count()) === 0
+  console.log('PIN_EDIT_TEXT_INPUT', textDraftGone)
+  if (!textDraftGone) throw new Error('pin text tool did not commit text')
   await pinWindow.locator('.pin-edit-toolbar button[title="矩形 / 椭圆"]').click()
   await pinWindow.waitForSelector('.pin-edit-toolbar .row2', { timeout: 3000 })
   const submenuRows = await pinWindow.locator('.pin-edit-toolbar .row2').count()

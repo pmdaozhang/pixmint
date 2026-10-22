@@ -365,15 +365,13 @@ export function Toolbar({
           label="马赛克"
           onClick={onToolClick}
         />
-        {variant !== 'pin' && (
-          <ToolButton
-            tool="text"
-            current={options.tool}
-            icon={<Icon name="text" />}
-            label="文字"
-            onClick={onToolClick}
-          />
-        )}
+        <ToolButton
+          tool="text"
+          current={options.tool}
+          icon={<Icon name="text" />}
+          label="文字"
+          onClick={onToolClick}
+        />
         <ToolButton
           tool="seq"
           current={options.tool}

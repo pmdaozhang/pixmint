@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { PinInit, Rect, Tool } from '@shared/types'
+import type { PinInit, Rect, TextAnno, Tool } from '@shared/types'
 import { Icon } from '../components/Icon'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from '../overlay/AnnotationCanvas'
 import { DEFAULT_OPTIONS, type OverlayOptions } from '../overlay/options'
@@ -129,6 +129,24 @@ export function PinApp(): JSX.Element {
     setCanRedo(redo)
   }, [])
 
+  const onTextInputStart = useCallback((annotation?: TextAnno): void => {
+    setOptions((previous) => ({
+      ...previous,
+      tool: 'text',
+      ...(annotation
+        ? {
+            textB: annotation.bold,
+            textI: annotation.italic,
+            textU: annotation.underline,
+            fontSize: annotation.fontSize,
+            fontFamily: annotation.fontFamily,
+            color: annotation.style.color
+          }
+        : {})
+    }))
+    setSubmenuOpen(true)
+  }, [])
+
   useEffect(() => {
     if (!editing || !imageUrl) return
     let cancelled = false
@@ -250,7 +268,7 @@ export function PinApp(): JSX.Element {
                 imageCanvasRef={baseCanvasRef}
                 selection={imageBox}
                 options={options}
-                onTextInputStart={() => undefined}
+                onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
               />
             )}
