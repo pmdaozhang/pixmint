@@ -159,6 +159,18 @@
 - 全量单元测试 87 个通过（排除依赖本机 OCR 语言包的集成测试）。
 - `pnpm build` 三层构建通过。
 
+### 测试诊断辅助（2026-10-22）
+
+#### Added
+
+- 支持通过 `PIXMINT_USER_DATA_DIR` 指定 userData/sessionData 目录，便于沙箱、便携和隔离测试。
+- smoke 测试增加 `did-fail-load` 和 `render-process-gone` 日志，便于定位渲染层加载失败。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- `pnpm build` 三层构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

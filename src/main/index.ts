@@ -72,6 +72,18 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 
+/**
+ * 背景：沙箱/便携环境可能禁止写 AppData，但测试和现场诊断仍需要 userData。
+ * 设计意图：允许通过环境变量显式指定数据目录，不改变默认安装行为。
+ * 关键约束：必须在读取 safe-mode、settings、diagnostics 之前设置；目录不可写时仍交给上层报错。
+ */
+const userDataOverride = process.env.PIXMINT_USER_DATA_DIR?.trim()
+if (userDataOverride) {
+  mkdirSync(userDataOverride, { recursive: true })
+  app.setPath('userData', userDataOverride)
+  app.setPath('sessionData', userDataOverride)
+}
+
 const hadUncleanSession = hasUncleanSession()
 if (hadUncleanSession) {
   enableSafeMode('上次截图/录制会话未正常结束')
@@ -532,6 +544,14 @@ function runSmokeTest(): void {
       failed = true
       console.error('SMOKE_CONSOLE', event.message)
     }
+  })
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    failed = true
+    console.error('SMOKE_LOAD_FAIL', code, description, url)
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    failed = true
+    console.error('SMOKE_RENDER_GONE', details.reason, details.exitCode)
   })
   window.webContents.once('did-finish-load', () => {
     setTimeout(() => {
