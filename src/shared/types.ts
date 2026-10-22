@@ -73,7 +73,7 @@ export interface OverlayCompletePayload {
   action: OverlayAction
   displayId: number
   selection: Rect
-  pngDataUrl: string
+  pngBytes: Uint8Array
   autoTranslate?: boolean
 }
 
@@ -83,7 +83,6 @@ export interface OcrResult {
 }
 
 export interface OcrInit extends OcrResult {
-  imageDataUrl: string
   mode: 'ocr' | 'translate'
   autoTranslate: boolean
   settings: Settings
@@ -98,7 +97,7 @@ export interface DictionaryEntry {
 
 export interface PinInit {
   id: string
-  dataUrl: string
+  imageBytes: Uint8Array
   width: number
   height: number
   opacity: number

@@ -26,8 +26,11 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   const pinWindow = pin ?? windows[windows.length - 1]
   await pinWindow.waitForSelector('.pin-root', { timeout: 8000 })
   const imageSrc = await pinWindow.locator('.pin-image').getAttribute('src')
-  console.log('PIN_IMAGE', Boolean(imageSrc && imageSrc.startsWith('data:image/png')))
-  if (!imageSrc || !imageSrc.startsWith('data:image/png')) throw new Error('pin image missing')
+  const imageLoaded = await pinWindow
+    .locator('.pin-image')
+    .evaluate((image) => image.complete && image.naturalWidth > 0)
+  console.log('PIN_IMAGE', Boolean(imageSrc), 'LOADED', imageLoaded)
+  if (!imageSrc || !imageLoaded) throw new Error('pin image missing')
 
   const before = await app.evaluate(({ BrowserWindow }) => {
     const visible = BrowserWindow.getAllWindows().find((window) => window.isVisible())

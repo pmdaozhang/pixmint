@@ -3,12 +3,12 @@ import { join } from 'node:path'
 import { clamp } from '../../shared/geometry'
 import type { PinInit, Point } from '../../shared/types'
 import { clampOpacity, nextPinSize } from '../pin-state'
-import { copyImage, notify, saveImage } from '../image-utils'
+import { copyImageBytes, notify, saveImageBytes } from '../image-utils'
 import { loadRoute } from './load'
 
 interface PinState {
   window: BrowserWindow
-  dataUrl: string
+  imageBytes: Uint8Array
   width: number
   height: number
   opacity: number
@@ -23,7 +23,7 @@ export class PinManager {
 
   constructor(private readonly preloadPath: string) {}
 
-  create(dataUrl: string, width: number, height: number, position: Point): BrowserWindow {
+  create(imageBytes: Uint8Array, width: number, height: number, position: Point): BrowserWindow {
     const display = screen.getDisplayNearestPoint(position)
     const workArea = display.workArea
     const scale = Math.min(
@@ -70,7 +70,7 @@ export class PinManager {
     const id = window.webContents.id
     const state: PinState = {
       window,
-      dataUrl,
+      imageBytes,
       width: pinWidth,
       height: pinHeight,
       opacity: 1,
@@ -91,7 +91,7 @@ export class PinManager {
     if (!state) return null
     return {
       id: String(webContentsId),
-      dataUrl: state.dataUrl,
+      imageBytes: state.imageBytes,
       width: state.width,
       height: state.height,
       opacity: state.opacity
@@ -105,7 +105,7 @@ export class PinManager {
   copy(webContentsId: number): void {
     const state = this.pins.get(webContentsId)
     if (!state) return
-    copyImage(state.dataUrl)
+    copyImageBytes(state.imageBytes)
     notify('贴图已复制到剪贴板')
   }
 
@@ -118,7 +118,7 @@ export class PinManager {
       filters: [{ name: 'PNG 图片', extensions: ['png'] }]
     })
     if (result.canceled || !result.filePath) return null
-    saveImage(state.dataUrl, result.filePath)
+    saveImageBytes(state.imageBytes, result.filePath)
     notify('贴图已保存')
     return result.filePath
   }

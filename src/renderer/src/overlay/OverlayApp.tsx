@@ -60,12 +60,18 @@ export function OverlayApp(): JSX.Element {
   const [countdownNumber, setCountdownNumber] = useState(0)
   // 倒计时结束后先撤掉冻结截图，等合成器提交两帧再真正开录，避免首帧录进截图界面。
   const [captureClean, setCaptureClean] = useState(false)
-  const { init, preparing, imageReady, load: loadSessionImage, clear: clearSessionImage } =
-    useOverlayImageSession()
+  const {
+    init,
+    preparing,
+    imageReady,
+    canvasRef: imageCanvasRef,
+    load: loadSessionImage,
+    clear: clearSessionImage
+  } = useOverlayImageSession()
   const { hoverRect, querySnap, cancelSnap } = useWindowSnapQuery(init)
-  const imageRef = useRef<HTMLImageElement | null>(null)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const brushCursorRef = useRef<HTMLDivElement | null>(null)
+  const exportCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef<RecorderSession | null>(null)
   const recorderModeRef = useRef<RecorderMode | null>(null)
   const recordPhaseRef = useRef<RecordPhase>('idle')
@@ -445,20 +451,25 @@ export function OverlayApp(): JSX.Element {
     })
   }, [cancelRecording, openRecorder, retryRecording])
 
-  const buildSelectionPng = useCallback(
-    (includeAnnotations: boolean): string | null => {
-      if (!init || !selection || !imageRef.current) return null
-      const image = imageRef.current
-      if (!image.complete) return null
+  const drawSelection = useCallback(
+    (includeAnnotations: boolean): HTMLCanvasElement | null => {
+      if (!init || !selection || !imageCanvasRef.current) return null
+      const image = imageCanvasRef.current
+      if (!image.width || !image.height) return null
       const scaleX = init.imageWidth / init.bounds.width
       const scaleY = init.imageHeight / init.bounds.height
       const outWidth = Math.max(1, Math.round(selection.width * scaleX))
       const outHeight = Math.max(1, Math.round(selection.height * scaleY))
-      const canvas = document.createElement('canvas')
-      canvas.width = outWidth
-      canvas.height = outHeight
+      let canvas = exportCanvasRef.current
+      if (!canvas) {
+        canvas = document.createElement('canvas')
+        exportCanvasRef.current = canvas
+      }
+      if (canvas.width !== outWidth) canvas.width = outWidth
+      if (canvas.height !== outHeight) canvas.height = outHeight
       const ctx = canvas.getContext('2d')
       if (!ctx) return null
+      ctx.clearRect(0, 0, outWidth, outHeight)
       ctx.drawImage(
         image,
         selection.x * scaleX,
@@ -474,71 +485,55 @@ export function OverlayApp(): JSX.Element {
         const annotationCanvas = annotationRef.current?.getCanvas()
         if (annotationCanvas) ctx.drawImage(annotationCanvas, 0, 0, outWidth, outHeight)
       }
-      return canvas.toDataURL('image/png')
+      return canvas
     },
     [init, selection]
   )
 
+  const buildSelectionBytes = useCallback(
+    async (includeAnnotations: boolean): Promise<Uint8Array | null> => {
+      const canvas = drawSelection(includeAnnotations)
+      if (!canvas) return null
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png')
+      })
+      if (!blob) return null
+      return new Uint8Array(await blob.arrayBuffer())
+    },
+    [drawSelection]
+  )
+
   const exportImage = useCallback(
-    (action: OverlayAction, autoTranslate = false) => {
+    async (action: OverlayAction, autoTranslate = false): Promise<void> => {
       if (!init || !selection) return
-      const pngDataUrl = buildSelectionPng(action !== 'ocr')
-      if (!pngDataUrl) return
+      const pngBytes = await buildSelectionBytes(action !== 'ocr')
+      if (!pngBytes) return
       window.snapglass.overlay.complete({
         action,
         displayId: init.displayId,
         selection,
-        pngDataUrl,
+        pngBytes,
         autoTranslate
       })
     },
-    [init, selection, buildSelectionPng]
+    [init, selection, buildSelectionBytes]
   )
 
   /**
    * 背景：大选区自动复制时，同步 toDataURL 会在渲染线程里编码整张 PNG。
-   * 设计意图：改用异步 toBlob + FileReader，把编码从交互关键路径上挪开，
-   * 避免框选刚结束就把全屏覆盖层卡住。
+   * 设计意图：改用异步 toBlob 并直接传字节，避免生成和保留大体积 data URL。
    * 关键约束：自动复制只做一次；失败只记录日志，不能阻断标注和录制。
    */
   const autoCopySelection = useCallback(async (): Promise<void> => {
-    if (!init || !selection || !imageRef.current) return
-    const image = imageRef.current
-    if (!image.complete) return
-    const scaleX = init.imageWidth / init.bounds.width
-    const scaleY = init.imageHeight / init.bounds.height
-    const outWidth = Math.max(1, Math.round(selection.width * scaleX))
-    const outHeight = Math.max(1, Math.round(selection.height * scaleY))
-    const canvas = document.createElement('canvas')
-    canvas.width = outWidth
-    canvas.height = outHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(
-      image,
-      selection.x * scaleX,
-      selection.y * scaleY,
-      selection.width * scaleX,
-      selection.height * scaleY,
-      0,
-      0,
-      outWidth,
-      outHeight
-    )
+    const canvas = drawSelection(false)
+    if (!canvas) return
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/png')
     })
     if (!blob) return
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result ?? ''))
-      reader.onerror = () => reject(reader.error ?? new Error('读取自动复制图片失败'))
-      reader.readAsDataURL(blob)
-    })
-    if (!dataUrl) return
-    window.snapglass.overlay.autoCopy(dataUrl)
+    window.snapglass.overlay.autoCopy(new Uint8Array(await blob.arrayBuffer()))
     showToast('截图已自动复制')
-  }, [init, selection, showToast])
+  }, [drawSelection, showToast])
 
   useEffect(() => {
     if (phase !== 'editing' || !selection || !init || autoCopiedRef.current) return
@@ -591,6 +586,20 @@ export function OverlayApp(): JSX.Element {
     recordPhaseRef
   })
 
+  const recorderModeActive = recorderMode !== null
+  const hideFrozenImage =
+    recorderModeActive &&
+    (recordPhase === 'preparing' ||
+      captureClean ||
+      recordPhase === 'recording' ||
+      recordPhase === 'paused' ||
+      recordPhase === 'encoding')
+
+  useEffect(() => {
+    const canvas = imageCanvasRef.current
+    if (canvas) canvas.style.visibility = init && !hideFrozenImage ? 'visible' : 'hidden'
+  }, [init, hideFrozenImage, imageCanvasRef])
+
   if (error) return <div className="overlay-error">{error}</div>
   if (preparing && !init) {
     return (
@@ -618,14 +627,6 @@ export function OverlayApp(): JSX.Element {
         )
       )
     : 0
-  const recorderModeActive = recorderMode !== null
-  const hideFrozenImage =
-    recorderModeActive &&
-    (recordPhase === 'preparing' ||
-      captureClean ||
-      recordPhase === 'recording' ||
-      recordPhase === 'paused' ||
-      recordPhase === 'encoding')
   const showRecordingChrome = recorderModeActive && recordPhase !== 'result'
   const recorderLabel = recorderMode === 'gif' ? 'GIF' : '视频'
   const recBarLeft = selection
@@ -650,15 +651,6 @@ export function OverlayApp(): JSX.Element {
         }
       }}
     >
-      {!hideFrozenImage && (
-        <img
-          ref={imageRef}
-          className="overlay-screen"
-          src={init.imageDataUrl}
-          alt=""
-          draggable={false}
-        />
-      )}
       {!recorderModeActive && !selection && !hoverRect && <div className="pre-dim" />}
       {!recorderModeActive && phase === 'selecting' && hoverRect && (
         <>
@@ -719,6 +711,7 @@ export function OverlayApp(): JSX.Element {
               <AnnotationCanvas
                 ref={annotationRef}
                 init={init}
+                imageCanvasRef={imageCanvasRef}
                 selection={selection}
                 options={options}
                 onTextInputStart={onTextInputStart}

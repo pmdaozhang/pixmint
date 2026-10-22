@@ -27,7 +27,7 @@ import type {
   Settings,
   VideoDoneMeta
 } from '../shared/types'
-import { copyImage, imageFromDataUrl, notify, saveImage } from './image-utils'
+import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from './image-utils'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
 import { createTray } from './tray'
@@ -235,14 +235,14 @@ async function handleOverlayComplete(
   payload: OverlayCompletePayload,
   capture: DisplayCapture
 ): Promise<void> {
-  const image = imageFromDataUrl(payload.pngDataUrl)
+  const image = imageFromBytes(payload.pngBytes)
   if (image.isEmpty()) return
   addBreadcrumb('action', payload.action, {
     width: payload.selection.width,
     height: payload.selection.height
   })
   if (payload.action === 'copy') {
-    copyImage(payload.pngDataUrl)
+    copyImageBytes(payload.pngBytes)
     notify('已复制到剪贴板')
     return
   }
@@ -253,7 +253,7 @@ async function handleOverlayComplete(
       filters: [{ name: 'PNG 图片', extensions: ['png'] }]
     })
     if (!result.canceled && result.filePath) {
-      saveImage(payload.pngDataUrl, result.filePath)
+      saveImageBytes(payload.pngBytes, result.filePath)
       notify(`已保存：${result.filePath}`)
     }
     return
@@ -261,10 +261,11 @@ async function handleOverlayComplete(
   if (payload.action === 'ocr') {
     try {
       notify('正在识别文字…')
-      const result = await platformServices.ocr.recognizeDataUrl(payload.pngDataUrl)
+      const result = await platformServices.ocr.recognizeDataUrl(
+        imageFromBytes(payload.pngBytes).toDataURL()
+      )
       const settings = settingsStore.get()
       ocrManager.open({
-        imageDataUrl: payload.pngDataUrl,
         text: result.text,
         lines: result.lines,
         mode: payload.autoTranslate ? 'translate' : 'ocr',
@@ -279,7 +280,7 @@ async function handleOverlayComplete(
     return
   }
   if (payload.action === 'pin') {
-    pinManager.create(payload.pngDataUrl, payload.selection.width, payload.selection.height, {
+    pinManager.create(payload.pngBytes, payload.selection.width, payload.selection.height, {
       x: capture.bounds.x + payload.selection.x,
       y: capture.bounds.y + payload.selection.y
     })
@@ -310,9 +311,9 @@ function registerIpc(): void {
     if (!rect) return null
     return screen.screenToDipRect(null, rect)
   })
-  ipcMain.on('overlay:auto-copy', (event, pngDataUrl: string) => {
+  ipcMain.on('overlay:auto-copy', (event, pngBytes: Uint8Array) => {
     if (!overlayManager.captureFor(event.sender.id)) return
-    const image = imageFromDataUrl(pngDataUrl)
+    const image = imageFromBytes(pngBytes)
     if (!image.isEmpty()) clipboard.writeImage(image)
   })
   ipcMain.on('overlay:complete', (event, payload: OverlayCompletePayload) => {
@@ -689,7 +690,6 @@ async function runOcrSmoke(mode: 'ocr' | 'translate' = 'ocr'): Promise<void> {
     console.log('OCR_SMOKE_TEXT', result.text)
     const settings = settingsStore.get()
     ocrManager.open({
-      imageDataUrl: dataUrl,
       text: result.text,
       lines: result.lines,
       mode,

@@ -40,7 +40,7 @@ const api: SnapglassApi = {
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),
-    autoCopy: (pngDataUrl: string) => ipcRenderer.send('overlay:auto-copy', pngDataUrl),
+    autoCopy: (pngBytes: Uint8Array) => ipcRenderer.send('overlay:auto-copy', pngBytes),
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')
   },

@@ -9,12 +9,25 @@ export function PinApp(): JSX.Element {
   const [ignore, setIgnore] = useState(false)
   const [toast, setToast] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
   const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null)
   const suppressDoubleClickRef = useRef(false)
 
   useEffect(() => {
     window.snapglass.pin.ready().then(setInit)
   }, [])
+
+  useEffect(() => {
+    if (!init) {
+      setImageUrl('')
+      return
+    }
+    const copy = new Uint8Array(init.imageBytes)
+    const blob = new Blob([copy.buffer], { type: 'image/png' })
+    const url = URL.createObjectURL(blob)
+    setImageUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [init])
 
   const flash = (message: string): void => {
     setToast(message)
@@ -76,7 +89,7 @@ export function PinApp(): JSX.Element {
         window.snapglass.pin.contextMenu()
       }}
     >
-      <img className="pin-image" src={init.dataUrl} alt="" draggable={false} />
+      <img className="pin-image" src={imageUrl} alt="" draggable={false} />
       <div className="pin-actions">
         <button
           title="复制"

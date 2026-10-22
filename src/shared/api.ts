@@ -27,7 +27,7 @@ export interface SnapglassApi {
     rendererReady(): void
     heartbeat(): void
     windowAt(x: number, y: number): Promise<Rect | null>
-    autoCopy(pngDataUrl: string): void
+                autoCopy(pngBytes: Uint8Array): void
     complete(payload: OverlayCompletePayload): void
     cancel(): void
   }
