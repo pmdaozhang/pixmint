@@ -45,7 +45,7 @@ flowchart TD
 - [x] 设置文件损坏时保留 `.corrupt-` 备份并使用默认值启动。
 - [x] 设置与密钥写入采用原子替换，未知字段被丢弃。
 - [x] 设置页可查看日志路径、崩溃报告数量、兼容模式并打开目录。
-- [ ] 崩溃报告和诊断包导出为单个压缩包。
+- [x] 崩溃报告和诊断信息导出为单个 JSON 报告。
 - [x] 通用 SidecarClient 抽取完成。
 - [x] 平台 Provider 抽取完成（Windows 捕获/窗口/OCR）。
 - [x] 压测脚本覆盖 200 次覆盖层、100 次 OCR、可配置录制时长。
@@ -76,6 +76,7 @@ flowchart TD
   - `src/main/platform/types.ts`
   - `src/main/platform/index.ts`
   - `src/main/platform/win32/index.ts`
+  - `src/main/diagnostics-export.ts`
   - `src/main/index.ts`
   - `scripts/soak/lib.cjs`
   - `scripts/soak/overlay-soak.cjs`

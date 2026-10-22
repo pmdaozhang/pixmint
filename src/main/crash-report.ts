@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { randomUUID } from 'node:crypto'
 import {
   mkdirSync,
+  readFileSync,
   readdirSync,
   statSync,
   unlinkSync,
@@ -107,6 +108,41 @@ export function getCrashReportSummary(): CrashReportSummary {
     }
   } catch {
     return { count: 0, latestFile: null, latestAt: null }
+  }
+}
+
+/**
+ * 背景：诊断报告需要附带最近几份崩溃现场，而不只是一个数量。
+ * 设计意图：按 mtime 取最新 N 份并解析 JSON，单份损坏不影响其余报告。
+ * 关键约束：只读取 crash-reports 目录，不扫描用户其他文件。
+ */
+export function readRecentCrashReports(
+  limit = 5
+): Array<{ name: string; report: unknown }> {
+  try {
+    const dir = crashReportsDirectory()
+    const files = readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => {
+        const filePath = join(dir, name)
+        return { name, filePath, time: statSync(filePath).mtimeMs }
+      })
+      .sort((a, b) => b.time - a.time)
+      .slice(0, Math.max(0, limit))
+    const result: Array<{ name: string; report: unknown }> = []
+    for (const file of files) {
+      try {
+        result.push({
+          name: file.name,
+          report: JSON.parse(readFileSync(file.filePath, 'utf8')) as unknown
+        })
+      } catch {
+        // 单份崩溃报告损坏时跳过
+      }
+    }
+    return result
+  } catch {
+    return []
   }
 }
 

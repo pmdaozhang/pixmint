@@ -77,7 +77,7 @@
 - [x] 设置与密钥 schema 校验、损坏备份、原子写入
 - [x] 设置页诊断入口
 - [x] 架构文档与跨平台依赖规则
-- [ ] 诊断包压缩导出
+- [x] 单文件 JSON 诊断报告导出
 - [x] 通用 SidecarClient 抽取
 - [x] ScreenCaptureProvider / OcrProvider / WindowProvider 抽取
 - [ ] 平台契约测试

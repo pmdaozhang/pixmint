@@ -56,6 +56,7 @@ import {
   flushDiagnosticsSync,
   logDiagnostic
 } from './diagnostics'
+import { writeDiagnosticsExport } from './diagnostics-export'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 
 protocol.registerSchemesAsPrivileged([
@@ -392,6 +393,19 @@ function registerIpc(): void {
   })
   ipcMain.handle('diagnostics:flush', () => {
     flushDiagnosticsSync()
+  })
+  ipcMain.handle('diagnostics:export-report', async () => {
+    const result = await dialog.showSaveDialog({
+      title: '导出诊断报告',
+      defaultPath: join(
+        app.getPath('documents'),
+        `Pixmint-diagnostics-${formatStamp()}.json`
+      ),
+      filters: [{ name: 'JSON 诊断报告', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    writeDiagnosticsExport(result.filePath, settingsStore.get())
+    return result.filePath
   })
 
   ipcMain.handle('ocr:ready', (event) => ocrManager.initFor(event.sender.id))

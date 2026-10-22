@@ -96,5 +96,6 @@ export interface SnapglassApi {
     openLogFolder(): Promise<string>
     openCrashFolder(): Promise<string>
     flush(): Promise<void>
+    exportReport(): Promise<string | null>
   }
 }

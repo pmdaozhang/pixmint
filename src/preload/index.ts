@@ -125,7 +125,9 @@ const api: SnapglassApi = {
     openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<string>,
     openCrashFolder: () =>
       ipcRenderer.invoke('diagnostics:open-crash-folder') as Promise<string>,
-    flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>
+    flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
+    exportReport: () =>
+      ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
   }
 }
 

@@ -3,12 +3,13 @@ import {
   appendFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   statSync,
   unlinkSync
 } from 'node:fs'
 import { appendFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { addBreadcrumb } from './breadcrumbs'
 import { sanitizeDiagnosticText, type DiagnosticLevel } from '../shared/diagnostics'
 
@@ -175,4 +176,38 @@ export function diagnosticsDirectory(): string {
 export function ensureDiagnosticsDirectory(): string {
   ensureLogDir()
   return dataDir()
+}
+
+export function diagnosticsLogPaths(): string[] {
+  const base = logPath()
+  return [
+    base,
+    ...Array.from({ length: MAX_LOG_FILES - 1 }, (_, index) =>
+      base.replace(/\.log$/, `.${index + 1}.log`)
+    )
+  ]
+}
+
+/**
+ * 背景：诊断报告需要带上最近的日志，但不能无限把历史日志塞进 JSON。
+ * 设计意图：每个日志文件只取尾部，并在导出前再做一次脱敏。
+ * 关键约束：读取失败的文件直接跳过，不能阻断整个导出。
+ */
+export function readRecentDiagnosticLogs(
+  maxBytesPerFile = 512 * 1024
+): Array<{ name: string; content: string }> {
+  return diagnosticsLogPaths().flatMap((filePath) => {
+    if (!existsSync(filePath)) return []
+    try {
+      const content = readFileSync(filePath, 'utf8')
+      return [
+        {
+          name: basename(filePath),
+          content: sanitizeDiagnosticText(content.slice(-maxBytesPerFile), maxBytesPerFile)
+        }
+      ]
+    } catch {
+      return []
+    }
+  })
 }

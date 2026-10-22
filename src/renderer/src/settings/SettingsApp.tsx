@@ -331,6 +331,15 @@ export function SettingsApp(): JSX.Element {
                 <button
                   className="secondary"
                   onClick={async () => {
+                    const filePath = await window.snapglass.diagnostics.exportReport()
+                    if (filePath) flash('诊断报告已导出')
+                  }}
+                >
+                  导出报告
+                </button>
+                <button
+                  className="secondary"
+                  onClick={async () => {
                     await window.snapglass.diagnostics.flush()
                     await window.snapglass.diagnostics.openLogFolder()
                     flash('已打开日志目录')
