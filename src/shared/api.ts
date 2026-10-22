@@ -13,6 +13,7 @@ import type {
   RecorderState,
   RecorderStatePatch,
   Settings,
+  DiagnosticsInfo,
   VideoDoneMeta
 } from './types'
 
@@ -89,5 +90,11 @@ export interface SnapglassApi {
   app: {
     platform: string
     version(): Promise<string>
+  }
+  diagnostics: {
+    info(): Promise<DiagnosticsInfo>
+    openLogFolder(): Promise<string>
+    openCrashFolder(): Promise<string>
+    flush(): Promise<void>
   }
 }

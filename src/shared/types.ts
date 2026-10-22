@@ -31,6 +31,7 @@ export type RecorderPhase =
   | 'result'
 
 export interface Settings {
+  schemaVersion?: number
   shortcut: string
   theme: ThemeSetting
   language: Language
@@ -41,6 +42,17 @@ export interface Settings {
   translationModel: string
   translationTarget: 'zh-CN' | 'en-US'
   hasTranslationKey?: boolean
+}
+
+export interface DiagnosticsInfo {
+  version: string
+  platform: string
+  logPath: string
+  crashReportsDir: string
+  crashReportCount: number
+  latestCrashFile: string | null
+  latestCrashAt: string | null
+  safeMode: boolean
 }
 
 export interface DisplayCapture {

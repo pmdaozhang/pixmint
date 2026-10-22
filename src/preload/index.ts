@@ -10,6 +10,7 @@ import type {
   RecorderState,
   RecorderStatePatch,
   Settings,
+  DiagnosticsInfo,
   VideoDoneMeta
 } from '../shared/types'
 
@@ -118,6 +119,13 @@ const api: SnapglassApi = {
   app: {
     platform: process.platform,
     version: () => ipcRenderer.invoke('app:version')
+  },
+  diagnostics: {
+    info: () => ipcRenderer.invoke('diagnostics:info') as Promise<DiagnosticsInfo>,
+    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<string>,
+    openCrashFolder: () =>
+      ipcRenderer.invoke('diagnostics:open-crash-folder') as Promise<string>,
+    flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>
   }
 }
 

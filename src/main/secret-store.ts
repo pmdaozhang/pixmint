@@ -1,6 +1,7 @@
 import { app, safeStorage } from 'electron'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { backupCorruptFile, writeJsonAtomic } from './settings-utils'
 
 interface SecretData {
   translationKey?: string
@@ -15,8 +16,19 @@ export class SecretStore {
     if (existsSync(this.filePath)) {
       try {
         this.data = JSON.parse(readFileSync(this.filePath, 'utf8')) as SecretData
-      } catch {
+      } catch (error) {
+        const backupPath = backupCorruptFile(this.filePath)
+        console.warn(
+          'SECRETS_LOAD_FAILED',
+          error,
+          backupPath ? `backup=${backupPath}` : 'backup unavailable'
+        )
         this.data = {}
+        try {
+          writeJsonAtomic(this.filePath, this.data)
+        } catch (writeError) {
+          console.warn('SECRETS_REBUILD_FAILED', writeError)
+        }
       }
     }
   }
@@ -49,6 +61,6 @@ export class SecretStore {
   }
 
   private persist(): void {
-    writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf8')
+    writeJsonAtomic(this.filePath, this.data)
   }
 }

@@ -10,9 +10,10 @@ import {
   protocol,
   screen,
   session,
+  shell,
   Tray
 } from 'electron'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
@@ -44,7 +45,19 @@ import { recognizeImageDataUrl } from './ocr'
 import { translateText } from '../shared/translation'
 import { RecorderManager } from './recording'
 import { enableSafeMode, hasUncleanSession, safeModeRequested } from './safe-mode'
-import { diagnosticsPath, logDiagnostic } from './diagnostics'
+import { addBreadcrumb } from './breadcrumbs'
+import {
+  crashReportsDirectory,
+  getCrashReportSummary,
+  installCrashHandlers
+} from './crash-report'
+import {
+  ensureDiagnosticsDirectory,
+  diagnosticsPath,
+  flushDiagnosticsSync,
+  logDiagnostic
+} from './diagnostics'
+import { startMetricsSampling, stopMetricsSampling } from './metrics'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -63,6 +76,12 @@ if (hadUncleanSession) {
   enableSafeMode('上次截图/录制会话未正常结束')
 }
 const safeModeThisRun = safeModeRequested() || hadUncleanSession
+installCrashHandlers()
+addBreadcrumb('app', 'boot', {
+  safeMode: safeModeThisRun,
+  platform: process.platform,
+  arch: process.arch
+})
 if (process.platform === 'win32') {
   // MediaRecorder 的硬件 H.264 编码在部分 NVIDIA 驱动上会卡死整个桌面；
   // 软件编码牺牲一点 CPU，换取录制不再把系统拖入无响应。
@@ -147,6 +166,7 @@ function registerShortcut(settings: Settings): void {
 
 async function startCapture(mode?: RecorderMode): Promise<void> {
   const triggered = Date.now()
+  addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot' })
   if (!overlayManager) return
   ocrManager?.closeAll()
   if (recorderManager?.isRecordingSession()) return
@@ -168,6 +188,10 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
     console.log('CAPTURE_KIND', fast ? 'fast' : 'fallback')
     const capture = fast ?? (await captureDisplay(display))
     console.log('CAPTURE_MS', Date.now() - started)
+    addBreadcrumb('capture', 'captured', {
+      fast: Boolean(fast),
+      durationMs: Date.now() - started
+    })
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     tray?.closeContextMenu()
     await overlayManager.start(capture, mode)
@@ -175,6 +199,7 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
   } catch (error) {
     overlayManager?.hideAll()
     const message = error instanceof Error ? error.message : String(error)
+    addBreadcrumb('capture', 'failed', { message })
     dialog.showErrorBox('截图失败', message)
   }
 }
@@ -185,6 +210,10 @@ async function handleOverlayComplete(
 ): Promise<void> {
   const image = imageFromDataUrl(payload.pngDataUrl)
   if (image.isEmpty()) return
+  addBreadcrumb('action', payload.action, {
+    width: payload.selection.width,
+    height: payload.selection.height
+  })
   if (payload.action === 'copy') {
     copyImage(payload.pngDataUrl)
     notify('已复制到剪贴板')
@@ -339,6 +368,31 @@ function registerIpc(): void {
 
   ipcMain.handle('app:version', () => app.getVersion())
 
+  ipcMain.handle('diagnostics:info', () => {
+    const summary = getCrashReportSummary()
+    return {
+      version: app.getVersion(),
+      platform: process.platform,
+      logPath: diagnosticsPath(),
+      crashReportsDir: crashReportsDirectory(),
+      crashReportCount: summary.count,
+      latestCrashFile: summary.latestFile,
+      latestCrashAt: summary.latestAt,
+      safeMode: safeModeRequested()
+    }
+  })
+  ipcMain.handle('diagnostics:open-log-folder', () =>
+    shell.openPath(ensureDiagnosticsDirectory())
+  )
+  ipcMain.handle('diagnostics:open-crash-folder', () => {
+    const dir = crashReportsDirectory()
+    mkdirSync(dir, { recursive: true })
+    return shell.openPath(dir)
+  })
+  ipcMain.handle('diagnostics:flush', () => {
+    flushDiagnosticsSync()
+  })
+
   ipcMain.handle('ocr:ready', (event) => ocrManager.initFor(event.sender.id))
   ipcMain.on('ocr:close', (event) => ocrManager.close(event.sender.id))
   ipcMain.on('ocr:open-settings', () => ocrManager.openSettings())
@@ -411,8 +465,12 @@ function initServices(): void {
   applySystemSettings()
   app.on('web-contents-created', (_event, contents) => {
     contents.on('console-message', (event) => {
-      logDiagnostic('renderer', `${event.level}: ${event.message}`)
-      if (event.level === 'error') console.error('RENDERER_ERROR', event.message)
+      // 高频 info 日志会放大磁盘和主进程开销，只保留 warning/error 作为诊断信号。
+      if (event.level === 'error') {
+        logDiagnostic('renderer', `${event.level}: ${event.message}`, 'error')
+      } else if (event.level === 'warning') {
+        logDiagnostic('renderer', `${event.level}: ${event.message}`, 'warn')
+      }
     })
   })
   logDiagnostic('main', `Pixmint ${app.getVersion()} started`)
@@ -688,6 +746,7 @@ if (
       runSmokeTest()
       return
     }
+    startMetricsSampling()
     tray = createTray({
       onCapture: () => {
         void startCapture()
@@ -740,6 +799,7 @@ if (
   })
 
   app.on('before-quit', () => {
+    addBreadcrumb('app', 'before-quit')
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()
@@ -749,6 +809,8 @@ if (
     windowSnap?.dispose()
     tray?.destroy()
     tray = null
+    stopMetricsSampling()
+    flushDiagnosticsSync()
   })
 
   app.on('window-all-closed', () => {

@@ -2,6 +2,31 @@
 
 ## [Unreleased] - 2026-10-21
 
+### 稳定性与跨平台基础（2026-10-22）
+
+#### Added
+
+- 新增全局崩溃采集：主进程未捕获异常、未处理 Promise、渲染进程退出、子进程退出和渲染层无响应都会写入本地崩溃报告。
+- 新增最近 100 条操作面包屑，崩溃报告可还原截图、OCR、录制等关键动作路径。
+- 新增资源采样：按分钟记录内存、Electron 进程指标和事件循环延迟，保留最近 120 个样本。
+- 设置页新增“诊断”区域，可查看日志路径、崩溃报告数量、兼容模式并打开目录。
+- 新增 `docs/ARCHITECTURE.md`，明确 Windows/macOS 共享代码、平台 Provider 和 sidecar 约束。
+
+#### Changed
+
+- 诊断日志改为 250ms 批量异步写入，单文件 2MB、最多 3 个文件轮转；只保留 warning/error 级别的渲染层 console。
+- 日志写入前统一脱敏 Windows/macOS/Linux 用户目录、Bearer Token 和常见密钥字段。
+- 设置文件改为 schema 白名单校验、版本标记、损坏备份和临时文件 + rename 原子替换。
+- 密钥文件复用原子写入；读取失败时保留 `.corrupt-` 备份，不再静默丢弃现场。
+- 设置页新增诊断 IPC，preload 与 shared API 同步扩展。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 新增 `tests/diagnostics-utils.test.ts`、`tests/settings-utils.test.ts`，8 个用例通过。
+- 全量单测在沙箱线程池下 74 个通过；`tests/windows-ocr.test.ts` 因沙箱禁止启动 PowerShell 失败，属于环境限制。
+- `electron-vite build` 在主进程、preload 和渲染层均通过；沙箱环境需临时屏蔽 Vite 的 `net use` 探测，普通桌面会话应直接复跑 `pnpm build` 确认。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
