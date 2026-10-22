@@ -229,13 +229,15 @@
 - 对照结果：100 次只开关覆盖层，canvas 方案 +20.2MB，img 方案 +29.3MB；但 500 次完整框选，canvas 方案 86.9→196.2MB，img 方案 86.7→179.9MB，长跑无改善。
 - JS 堆稳定 9.5MB，DOM 节点稳定 11 个，说明增长在 Chromium 原生层/自动化路径，不是 React/DOM 泄漏。
 - 100 次对照采样：renderer private bytes 37.6MB → 61.9MB，shared bytes 始终为 0；确认是 Chromium renderer 私有原生内存，而非 JS 堆或共享内存。
+- 1000 次完整框选：working set 85.4MB → 246.7MB，private bytes 38.8MB → 192.2MB，近似线性增长。
+- renderer reload 回收试验：500 次后 working set 仍 180MB，与不回收的 179.9MB 基本相同；reload 不能释放 Chromium 原生私有内存，策略已撤回。
 
 #### Verified
 
 - 覆盖层 E2E：`E2E_OK`，框选、工具条、标注、复制、watchdog 全部通过。
 - 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制、关闭通过。
 - canvas 试验已回退，保留更简单的 img 冻屏方案，避免无效复杂度。
-- 下一步用 500/1000 次长跑确认是否封顶，并排查 Playwright 自动化对 working set 的影响。
+- 1000 次长跑确认没有封顶；剩余增长是 Chromium 原生私有内存，当前 app 层改动无法回收，需要在真实用户路径上继续确认影响。
 
 ### Added
 
