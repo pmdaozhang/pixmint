@@ -88,7 +88,8 @@
 - [x] Windows CI：typecheck + unit + build
 - [ ] CI 双平台矩阵与发版门禁
 - [x] 外部导航/新窗口/webview 限制
-- [ ] 生产 CSP 收口与全部窗口 sandbox 验证
+- [x] 全部窗口 sandbox 开启并通过真实 E2E
+- [ ] 生产 CSP 移除开发地址
 - [x] 覆盖层内存增长定位到 Chromium 原生层（canvas 试验无效）
 - [x] 压测采样 private/shared bytes
 - [x] 1000 次覆盖层长跑确认原生内存线性增长、尚未封顶

@@ -61,7 +61,8 @@ flowchart TD
 - [x] 已试验 canvas + ImageBitmap 冻屏方案；500 次无改善后回退，保留 img 方案。
 - [x] 压测报告记录 renderer private/shared bytes，确认增长在 Chromium 私有原生内存。
 - [x] 1000 次长跑确认线性增长；renderer reload 回收无效并撤回。
-- [ ] 生产 CSP 移除开发地址、全部窗口开启 sandbox 并做 UI 回归。
+- [x] 所有 BrowserWindow 开启 sandbox，并通过 smoke/设置/覆盖层/贴图 E2E。
+- [ ] 生产 CSP 移除开发地址并做生产构建回归。
 - [ ] CI 双平台矩阵和发版门禁。
 
 ## 变更记录

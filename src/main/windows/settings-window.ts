@@ -31,7 +31,7 @@ export function createSettingsWindow(preloadPath: string): BrowserWindow {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   }
   settingsWindow = new BrowserWindow(options)

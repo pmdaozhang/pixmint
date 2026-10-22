@@ -547,7 +547,7 @@ function runSmokeTest(): void {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
   let failed = false

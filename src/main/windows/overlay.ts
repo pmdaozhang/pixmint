@@ -450,7 +450,7 @@ export class OverlayManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         // 隐藏等待下一次 F1 时不能被 Chromium 节流，否则 rAF 会延迟到 1 秒以上。
         backgroundThrottling: false
       }

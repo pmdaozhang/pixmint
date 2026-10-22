@@ -239,6 +239,21 @@
 - canvas 试验已回退，保留更简单的 img 冻屏方案，避免无效复杂度。
 - 1000 次长跑确认没有封顶；剩余增长是 Chromium 原生私有内存，当前 app 层改动无法回收，需要在真实用户路径上继续确认影响。
 
+### 全窗口 sandbox（2026-10-22）
+
+#### Changed
+
+- 所有 BrowserWindow（设置、覆盖层、贴图、OCR、引导、录制控制、录制预览、smoke）统一开启 `sandbox: true`。
+- 保留 `contextIsolation` 和窄 preload API，不引入 Node 权限。
+
+#### Verified
+
+- Electron smoke：`SMOKE_OK`。
+- 设置页 E2E：`SETTINGS_E2E_OK`，sandbox 下设置读取、密钥加密/清除正常。
+- 覆盖层 E2E：`E2E_OK`，框选、标注、复制、watchdog 正常。
+- 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制正常。
+- 生产构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
