@@ -20,8 +20,20 @@ const { launch, writeReport } = require('./lib.cjs')
     .split(/\r?\n/)
     .find((line) => line.startsWith('SOAK_OCR_RESULT '))
   if (resultLine) {
-    writeReport('ocr', JSON.parse(resultLine.slice('SOAK_OCR_RESULT '.length)))
+    const result = JSON.parse(resultLine.slice('SOAK_OCR_RESULT '.length))
+    const maxP95Ms = Number(process.env.PIXMINT_SOAK_OCR_MAX_P95_MS ?? 3000)
+    const maxRssGrowthMb = Number(process.env.PIXMINT_SOAK_OCR_MAX_RSS_MB ?? 128)
+    const rssGrowthMb = Math.max(
+      0,
+      (result.memoryAfter.rss - result.memoryBefore.rss) / 1024 / 1024
+    )
+    const budgetOk = result.p95Ms <= maxP95Ms && rssGrowthMb <= maxRssGrowthMb
+    writeReport('ocr', {
+      ...result,
+      budgets: { maxP95Ms, maxRssGrowthMb, rssGrowthMb, ok: budgetOk }
+    })
+    process.exit(result.failures === 0 && exitCode === 0 && budgetOk ? 0 : 1)
   }
   await app.close().catch(() => {})
-  process.exit(resultLine && exitCode === 0 ? 0 : 1)
+  process.exit(1)
 })()

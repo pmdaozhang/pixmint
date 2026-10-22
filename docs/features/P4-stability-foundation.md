@@ -61,6 +61,7 @@ flowchart TD
 - [x] 已试验 canvas + ImageBitmap 冻屏方案；500 次无改善后回退，保留 img 方案。
 - [x] 压测报告记录 renderer private/shared bytes，确认增长在 Chromium 私有原生内存。
 - [x] 1000 次长跑确认线性增长；renderer reload 回收无效并撤回。
+- [x] 覆盖层/OCR 压测接入 p95 和内存增长预算，超限直接失败。
 - [x] OverlayApp 第一批拆分：几何计算和 DimAround 独立模块 + 5 个单测。
 - [x] OverlayApp 图片会话状态抽入 `useOverlayImageSession`，保留解码令牌和 preparing/imageReady。
 - [x] 所有 BrowserWindow 开启 sandbox，并通过 smoke/设置/覆盖层/贴图 E2E。

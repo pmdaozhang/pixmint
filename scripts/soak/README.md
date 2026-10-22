@@ -25,6 +25,10 @@ pnpm soak:recording
 | `PIXMINT_SOAK_RECORDINGS` | 3 | 录制次数 |
 | `PIXMINT_SOAK_RECORD_SECONDS` | 10 | 每次录制秒数；正式压测设为 590，避免触发应用自动停止 |
 | `PIXMINT_SOAK_RECORD_MODE` | `video` | `video` 或 `gif` |
+| `PIXMINT_SOAK_MAX_P95_MS` | 500 | 覆盖层单轮 p95 上限，超过则脚本失败 |
+| `PIXMINT_SOAK_MAX_PRIVATE_MB` | 256 | 覆盖层 renderer private bytes 增长上限 |
+| `PIXMINT_SOAK_OCR_MAX_P95_MS` | 3000 | OCR p95 上限 |
+| `PIXMINT_SOAK_OCR_MAX_RSS_MB` | 128 | OCR 进程 RSS 增长上限 |
 
 正式录制压测示例：
 

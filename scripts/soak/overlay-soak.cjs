@@ -40,18 +40,27 @@ const {
     }
     const after = await memorySnapshot(app)
     const artifacts = tempArtifacts()
+    const p95Ms = percentile(durations, 95)
+    const beforeTab = before.processes.find((process) => process.type === 'Tab')
+    const afterTab = after.processes.find((process) => process.type === 'Tab')
+    const privateGrowthMb =
+      beforeTab && afterTab ? Math.max(0, (afterTab.privateKb - beforeTab.privateKb) / 1024) : 0
+    const maxP95Ms = Number(process.env.PIXMINT_SOAK_MAX_P95_MS ?? 500)
+    const maxPrivateGrowthMb = Number(process.env.PIXMINT_SOAK_MAX_PRIVATE_MB ?? 256)
+    const budgetOk = p95Ms <= maxP95Ms && privateGrowthMb <= maxPrivateGrowthMb
     writeReport('overlay', {
       cycles,
       failures,
       p50Ms: percentile(durations, 50),
-      p95Ms: percentile(durations, 95),
+      p95Ms,
       maxMs: durations.length ? Math.max(...durations) : 0,
+      budgets: { maxP95Ms, maxPrivateGrowthMb, privateGrowthMb, ok: budgetOk },
       before,
       after,
       tempArtifacts: artifacts
     })
     await app.close()
-    process.exit(failures.length === 0 ? 0 : 1)
+    process.exit(failures.length === 0 && budgetOk ? 0 : 1)
   } catch (error) {
     console.error('OVERLAY_SOAK_FAIL', error)
     await app.close().catch(() => {})
