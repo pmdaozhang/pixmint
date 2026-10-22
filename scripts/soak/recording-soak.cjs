@@ -14,6 +14,7 @@ const {
   const recordings = Number(process.env.PIXMINT_SOAK_RECORDINGS ?? 3)
   const seconds = Math.min(590, Math.max(1, Number(process.env.PIXMINT_SOAK_RECORD_SECONDS ?? 10)))
   const mode = process.env.PIXMINT_SOAK_RECORD_MODE === 'gif' ? 'gif' : 'video'
+  const maxPrivateMb = Number(process.env.PIXMINT_SOAK_RECORD_MAX_PRIVATE_MB ?? 64)
   const app = await launch(['--smoke-overlay'])
   const failures = []
   const durations = []
@@ -52,21 +53,35 @@ const {
       console.log('RECORDING_SOAK_PROGRESS', index + 1, recordings, mode, seconds)
     }
     const after = await memorySnapshot(app)
+    // 媒体管线释放有延迟；空闲 60 秒后再采样一次，区分缓冲与真泄漏。
+    await sleep(60_000)
+    const afterIdle = await memorySnapshot(app)
+    const tabPrivateMb = (snapshot) =>
+      snapshot.processes
+        .filter((process) => process.type === 'Tab')
+        .reduce((sum, process) => sum + (process.privateKb ?? 0), 0) / 1024
+    const privateGrowthMb = Math.round((tabPrivateMb(afterIdle) - tabPrivateMb(before)) * 10) / 10
     const artifacts = tempArtifacts()
     writeReport('recording', {
       recordings,
       seconds,
       mode,
       failures,
+      privateGrowthMb,
+      maxPrivateMb,
+      ok: failures.length === 0 && privateGrowthMb <= maxPrivateMb,
       p50Ms: percentile(durations, 50),
       p95Ms: percentile(durations, 95),
       before,
       after,
+      afterIdle,
       tempArtifacts: artifacts
     })
     await app.close()
     const leaked = artifacts.filter((artifact) => artifact.size > 1024 * 1024)
-    process.exit(failures.length === 0 && leaked.length === 0 ? 0 : 1)
+    process.exit(
+      failures.length === 0 && leaked.length === 0 && privateGrowthMb <= maxPrivateMb ? 0 : 1
+    )
   } catch (error) {
     console.error('RECORDING_SOAK_FAIL', error)
     await app.close().catch(() => {})

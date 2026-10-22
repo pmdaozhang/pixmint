@@ -62,6 +62,10 @@ flowchart TD
 - [x] 压测报告记录 renderer private/shared bytes，确认增长在 Chromium 私有原生内存。
 - [x] 1000 次长跑确认线性增长；renderer reload 回收无效并撤回。
 - [x] 覆盖层/OCR 压测接入 p95 和内存增长预算，超限直接失败。
+- [x] 真实截图 300 次 private 增长 ≤ 32MB（实测 +19.3MB，p95 250ms）。
+- [x] 五路径内存回归（Esc / 保存 / 复制 / 钉图 / OCR）。
+- [x] 3×590 秒录制 + 空闲 60 秒复测（private +23.9MB）。
+- [x] 内存门禁接入 CI 快速压测与发版检查单。
 - [x] OverlayApp 第一批拆分：几何计算和 DimAround 独立模块 + 5 个单测。
 - [x] OverlayApp 图片会话状态抽入 `useOverlayImageSession`，保留解码令牌和 preparing/imageReady。
 - [x] OverlayApp 键盘快捷键抽入 `useOverlayKeyboard`。
@@ -81,6 +85,7 @@ flowchart TD
 | 2026-10-22 | v1 | 调查覆盖层内存增长，canvas 试验无效并回退 | 内存稳定性 |
 | 2026-10-22 | v1 | 选择/标注状态抽入 `useOverlaySelection` | 降低 OverlayApp 耦合 |
 | 2026-10-22 | v1 | 3×590s 录制压测通过；真实截图 300 次确认内存线性增长 | 长时间驻留风险 |
+| 2026-10-22 | v1 | 覆盖层改用常驻 canvas，导出改传字节；五路径和录制空闲复测通过 | 内存治理 |
 
 ## 关联文件
 
@@ -107,6 +112,9 @@ flowchart TD
   - `scripts/soak/ocr-soak.cjs`
   - `scripts/soak/recording-soak.cjs`
   - `scripts/soak/real-overlay-soak.cjs`
+  - `scripts/soak/memory-path-soak.cjs`
+  - `.github/workflows/release-soak.yml`
+  - `docs/RELEASE_CHECKLIST.md`
   - `src/preload/index.ts`
   - `src/shared/api.ts`
   - `src/shared/types.ts`

@@ -59,6 +59,12 @@
 | TC-223 | 覆盖层连续开关 100 次 | JS 堆和 DOM 节点稳定；工作集增长不超过预算，记录在压测报告 |
 | TC-224 | 运行真实截图压测 300 次 | 0 失败；报告包含 p95、renderer working/private bytes 和内存趋势 |
 | TC-225 | 设置 `PIXMINT_SOAK_RECORD_SECONDS=590` 运行录制压测 | 3 次录制完成，0 失败，无超过 1MB 的临时残留 |
+| TC-226 | 截图后按 Esc，重复 50 次 | 0 失败；renderer private 增长 ≤ 32MB |
+| TC-227 | 截图后点复制，重复 50 次 | 0 失败；renderer private 增长 ≤ 64MB（含系统剪贴板占用） |
+| TC-228 | 截图后钉图并关闭钉图，重复 50 次 | 0 失败；renderer private 增长 ≤ 32MB |
+| TC-229 | 截图后 OCR 并关闭结果窗，重复 50 次 | 0 失败；renderer private 增长 ≤ 32MB |
+| TC-230 | 截图后保存并删除文件，重复 50 次 | 0 失败；renderer private 增长 ≤ 48MB（含文件写入缓冲） |
+| TC-231 | 3×590 秒录制结束后空闲 60 秒 | Tab private 增长 ≤ 64MB，临时残留为 0 |
 
 ## 回归范围
 

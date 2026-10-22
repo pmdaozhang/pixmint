@@ -20,6 +20,8 @@
     "soak:overlay": "node scripts/soak/overlay-soak.cjs",
     "soak:ocr": "node scripts/soak/ocr-soak.cjs",
     "soak:recording": "node scripts/soak/recording-soak.cjs",
+    "soak:real-overlay": "node scripts/soak/real-overlay-soak.cjs",
+    "soak:memory": "node scripts/soak/memory-path-soak.cjs",
     "package": "electron-builder"
   },
   "dependencies": {

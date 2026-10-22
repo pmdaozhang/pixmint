@@ -1,0 +1,63 @@
+name: Release Soak
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-soak
+  cancel-in-progress: false
+
+jobs:
+  interactive-windows:
+    # 真实截图和录制需要普通交互桌面，必须使用自托管 Windows runner。
+    runs-on: [self-hosted, windows, x64, pixmint-interactive]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Real overlay 300 cycles
+        shell: pwsh
+        run: |
+          $env:PIXMINT_REAL_OVERLAY_CYCLES = '300'
+          $env:PIXMINT_REAL_OVERLAY_SAMPLE = '50'
+          pnpm soak:real-overlay
+
+      - name: Memory paths (50 cycles each)
+        shell: pwsh
+        run: |
+          foreach ($path in @('esc', 'copy', 'pin', 'ocr', 'save')) {
+            $env:PIXMINT_MEMORY_PATH = $path
+            $env:PIXMINT_MEMORY_CYCLES = '50'
+            pnpm soak:memory
+          }
+
+      - name: Recording 3 x 590s with idle recheck
+        shell: pwsh
+        run: |
+          $env:PIXMINT_SOAK_RECORDINGS = '3'
+          $env:PIXMINT_SOAK_RECORD_SECONDS = '590'
+          pnpm soak:recording
+
+      - name: Upload soak reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-reports
+          path: test-results/*.json
+          if-no-files-found: warn

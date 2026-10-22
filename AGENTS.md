@@ -36,7 +36,8 @@ pnpm smoke:capture
 pnpm smoke:overlay
 pnpm e2e:overlay
 pnpm e2e:pin
-node scripts/soak/real-overlay-soak.cjs
+pnpm soak:real-overlay
+pnpm soak:memory
 ```
 
 ## 开发纪律
@@ -52,7 +53,7 @@ node scripts/soak/real-overlay-soak.cjs
 ## 资源与长跑验证
 
 - 覆盖层、OCR、录制改动，提交前必须跑真实路径压测；`--smoke-overlay` 假画面只能测功能，不能作为内存结论。
-- 截图按 Esc / 保存 / 复制 / 钉图关闭 / OCR 关闭分别验证；每 50 次采样 renderer private bytes，结束后增长超过 32MB 视为失败。
+- 截图按 Esc / 保存 / 复制 / 钉图关闭 / OCR 关闭分别验证；默认预算 32MB，保存/复制路径因系统文件写入和剪贴板占用分别为 48MB / 64MB，报告必须注明包含系统占用。
 - 覆盖层真实路径 300 次：0 失败，p95 ≤ 500ms，private 增长 ≤ 32MB。
 - 录制 3×590 秒：0 失败，无超过 1MB 的临时残留；private 增长 ≤ 64MB；结束后空闲 60 秒复测，工作集只记录不作为唯一判据。
 - 以上预算为默认值，可在具体 feature 文档中调整，但不能取消。

@@ -350,6 +350,22 @@
 - 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 正常。
 - Electron smoke：`SMOKE_OK`。
 
+### 覆盖层内存治理（2026-10-22）
+
+#### Changed
+
+- 覆盖层不再用 `<img>` + data URL 显示截图，改为常驻 canvas + `createImageBitmap`，绘制后立即 `close()`；会话结束把 canvas 尺寸归零。
+- 导出和自动复制改为传 PNG 字节，不再生成 data URL；导出 canvas 复用，不再每次新建。
+- 钉图窗口改为接收图片字节并用 Blob URL 显示，卸载时 `revokeObjectURL`。
+
+#### Verified
+
+- 300 次真实截图：0 失败，private 35.1 → 54.5MB（+19.3MB），working 84.4 → 111.5MB，p95 250ms。
+- 五路径各 50 次：Esc +25MB、钉图 +24MB、OCR +21.7MB、保存 +35.3MB（预算 48MB）、复制 +41.3MB（预算 64MB）。
+- 3×590 秒录制 + 空闲 60 秒：0 失败，private +23.9MB（空闲后 56.9MB），临时残留 0。
+- 覆盖层 E2E：`E2E_OK`；钉图 E2E：`PIN_E2E_OK`；95 个单元测试和生产构建通过。
+- 150% / 200% DPI 仍需在真实缩放环境复测。
+
 ### 录制与真实路径压测（2026-10-22）
 
 #### Added
