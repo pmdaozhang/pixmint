@@ -66,7 +66,26 @@ async function memorySnapshot(app) {
       workingSetKb: metric.memory.workingSetSize
     }))
   )
-  return { memory, processes }
+  let renderer = null
+  for (const window of app.windows()) {
+    try {
+      renderer = await window.evaluate(() => ({
+        heap: performance.memory
+          ? {
+              usedJSHeapSize: performance.memory.usedJSHeapSize,
+              totalJSHeapSize: performance.memory.totalJSHeapSize
+            }
+          : null,
+        nodes: document.getElementsByTagName('*').length,
+        canvases: document.querySelectorAll('canvas').length,
+        images: document.querySelectorAll('img').length
+      }))
+      break
+    } catch {
+      // 窗口可能正在关闭
+    }
+  }
+  return { memory, processes, renderer }
 }
 
 function tempArtifacts() {

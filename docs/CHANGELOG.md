@@ -220,6 +220,20 @@
 - `--capture-once` 触发真实截图路径，输出 `CAPTURE_KIND fallback`；系统仍报桌面分配错误，5 秒超时后返回，不再挂死。
 - 最小 Electron 探针和纯 GDI 探针也拿不到像素，确认阻塞点在当前 Windows 桌面会话，不在 Pixmint 截图实现。
 
+### 覆盖层内存优化（2026-10-22）
+
+#### Changed
+
+- 覆盖层冻屏从 `<img src="data:...">` 改为 `<canvas>`，用 `createImageBitmap` 解码、绘制后立即 `close()`，reset 时清空画布。
+- 压测报告增加 renderer JS 堆、DOM 节点、canvas 和 image 数量采样。
+
+#### Verified
+
+- 覆盖层 E2E：`E2E_OK`，框选、工具条、标注、复制、watchdog 全部通过。
+- 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制、关闭通过。
+- 100 次只开关覆盖层：renderer working set 87.6MB → 107.8MB（+20.2MB），改动前为 88.7MB → 118MB（+29.3MB）；JS 堆稳定 9.5MB，DOM 11 个节点不变。
+- 剩余增长仍在 Chromium 原生层，下一步继续验证 500/1000 次是否封顶。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
