@@ -173,8 +173,10 @@ export class RecorderManager {
         this.state.phase === 'paused' ||
         this.state.phase === 'encoding'
       ) {
-        if (!this.controlWindow.isVisible()) this.controlWindow.showInactive()
-        this.controlWindow.moveTop()
+        if (!this.controlWindow.isVisible()) {
+          this.controlWindow.showInactive()
+          this.controlWindow.moveTop()
+        }
       } else {
         this.controlWindow.hide()
       }

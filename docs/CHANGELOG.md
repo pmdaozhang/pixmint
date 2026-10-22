@@ -378,12 +378,15 @@
 #### Fixed
 
 - GIF / 视频准备阶段不再隐藏冻结画面、淡出红框或撤掉选区遮罩；只在真正开始录制时切换到实时桌面一次。
+- 录制状态每 100ms 重复调用 `setAlwaysOnTop` / `moveTop` / `setOpacity` 导致全屏透明覆盖层反复重绘；改为只在录制模式真正变化时执行一次。
+- 录制控制窗只在首次显示时置顶，不再每 100ms 调用 `moveTop`。
 
 #### Verified
 
 - OCR toast：实测文本为“识别中...”，OCR 窗口打开后消失。
 - `pnpm e2e:recording`：GIF 和视频准备/倒计时/录制阶段红框、遮罩、控制条均正常，`RECORDING_E2E_OK`。
 - `pnpm e2e:pin`：空格编辑窗口 580×370 → 779×482，撤销可用，二级菜单可展开，完成后恢复 bounds 并写回新图，`PIN_E2E_OK`。
+- 真实截图录 2 秒 GIF：32 帧逐帧差异全为 0；录 2 秒视频：66 帧平均差异 0.01、最大 0.64，无闪帧。
 - `pnpm typecheck`、`pnpm test:unit`、`pnpm build` 通过。
 
 ### 录制与真实路径压测（2026-10-22）

@@ -17,6 +17,7 @@ import { disableWindowTransitions } from '../native-window'
 interface OverlayEntry {
   window: BrowserWindow
   displayId: number
+  recordingMode: { active: boolean; interactive: boolean } | null
 }
 
 const WARMUP_PNG =
@@ -225,6 +226,11 @@ export class OverlayManager {
   setRecordingMode(webContentsId: number, active: boolean, interactive = true): void {
     const entry = this.entries.get(webContentsId)
     if (!entry || entry.window.isDestroyed()) return
+    // 录制状态每 100ms 更新一次；重复 moveTop/setAlwaysOnTop 会让全屏透明层反复重绘，
+    // 录进画面就是持续闪烁。只在 active/interactive 真正变化时执行。
+    const current = entry.recordingMode
+    if (current && current.active === active && current.interactive === interactive) return
+    entry.recordingMode = { active, interactive }
     const window = entry.window
     if (interactive) this.activateSession(webContentsId)
     if (active) {
@@ -462,7 +468,7 @@ export class OverlayManager {
     }
     const id = window.webContents.id
     disableWindowTransitions(window.getNativeWindowHandle())
-    this.entries.set(id, { window, displayId: display.id })
+    this.entries.set(id, { window, displayId: display.id, recordingMode: null })
     this.byDisplay.set(display.id, id)
     window.webContents.on('unresponsive', () => {
       this.failSafe('截图界面无响应，已自动退出')
