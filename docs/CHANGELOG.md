@@ -254,6 +254,20 @@
 - 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制正常。
 - 生产构建通过。
 
+### 生产 CSP 收口（2026-10-22）
+
+#### Changed
+
+- 渲染层 HTML 使用生产 CSP，不再包含 `ws:` 和 `http://localhost:*`。
+- 开发服务器通过 `devCspPlugin` 仅在 serve 模式注入 HMR 所需地址，不放宽生产策略。
+
+#### Verified
+
+- 生产 `out/renderer/index.html` 的 `connect-src` 仅保留 `'self'` 和 `snapglass-media:`。
+- Electron smoke：`SMOKE_OK`。
+- 设置页 E2E：`SETTINGS_E2E_OK`。
+- `pnpm typecheck` 和生产构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
