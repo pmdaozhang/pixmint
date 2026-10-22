@@ -228,6 +228,7 @@
 - 压测报告增加 renderer JS 堆、DOM 节点、canvas 和 image 数量采样。
 - 对照结果：100 次只开关覆盖层，canvas 方案 +20.2MB，img 方案 +29.3MB；但 500 次完整框选，canvas 方案 86.9→196.2MB，img 方案 86.7→179.9MB，长跑无改善。
 - JS 堆稳定 9.5MB，DOM 节点稳定 11 个，说明增长在 Chromium 原生层/自动化路径，不是 React/DOM 泄漏。
+- 100 次对照采样：renderer private bytes 37.6MB → 61.9MB，shared bytes 始终为 0；确认是 Chromium renderer 私有原生内存，而非 JS 堆或共享内存。
 
 #### Verified
 

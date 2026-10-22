@@ -63,7 +63,10 @@ async function memorySnapshot(app) {
       type: metric.type,
       pid: metric.pid,
       cpuPercent: metric.cpu.percentCPUUsage,
-      workingSetKb: metric.memory.workingSetSize
+      workingSetKb: metric.memory.workingSetSize,
+      peakWorkingSetKb: metric.memory.peakWorkingSetSize,
+      privateKb: metric.memory.privateBytes,
+      sharedKb: metric.memory.sharedBytes
     }))
   )
   let renderer = null

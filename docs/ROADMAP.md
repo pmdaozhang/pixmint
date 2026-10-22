@@ -90,7 +90,9 @@
 - [x] 外部导航/新窗口/webview 限制
 - [ ] 生产 CSP 收口与全部窗口 sandbox 验证
 - [x] 覆盖层内存增长定位到 Chromium 原生层（canvas 试验无效）
+- [x] 压测采样 private/shared bytes
 - [ ] 覆盖层 500/1000 次内存是否最终封顶
+- [ ] 若原生内存不封顶，评估覆盖层 renderer 定期回收策略
 
 ## 跨平台验证
 
