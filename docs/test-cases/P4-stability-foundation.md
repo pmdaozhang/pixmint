@@ -57,6 +57,8 @@
 | TC-221 | 正常启动源码版并打开设置窗口 | 出现可见的 Pixmint 设置窗口，主进程保持响应 |
 | TC-222 | 正常启动后执行 `--capture-once` | 走真实 `startCapture`；捕获不可用时输出 `CAPTURE_KIND fallback` 并在超时后返回 |
 | TC-223 | 覆盖层连续开关 100 次 | JS 堆和 DOM 节点稳定；工作集增长不超过预算，记录在压测报告 |
+| TC-224 | 运行真实截图压测 300 次 | 0 失败；报告包含 p95、renderer working/private bytes 和内存趋势 |
+| TC-225 | 设置 `PIXMINT_SOAK_RECORD_SECONDS=590` 运行录制压测 | 3 次录制完成，0 失败，无超过 1MB 的临时残留 |
 
 ## 回归范围
 

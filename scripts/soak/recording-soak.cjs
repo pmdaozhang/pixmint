@@ -42,7 +42,8 @@ const {
         await preview.waitForSelector('.preview-card', { timeout: 8000 })
         const fileName = (await preview.locator('.preview-name').innerText()).trim()
         if (!fileName) throw new Error('recording preview has no file name')
-        await preview.locator('.preview-close').click()
+        // 点击关闭会立刻销毁预览窗口，不能等待 Playwright 的默认点击完成信号。
+        await preview.locator('.preview-close').evaluate((element) => element.click())
         await sleep(300)
       } catch (error) {
         failures.push({ iteration: index, error: String(error) })

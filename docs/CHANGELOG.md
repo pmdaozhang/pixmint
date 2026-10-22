@@ -347,7 +347,26 @@
 - `pnpm typecheck` 通过。
 - 95 个单元测试通过。
 - 生产构建通过。
-- 覆盖层 E2E 与 smoke 当前会话被沙箱拦截（Electron IPC 拒绝访问），需在普通交互桌面复跑。
+- 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 正常。
+- Electron smoke：`SMOKE_OK`。
+
+### 录制与真实路径压测（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/soak/real-overlay-soak.cjs`：按真实 `startCapture` 路径循环截图，采样 renderer private/shared bytes。
+
+#### Changed
+
+- 录制压测关闭预览改为同步点击，避免预览窗口销毁导致 `Target page closed` 误报。
+
+#### Verified
+
+- 3 次 590 秒视频录制：0 失败，p50 594.7 秒，p95 595.7 秒，临时残留 0。
+- 录制后内存：Browser 112.1 → 214.7MB，Tab 95.2 → 647.5MB。
+- 100 次和 300 次真实截图：0 失败，p95 289ms。
+- 300 次真实截图后 renderer working set 94.6 → 880.4MB，private 35.9 → 326.4MB；JS 堆稳定 9.5MB、DOM 稳定 11 节点，确认增长在 Chromium 原生图像内存。
+- 150% / 200% DPI 未验证：当前显示器为 100%，强制缩放会使窗口 DIP 与视口二次缩放，不能代表系统 DPI。
 
 ### Added
 

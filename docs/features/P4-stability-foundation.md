@@ -50,7 +50,7 @@ flowchart TD
 - [x] 通用 SidecarClient 抽取完成。
 - [x] 平台 Provider 抽取完成（Windows 捕获/窗口/OCR）。
 - [x] 压测脚本覆盖 200 次覆盖层、100 次 OCR、可配置录制时长。
-- [ ] 压测已在目标 Windows 机器通过并记录结果。
+- [x] 压测已在目标 Windows 机器通过并记录结果。
 - [x] Windows CI 运行 typecheck、单元测试和构建。
 - [x] OCR 串行队列、临时脚本唯一路径与清理。
 - [x] 翻译请求 15 秒超时，避免 IPC 长期挂起。
@@ -80,6 +80,7 @@ flowchart TD
 | 2026-10-22 | v1 | 增加正常启动 capture-once 验证入口 | 区分 UI 与真实捕获 |
 | 2026-10-22 | v1 | 调查覆盖层内存增长，canvas 试验无效并回退 | 内存稳定性 |
 | 2026-10-22 | v1 | 选择/标注状态抽入 `useOverlaySelection` | 降低 OverlayApp 耦合 |
+| 2026-10-22 | v1 | 3×590s 录制压测通过；真实截图 300 次确认内存线性增长 | 长时间驻留风险 |
 
 ## 关联文件
 
@@ -105,6 +106,7 @@ flowchart TD
   - `scripts/soak/overlay-soak.cjs`
   - `scripts/soak/ocr-soak.cjs`
   - `scripts/soak/recording-soak.cjs`
+  - `scripts/soak/real-overlay-soak.cjs`
   - `src/preload/index.ts`
   - `src/shared/api.ts`
   - `src/shared/types.ts`
