@@ -192,6 +192,22 @@
 - 压测后 renderer working set 从约 88.6MB 增至 144.6MB，需后续确认是否为 Chromium 分配器缓存
 - 真实录制 E2E 在 GIF 阶段被 WebRTC `Failed to assign the desktop` 卡住，需在普通本地桌面复测
 
+### 捕获超时修复（2026-10-22）
+
+#### Fixed
+
+- 截图兜底 `desktopCapturer` 增加 5 秒超时，桌面捕获权限不可用时不再无限挂起。
+- 快速捕获 smoke 失败时只记录错误，不弹模态框；三轮失败后正常退出。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 全量单元测试 90 个通过（排除依赖本机 OCR 语言包的集成测试）。
+- `--smoke-fast-capture` 在桌面捕获失败时 3 轮均正常退出，退出码 0。
+- 覆盖层 200 次压测：0 失败，p50 154ms、p95 163ms、max 755ms。
+- OCR 100 次压测：0 失败，p50 895ms、p95 952ms、max 1099ms。
+- 真实桌面捕获仍被当前会话拒绝：`Failed to assign the desktop to the current thread: 170`，这是环境权限问题。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

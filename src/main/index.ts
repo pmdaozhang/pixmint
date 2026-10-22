@@ -58,6 +58,7 @@ import {
 } from './diagnostics'
 import { writeDiagnosticsExport } from './diagnostics-export'
 import { installWebContentsSecurity, isTrustedAppUrl } from './security'
+import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 
 protocol.registerSchemesAsPrivileged([
@@ -201,7 +202,13 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
     const started = Date.now()
     const fast = await platformServices.capture.captureFast(display)
     console.log('CAPTURE_KIND', fast ? 'fast' : 'fallback')
-    const capture = fast ?? (await platformServices.capture.captureDisplay(display))
+    const capture =
+      fast ??
+      (await withTimeout(
+        platformServices.capture.captureDisplay(display),
+        5000,
+        '截图超时，请检查屏幕录制权限'
+      ))
     console.log('CAPTURE_MS', Date.now() - started)
     addBreadcrumb('capture', 'captured', {
       fast: Boolean(fast),
@@ -215,7 +222,11 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
     overlayManager?.hideAll()
     const message = error instanceof Error ? error.message : String(error)
     addBreadcrumb('capture', 'failed', { message })
-    dialog.showErrorBox('截图失败', message)
+    if (isFastCaptureSmoke) {
+      console.error('CAPTURE_FAILED', message)
+    } else {
+      dialog.showErrorBox('截图失败', message)
+    }
   }
 }
 
@@ -568,7 +579,11 @@ function runSmokeTest(): void {
 
 async function runCaptureSmoke(): Promise<void> {
   try {
-    const captures = await platformServices.capture.captureAll()
+    const captures = await withTimeout(
+      platformServices.capture.captureAll(),
+      8000,
+      '屏幕捕获超时，请检查屏幕录制权限'
+    )
     console.log('SMOKE_CAPTURES', captures.length)
     overlayReadyCount = 0
     overlayManager.prewarm(
