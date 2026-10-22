@@ -67,13 +67,19 @@ export class SidecarClient {
       })
       child.on('error', (error) => {
         this.log(`spawn error: ${error.message}`)
-        if (this.child === child) this.child = null
-        this.finish(null)
+        const wasCurrent = this.child === child
+        if (wasCurrent) {
+          this.child = null
+          this.finish(null)
+        }
       })
       child.on('exit', (code, signal) => {
-        if (this.child === child) this.child = null
-        this.lines.clear()
-        this.finish(null)
+        const wasCurrent = this.child === child
+        if (wasCurrent) {
+          this.child = null
+          this.lines.clear()
+          this.finish(null)
+        }
         this.log(`exited code=${code ?? 'null'} signal=${signal ?? 'null'}`)
       })
       this.child = child
