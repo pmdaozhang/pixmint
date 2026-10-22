@@ -57,6 +57,7 @@ import {
   logDiagnostic
 } from './diagnostics'
 import { writeDiagnosticsExport } from './diagnostics-export'
+import { installWebContentsSecurity, isTrustedAppUrl } from './security'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 
 protocol.registerSchemesAsPrivileged([
@@ -461,11 +462,17 @@ function initServices(): void {
     hideRecordingOverlay: (id) => overlayManager.hideRecordingOverlay(id),
     hideOverlay: () => overlayManager.hideAll()
   })
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+    if (!isTrustedAppUrl(contents.getURL())) {
+      callback(false)
+      return
+    }
     callback(permission === 'media' || permission === 'display-capture')
   })
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media'
+  session.defaultSession.setPermissionCheckHandler((contents, permission, requestingOrigin) => {
+    if (!contents || !isTrustedAppUrl(requestingOrigin || contents.getURL())) return false
+    const name = String(permission)
+    return name === 'media' || name === 'display-capture'
   })
   protocol.handle('snapglass-media', (request) => {
     const url = new URL(request.url)
@@ -480,6 +487,7 @@ function initServices(): void {
   registerIpc()
   applySystemSettings()
   app.on('web-contents-created', (_event, contents) => {
+    installWebContentsSecurity(contents)
     contents.on('console-message', (event) => {
       // 高频 info 日志会放大磁盘和主进程开销，只保留 warning/error 作为诊断信号。
       if (event.level === 'error') {

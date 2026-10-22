@@ -85,6 +85,8 @@
 - [ ] 200 次覆盖层、100 次 OCR、3 次 10 分钟录制压测
 - [x] Windows CI：typecheck + unit + build
 - [ ] CI 双平台矩阵与发版门禁
+- [x] 外部导航/新窗口/webview 限制
+- [ ] 生产 CSP 收口与全部窗口 sandbox 验证
 
 ## 跨平台验证
 

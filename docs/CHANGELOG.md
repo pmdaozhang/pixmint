@@ -143,6 +143,22 @@
 - 全量单元测试 85 个通过（排除依赖本机 OCR 语言包的集成测试）。
 - `pnpm build` 三层构建通过。
 
+### 安全边界（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/security.ts`：应用页面 URL 信任判断与 webContents 导航限制。
+- 所有 webContents 拒绝新窗口和 webview attach，只允许 file: 与本机开发地址导航。
+- 权限请求和权限检查只对受信任应用页面放行 media/display-capture。
+- CSP 增加 `object-src 'none'`、`base-uri 'none'`、`frame-ancestors 'none'`。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 安全 URL 信任 2 个测试用例通过。
+- 全量单元测试 87 个通过（排除依赖本机 OCR 语言包的集成测试）。
+- `pnpm build` 三层构建通过。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。
