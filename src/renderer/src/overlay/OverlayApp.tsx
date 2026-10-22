@@ -18,13 +18,13 @@ import { RecorderSession } from './RecorderSession'
 import {
   MIN_SELECTION,
   RESIZE_DIRS,
-  clampWindowRect,
   resizeSelectionRect,
   type ResizeDir
 } from './selection-geometry'
 import { Toolbar } from './Toolbar'
 import { useOverlayImageSession } from './useOverlayImageSession'
 import { useOverlayKeyboard } from './useOverlayKeyboard'
+import { useWindowSnapQuery } from './useWindowSnapQuery'
 import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import './overlay.css'
 
@@ -67,7 +67,6 @@ export function OverlayApp(): JSX.Element {
   const [canRedo, setCanRedo] = useState(false)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  const [hoverRect, setHoverRect] = useState<Rect | null>(null)
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
   const [recorderMode, setRecorderMode] = useState<RecorderMode | null>(null)
@@ -79,6 +78,7 @@ export function OverlayApp(): JSX.Element {
   const [captureClean, setCaptureClean] = useState(false)
   const { init, preparing, imageReady, load: loadSessionImage, clear: clearSessionImage } =
     useOverlayImageSession()
+  const { hoverRect, querySnap, cancelSnap } = useWindowSnapQuery(init)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const brushCursorRef = useRef<HTMLDivElement | null>(null)
@@ -90,11 +90,6 @@ export function OverlayApp(): JSX.Element {
   const recordCancelledRef = useRef(false)
   const autoCopiedRef = useRef(false)
   const selectionRef = useRef<Rect | null>(null)
-  const snapQueryIdRef = useRef(0)
-  const lastSnapAtRef = useRef(0)
-  const lastSnapPointRef = useRef<{ x: number; y: number } | null>(null)
-  const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
-  const snapBusyRef = useRef(false)
   const dragRef = useRef<{
     startX: number
     startY: number
@@ -139,11 +134,7 @@ export function OverlayApp(): JSX.Element {
 
   const resetUiForInit = useCallback((data: OverlayInit) => {
     updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = data.pendingRecorderMode ?? null
     setPhase('selecting')
@@ -158,7 +149,7 @@ export function OverlayApp(): JSX.Element {
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
     document.documentElement.dataset.theme = theme
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, updateSelection])
 
   const applyInit = useCallback(
     (data: OverlayInit) => {
@@ -169,11 +160,7 @@ export function OverlayApp(): JSX.Element {
 
   const resetUiForPrepare = useCallback((settings: Settings) => {
     updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = null
     setPhase('selecting')
@@ -188,7 +175,7 @@ export function OverlayApp(): JSX.Element {
     const theme =
       settings.theme === 'system' ? (media ? 'dark' : 'light') : settings.theme
     document.documentElement.dataset.theme = theme
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, updateSelection])
 
   const applyPrepare = useCallback(
     (settings: Settings) => {
@@ -199,11 +186,7 @@ export function OverlayApp(): JSX.Element {
 
   const resetUiForReset = useCallback(() => {
     updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = null
     setPhase('selecting')
@@ -214,7 +197,7 @@ export function OverlayApp(): JSX.Element {
     setToast('')
     setError('')
     autoCopiedRef.current = false
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, updateSelection])
 
   const applyReset = useCallback(() => {
     clearSessionImage(resetUiForReset, false)
@@ -691,36 +674,6 @@ export function OverlayApp(): JSX.Element {
     cursor.style.display = 'block'
   }
 
-  const querySnap = (p: { x: number; y: number }): void => {
-    if (!init) return
-    lastPointerRef.current = p
-    if (snapBusyRef.current) return
-    const now = performance.now()
-    const lastPoint = lastSnapPointRef.current
-    if (lastPoint && Math.hypot(p.x - lastPoint.x, p.y - lastPoint.y) < 2) return
-    if (now - lastSnapAtRef.current < 30) return
-    lastSnapAtRef.current = now
-    lastSnapPointRef.current = p
-    const queryId = ++snapQueryIdRef.current
-    snapBusyRef.current = true
-    void window.snapglass.overlay
-      .windowAt(p.x + init.bounds.x, p.y + init.bounds.y)
-      .then((rect) => {
-        if (queryId !== snapQueryIdRef.current) return
-        setHoverRect(rect ? clampWindowRect(rect, init.bounds) : null)
-      })
-      .catch(() => {
-        if (queryId === snapQueryIdRef.current) setHoverRect(null)
-      })
-      .finally(() => {
-        snapBusyRef.current = false
-        const latest = lastPointerRef.current
-        if (latest && (Math.abs(latest.x - p.x) > 2 || Math.abs(latest.y - p.y) > 2)) {
-          querySnap(latest)
-        }
-      })
-  }
-
   const onSelectDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
     if (phase === 'editing' || event.button !== 0) return
     const p = point(event)
@@ -732,10 +685,7 @@ export function OverlayApp(): JSX.Element {
       hover: hoverRect
     }
     event.currentTarget.setPointerCapture(event.pointerId)
-    snapQueryIdRef.current += 1
-    snapBusyRef.current = false
-    lastPointerRef.current = null
-    setHoverRect(null)
+    cancelSnap()
     updateSelection({ x: p.x, y: p.y, width: 0, height: 0 })
   }
 
@@ -750,7 +700,7 @@ export function OverlayApp(): JSX.Element {
     const drag = dragRef.current
     if (!drag.moved && Math.hypot(p.x - drag.startX, p.y - drag.startY) > 4) {
       drag.moved = true
-      setHoverRect(null)
+      cancelSnap()
     }
     const rect = normalizeRect(drag.startX, drag.startY, p.x, p.y)
     updateSelection({
@@ -772,7 +722,7 @@ export function OverlayApp(): JSX.Element {
     if (!drag.moved && drag.hover) {
       updateSelection(drag.hover)
       drag.hover = null
-      setHoverRect(null)
+      cancelSnap()
       setPhase('editing')
       return
     }
@@ -888,11 +838,7 @@ export function OverlayApp(): JSX.Element {
       onPointerLeave={() => {
         if (brushCursorRef.current) brushCursorRef.current.style.display = 'none'
         if (phase === 'selecting' && !dragRef.current.dragging) {
-          snapQueryIdRef.current += 1
-          lastSnapPointRef.current = null
-          lastPointerRef.current = null
-          snapBusyRef.current = false
-          setHoverRect(null)
+          cancelSnap()
         }
       }}
     >
