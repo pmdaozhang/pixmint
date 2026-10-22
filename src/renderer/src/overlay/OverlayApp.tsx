@@ -86,12 +86,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer))
 }
 
-function clearCanvas(canvas: HTMLCanvasElement | null): void {
-  if (!canvas) return
-  canvas.width = 0
-  canvas.height = 0
-}
-
 function resizeSelectionRect(
   start: Rect,
   dir: ResizeDir,
@@ -162,8 +156,7 @@ export function OverlayApp(): JSX.Element {
   const [countdownNumber, setCountdownNumber] = useState(0)
   // 倒计时结束后先撤掉冻结截图，等合成器提交两帧再真正开录，避免首帧录进截图界面。
   const [captureClean, setCaptureClean] = useState(false)
-  const screenCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const pendingBitmapRef = useRef<ImageBitmap | null>(null)
+  const imageRef = useRef<HTMLImageElement | null>(null)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const brushCursorRef = useRef<HTMLDivElement | null>(null)
   const sessionRef = useRef<RecorderSession | null>(null)
@@ -246,33 +239,16 @@ export function OverlayApp(): JSX.Element {
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
     document.documentElement.dataset.theme = theme
-    // 先解码为 ImageBitmap，再画到 canvas；避免长期保留 <img> 解码缓存。
+    // 先把图片解码完再提交 init，保证覆盖层显示时第一帧就是新截图。
     const image = new Image()
-    const commit = async (): Promise<void> => {
-      image.onload = null
-      image.onerror = null
-      try {
-        const bitmap = await createImageBitmap(image)
-        image.removeAttribute('src')
-        if (initTokenRef.current !== token) {
-          bitmap.close()
-          return
-        }
-        pendingBitmapRef.current?.close()
-        pendingBitmapRef.current = bitmap
-        setInit(data)
-        setImageReady(false)
-      } catch {
-        image.removeAttribute('src')
-        if (initTokenRef.current === token) setError('截图解码失败')
-      }
+    const commit = (): void => {
+      if (initTokenRef.current !== token) return
+      setInit(data)
+      setPreparing(false)
+      setImageReady(true)
     }
-    image.onload = () => {
-      void commit()
-    }
-    image.onerror = () => {
-      void commit()
-    }
+    image.onload = commit
+    image.onerror = commit
     image.src = data.imageDataUrl
   }, [resetRecorderState, updateSelection])
 
@@ -280,9 +256,6 @@ export function OverlayApp(): JSX.Element {
     initTokenRef.current += 1
     setPreparing(true)
     setImageReady(false)
-    clearCanvas(screenCanvasRef.current)
-    pendingBitmapRef.current?.close()
-    pendingBitmapRef.current = null
     setInit(null)
     updateSelection(null)
     snapQueryIdRef.current += 1
@@ -310,9 +283,6 @@ export function OverlayApp(): JSX.Element {
     initTokenRef.current += 1
     setPreparing(false)
     setImageReady(false)
-    clearCanvas(screenCanvasRef.current)
-    pendingBitmapRef.current?.close()
-    pendingBitmapRef.current = null
     setInit(null)
     updateSelection(null)
     snapQueryIdRef.current += 1
@@ -331,27 +301,6 @@ export function OverlayApp(): JSX.Element {
     setError('')
     autoCopiedRef.current = false
   }, [resetRecorderState, updateSelection])
-
-  useEffect(() => {
-    if (!init) return
-    const canvas = screenCanvasRef.current
-    const bitmap = pendingBitmapRef.current
-    if (!canvas || !bitmap) return
-    canvas.width = Math.max(1, init.imageWidth)
-    canvas.height = Math.max(1, init.imageHeight)
-    const context = canvas.getContext('2d')
-    if (!context) {
-      bitmap.close()
-      pendingBitmapRef.current = null
-      setError('无法绘制截图')
-      return
-    }
-    context.drawImage(bitmap, 0, 0)
-    bitmap.close()
-    pendingBitmapRef.current = null
-    setPreparing(false)
-    setImageReady(true)
-  }, [init])
 
   useEffect(() => {
     const off = window.snapglass.overlay.onInit(applyInit)
@@ -656,9 +605,9 @@ export function OverlayApp(): JSX.Element {
 
   const buildSelectionPng = useCallback(
     (includeAnnotations: boolean): string | null => {
-      if (!init || !selection || !screenCanvasRef.current) return null
-      const image = screenCanvasRef.current
-      if (image.width === 0 || image.height === 0) return null
+      if (!init || !selection || !imageRef.current) return null
+      const image = imageRef.current
+      if (!image.complete) return null
       const scaleX = init.imageWidth / init.bounds.width
       const scaleY = init.imageHeight / init.bounds.height
       const outWidth = Math.max(1, Math.round(selection.width * scaleX))
@@ -711,9 +660,9 @@ export function OverlayApp(): JSX.Element {
    * 关键约束：自动复制只做一次；失败只记录日志，不能阻断标注和录制。
    */
   const autoCopySelection = useCallback(async (): Promise<void> => {
-    if (!init || !selection || !screenCanvasRef.current) return
-    const image = screenCanvasRef.current
-    if (image.width === 0 || image.height === 0) return
+    if (!init || !selection || !imageRef.current) return
+    const image = imageRef.current
+    if (!image.complete) return
     const scaleX = init.imageWidth / init.bounds.width
     const scaleY = init.imageHeight / init.bounds.height
     const outWidth = Math.max(1, Math.round(selection.width * scaleX))
@@ -1060,7 +1009,13 @@ export function OverlayApp(): JSX.Element {
       }}
     >
       {!hideFrozenImage && (
-        <canvas ref={screenCanvasRef} className="overlay-screen" />
+        <img
+          ref={imageRef}
+          className="overlay-screen"
+          src={init.imageDataUrl}
+          alt=""
+          draggable={false}
+        />
       )}
       {!recorderModeActive && !selection && !hoverRect && <div className="pre-dim" />}
       {!recorderModeActive && phase === 'selecting' && hoverRect && (

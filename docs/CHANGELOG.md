@@ -220,19 +220,21 @@
 - `--capture-once` 触发真实截图路径，输出 `CAPTURE_KIND fallback`；系统仍报桌面分配错误，5 秒超时后返回，不再挂死。
 - 最小 Electron 探针和纯 GDI 探针也拿不到像素，确认阻塞点在当前 Windows 桌面会话，不在 Pixmint 截图实现。
 
-### 覆盖层内存优化（2026-10-22）
+### 覆盖层内存调查（2026-10-22）
 
-#### Changed
+#### Investigated
 
-- 覆盖层冻屏从 `<img src="data:...">` 改为 `<canvas>`，用 `createImageBitmap` 解码、绘制后立即 `close()`，reset 时清空画布。
+- 试验把冻屏 `<img>` 改为 `<canvas>` + `ImageBitmap`，绘制后 close，reset 时清空画布。
 - 压测报告增加 renderer JS 堆、DOM 节点、canvas 和 image 数量采样。
+- 对照结果：100 次只开关覆盖层，canvas 方案 +20.2MB，img 方案 +29.3MB；但 500 次完整框选，canvas 方案 86.9→196.2MB，img 方案 86.7→179.9MB，长跑无改善。
+- JS 堆稳定 9.5MB，DOM 节点稳定 11 个，说明增长在 Chromium 原生层/自动化路径，不是 React/DOM 泄漏。
 
 #### Verified
 
 - 覆盖层 E2E：`E2E_OK`，框选、工具条、标注、复制、watchdog 全部通过。
 - 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制、关闭通过。
-- 100 次只开关覆盖层：renderer working set 87.6MB → 107.8MB（+20.2MB），改动前为 88.7MB → 118MB（+29.3MB）；JS 堆稳定 9.5MB，DOM 11 个节点不变。
-- 剩余增长仍在 Chromium 原生层，下一步继续验证 500/1000 次是否封顶。
+- canvas 试验已回退，保留更简单的 img 冻屏方案，避免无效复杂度。
+- 下一步用 500/1000 次长跑确认是否封顶，并排查 Playwright 自动化对 working set 的影响。
 
 ### Added
 

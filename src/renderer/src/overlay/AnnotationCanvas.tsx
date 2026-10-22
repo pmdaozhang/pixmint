@@ -261,9 +261,6 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       }
       return () => {
         cancelled = true
-        image.onload = null
-        image.onerror = null
-        image.removeAttribute('src')
       }
     }, [
       init.imageDataUrl,
