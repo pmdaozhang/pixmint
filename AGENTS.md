@@ -36,6 +36,7 @@ pnpm smoke:capture
 pnpm smoke:overlay
 pnpm e2e:overlay
 pnpm e2e:pin
+node scripts/soak/real-overlay-soak.cjs
 ```
 
 ## 开发纪律
@@ -47,6 +48,16 @@ pnpm e2e:pin
 - 不修改 `playground/`、`reference/`、`PRD.md`，除非用户明确要求。
 - 每个功能必须配单测或 E2E；提交前至少运行 `pnpm typecheck`、`pnpm test`、`pnpm build`。
 - 文档更新（CHANGELOG + ROADMAP）在验证通过后、Code Review 前完成。
+
+## 资源与长跑验证
+
+- 覆盖层、OCR、录制改动，提交前必须跑真实路径压测；`--smoke-overlay` 假画面只能测功能，不能作为内存结论。
+- 截图按 Esc / 保存 / 复制 / 钉图关闭 / OCR 关闭分别验证；每 50 次采样 renderer private bytes，结束后增长超过 32MB 视为失败。
+- 覆盖层真实路径 300 次：0 失败，p95 ≤ 500ms，private 增长 ≤ 32MB。
+- 录制 3×590 秒：0 失败，无超过 1MB 的临时残留；private 增长 ≤ 64MB；结束后空闲 60 秒复测，工作集只记录不作为唯一判据。
+- 以上预算为默认值，可在具体 feature 文档中调整，但不能取消。
+- 内存测试必须每次使用不同截图；复用同一张图的结果无效。
+- 无法通过应用代码释放的 Chromium 原生内存，必须给出进程重建兜底方案、触发阈值和用户可见代价。
 
 ## 平台约束
 
