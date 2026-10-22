@@ -268,6 +268,20 @@
 - 设置页 E2E：`SETTINGS_E2E_OK`。
 - `pnpm typecheck` 和生产构建通过。
 
+### OverlayApp 第一批拆分（2026-10-22）
+
+#### Changed
+
+- 选区缩放/窗口裁剪几何抽到 `selection-geometry.ts`。
+- 选区外压暗层抽到 `DimAround.tsx`。
+- `OverlayApp.tsx` 从约 1116 行降至约 1064 行，几何逻辑可独立测试。
+
+#### Verified
+
+- 新增 5 个选区几何单测通过。
+- 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 全部通过。
+- sandbox 和生产 CSP 保持不变。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

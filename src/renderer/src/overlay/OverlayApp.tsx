@@ -10,10 +10,18 @@ import type {
   TextAnno,
   Tool
 } from '@shared/types'
-import { dimPanelsFor, normalizeRect } from '@shared/geometry'
+import { normalizeRect } from '@shared/geometry'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from './AnnotationCanvas'
+import { DimAround } from './DimAround'
 import { RecorderBar } from './RecorderBar'
 import { RecorderSession } from './RecorderSession'
+import {
+  MIN_SELECTION,
+  RESIZE_DIRS,
+  clampWindowRect,
+  resizeSelectionRect,
+  type ResizeDir
+} from './selection-geometry'
 import { Toolbar } from './Toolbar'
 import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import './overlay.css'
@@ -27,10 +35,6 @@ type RecordPhase =
   | 'paused'
   | 'encoding'
   | 'result'
-type ResizeDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-
-const MIN_SELECTION = 8
-const RESIZE_DIRS: ResizeDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   mode: 'gif',
   fps: 15,
@@ -38,40 +42,6 @@ const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   countdown: 3,
   mic: true,
   systemAudio: false
-}
-
-/**
- * 背景：框选、待机和录制阶段都需要把选区外压暗。
- * 设计意图：用四块实色矩形替代超大 box-shadow，避免大选区把合成器拖死。
- * 关键约束：只渲染宽高大于 0 的面板，避免创建不可见但参与布局的节点。
- */
-function DimAround({ rect, className }: { rect: Rect; className?: string }): JSX.Element {
-  const panels = dimPanelsFor(rect, {
-    x: 0,
-    y: 0,
-    width: window.innerWidth,
-    height: window.innerHeight
-  })
-  return (
-    <>
-      {(['top', 'left', 'right', 'bottom'] as const).map((key) => {
-        const panel = panels[key]
-        if (panel.width <= 0 || panel.height <= 0) return null
-        return (
-          <div
-            key={key}
-            className={`dim-panel${className ? ` ${className}` : ''}`}
-            style={{
-              left: panel.x,
-              top: panel.y,
-              width: panel.width,
-              height: panel.height
-            }}
-          />
-        )
-      })}
-    </>
-  )
 }
 
 function wait(ms: number): Promise<void> {
@@ -84,54 +54,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
     timer = window.setTimeout(() => reject(new Error(message)), ms)
   })
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer))
-}
-
-function resizeSelectionRect(
-  start: Rect,
-  dir: ResizeDir,
-  dx: number,
-  dy: number,
-  maxWidth: number,
-  maxHeight: number
-): Rect {
-  let left = start.x
-  let top = start.y
-  let right = start.x + start.width
-  let bottom = start.y + start.height
-
-  if (dir.includes('w')) {
-    left = Math.min(Math.max(0, start.x + dx), right - MIN_SELECTION)
-  }
-  if (dir.includes('e')) {
-    right = Math.max(Math.min(maxWidth, start.x + start.width + dx), left + MIN_SELECTION)
-  }
-  if (dir.includes('n')) {
-    top = Math.min(Math.max(0, start.y + dy), bottom - MIN_SELECTION)
-  }
-  if (dir.includes('s')) {
-    bottom = Math.max(Math.min(maxHeight, start.y + start.height + dy), top + MIN_SELECTION)
-  }
-
-  return {
-    x: Math.round(left),
-    y: Math.round(top),
-    width: Math.round(right - left),
-    height: Math.round(bottom - top)
-  }
-}
-
-function clampWindowRect(rect: Rect, bounds: Rect): Rect | null {
-  const x = Math.max(0, rect.x - bounds.x)
-  const y = Math.max(0, rect.y - bounds.y)
-  const right = Math.min(bounds.width, rect.x + rect.width - bounds.x)
-  const bottom = Math.min(bounds.height, rect.y + rect.height - bounds.y)
-  if (right - x < MIN_SELECTION || bottom - y < MIN_SELECTION) return null
-  return {
-    x: Math.round(x),
-    y: Math.round(y),
-    width: Math.round(right - x),
-    height: Math.round(bottom - y)
-  }
 }
 
 export function OverlayApp(): JSX.Element {
