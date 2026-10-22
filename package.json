@@ -22,6 +22,7 @@
     "soak:recording": "node scripts/soak/recording-soak.cjs",
     "soak:real-overlay": "node scripts/soak/real-overlay-soak.cjs",
     "soak:memory": "node scripts/soak/memory-path-soak.cjs",
+    "soak:crash-recovery": "node scripts/soak/crash-recovery.cjs",
     "package": "electron-builder"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ interface OverlayEntry {
   window: BrowserWindow
   displayId: number
   recordingMode: { active: boolean; interactive: boolean } | null
+  rendererGone: boolean
 }
 
 const WARMUP_PNG =
@@ -149,19 +150,29 @@ export class OverlayManager {
    * 关键约束：必须可重入；失败兜底本身不能再触发一轮 UI 操作。
    */
   private failSafe(message: string): void {
-    if (!this.active) return
+    const hadActive = this.active
     console.error('OVERLAY_FAILSAFE', message)
     logDiagnostic('overlay', `FAILSAFE ${message}`)
     this.active = false
     this.endSession()
-    for (const entry of this.entries.values()) {
-      if (entry.window.isDestroyed()) continue
+    for (const [id, entry] of [...this.entries.entries()]) {
+      if (entry.window.isDestroyed()) {
+        this.removeEntry(id)
+        continue
+      }
+      // 先做窗口级清理，再通知渲染层；渲染进程已崩溃时通知会失败。
       entry.window.setIgnoreMouseEvents(true)
       entry.window.setOpacity(0)
-      entry.window.webContents.send('overlay:reset')
+      entry.window.setContentProtection(false)
+      entry.window.hide()
+      this.send(entry, 'overlay:reset')
+      if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
+        entry.window.destroy()
+        this.removeEntry(id)
+      }
     }
     this.captures.clear()
-    this.onAbort(message)
+    if (hadActive) this.onAbort(message)
   }
 
   markRendererReady(webContentsId: number): void {
@@ -206,7 +217,7 @@ export class OverlayManager {
       entry.window.setOpacity(0)
       entry.window.setIgnoreMouseEvents(true)
     }
-    entry.window.webContents.send('overlay:prepare', this.getSettings())
+    this.send(entry, 'overlay:prepare', this.getSettings())
   }
 
   markPrepared(webContentsId: number): void {
@@ -316,7 +327,7 @@ export class OverlayManager {
     entry.window.moveTop()
     entry.window.focus()
     const prepared = this.waitForPrepared(id, 700)
-    entry.window.webContents.send('overlay:init', {
+    this.send(entry, 'overlay:init', {
       ...capture,
       settings: this.getSettings(),
       pendingRecorderMode
@@ -359,13 +370,13 @@ export class OverlayManager {
     entry.window.setOpacity(0)
     entry.window.showInactive()
     const prepared = this.waitForPrepared(id, 700)
-    entry.window.webContents.send('overlay:init', {
+    this.send(entry, 'overlay:init', {
       ...fake,
       settings: this.getSettings()
     })
     await prepared
     if (token !== this.warmupToken || entry.window.isDestroyed()) return
-    entry.window.webContents.send('overlay:reset')
+    this.send(entry, 'overlay:reset')
     entry.window.setOpacity(0)
     entry.window.setIgnoreMouseEvents(true)
     this.captures.delete(id)
@@ -387,16 +398,42 @@ export class OverlayManager {
   hideAll(): void {
     this.warmupToken += 1
     this.endSession()
-    for (const entry of this.entries.values()) {
-      if (!entry.window.isDestroyed()) {
-        entry.window.webContents.send('overlay:reset')
-        entry.window.setContentProtection(false)
-        entry.window.setIgnoreMouseEvents(true)
-        entry.window.setOpacity(0)
+    for (const [id, entry] of [...this.entries.entries()]) {
+      if (entry.window.isDestroyed()) {
+        this.removeEntry(id)
+        continue
+      }
+      entry.window.setContentProtection(false)
+      entry.window.setIgnoreMouseEvents(true)
+      entry.window.setOpacity(0)
+      entry.window.hide()
+      this.send(entry, 'overlay:reset')
+      if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
+        entry.window.destroy()
+        this.removeEntry(id)
       }
     }
     this.captures.clear()
     this.active = false
+  }
+
+  private send(entry: OverlayEntry, channel: string, payload?: unknown): void {
+    if (entry.window.isDestroyed() || entry.window.webContents.isDestroyed()) return
+    try {
+      entry.window.webContents.send(channel, payload)
+    } catch (error) {
+      console.error('OVERLAY_SEND_FAILED', channel, error)
+    }
+  }
+
+  private removeEntry(webContentsId: number): void {
+    const entry = this.entries.get(webContentsId)
+    if (!entry) return
+    this.entries.delete(webContentsId)
+    this.byDisplay.delete(entry.displayId)
+    this.captures.delete(webContentsId)
+    this.rendererReady.delete(webContentsId)
+    this.prepareWaiters.delete(webContentsId)
   }
 
   destroyAll(): void {
@@ -468,13 +505,20 @@ export class OverlayManager {
     }
     const id = window.webContents.id
     disableWindowTransitions(window.getNativeWindowHandle())
-    this.entries.set(id, { window, displayId: display.id, recordingMode: null })
+    this.entries.set(id, {
+      window,
+      displayId: display.id,
+      recordingMode: null,
+      rendererGone: false
+    })
     this.byDisplay.set(display.id, id)
     window.webContents.on('unresponsive', () => {
       this.failSafe('截图界面无响应，已自动退出')
     })
     window.webContents.on('render-process-gone', (_event, details) => {
       console.error('OVERLAY_RENDER_PROCESS_GONE', details.reason, details.exitCode)
+      const entry = this.entries.get(id)
+      if (entry) entry.rendererGone = true
       this.failSafe('截图渲染进程异常退出，已自动清理')
     })
     window.on('closed', () => {
