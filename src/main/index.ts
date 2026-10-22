@@ -104,6 +104,7 @@ const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
 const isOcrFileSmoke = Boolean(ocrFileSmokePath)
+const isSoakOcr = process.argv.includes('--soak-ocr')
 const isDebugTrayMenu = process.argv.includes('--debug-tray-menu')
 
 let settingsStore: SettingsStore
@@ -644,6 +645,61 @@ async function runOcrSmoke(mode: 'ocr' | 'translate' = 'ocr'): Promise<void> {
   }
 }
 
+async function runOcrSoak(): Promise<void> {
+  const rawCount = Number(process.env.PIXMINT_SOAK_OCR_ITERATIONS ?? 100)
+  const count = Number.isFinite(rawCount) ? Math.min(1000, Math.max(1, Math.round(rawCount))) : 100
+  const imagePath = join(app.getAppPath(), 'tests', 'fixtures', 'ocr-word.png')
+  const dataUrl = `data:image/png;base64,${readFileSync(imagePath).toString('base64')}`
+  const durations: number[] = []
+  const memoryBefore = process.memoryUsage()
+  let failures = 0
+  for (let index = 0; index < count; index += 1) {
+    const started = Date.now()
+    try {
+      const result = await recognizeImageDataUrl(dataUrl)
+      if (!result.text.trim()) failures += 1
+    } catch (error) {
+      failures += 1
+      console.error('SOAK_OCR_ITERATION_ERROR', index, error)
+    }
+    durations.push(Date.now() - started)
+    if ((index + 1) % 10 === 0) {
+      console.log('SOAK_OCR_PROGRESS', index + 1, count)
+    }
+  }
+  const memoryAfter = process.memoryUsage()
+  const processes = app.getAppMetrics().map((metric) => ({
+    type: metric.type,
+    pid: metric.pid,
+    cpuPercent: metric.cpu.percentCPUUsage,
+    workingSetKb: metric.memory.workingSetSize
+  }))
+  console.log(
+    'SOAK_OCR_RESULT',
+    JSON.stringify({
+      iterations: count,
+      failures,
+      p50Ms: percentile(durations, 50),
+      p95Ms: percentile(durations, 95),
+      maxMs: durations.length ? Math.max(...durations) : 0,
+      memoryBefore,
+      memoryAfter,
+      processes
+    })
+  )
+  app.exit(failures === 0 ? 0 : 1)
+}
+
+function percentile(values: number[], target: number): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil((target / 100) * sorted.length) - 1)
+  )
+  return sorted[index]
+}
+
 function runPrepareSmoke(): void {
   const display = screen.getPrimaryDisplay()
   const info = {
@@ -676,6 +732,7 @@ if (
   !isPrepareSmoke &&
   !isFastCaptureSmoke &&
   !isOcrFileSmoke &&
+  !isSoakOcr &&
   !isSettingsE2e &&
   !isOnboardingE2e &&
   !app.requestSingleInstanceLock()
@@ -693,6 +750,7 @@ if (
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
+      !isSoakOcr &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath
@@ -704,6 +762,10 @@ if (
   app.whenReady().then(() => {
     if (isOcrFileSmoke) {
       void runOcrFileSmoke(ocrFileSmokePath)
+      return
+    }
+    if (isSoakOcr) {
+      void runOcrSoak()
       return
     }
     initServices()
@@ -791,6 +853,7 @@ if (
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
+      !isSoakOcr &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath

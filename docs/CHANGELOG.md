@@ -67,6 +67,26 @@
 - 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
 - `pnpm build` 主进程、preload 和渲染层均通过。
 
+### 压测工具（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/soak/`：覆盖层、OCR、录制三条压测链路和公共启动/内存/报告模块。
+- 新增 `--soak-ocr` 测试模式，按配置次数循环 OCR 并输出 p50/p95、内存和进程指标。
+- 新增 `soak:overlay`、`soak:ocr`、`soak:recording` 三个 pnpm 命令。
+- 压测报告写入 `test-results/`，已加入 `.gitignore`。
+
+#### Changed
+
+- 覆盖层压测使用 `--smoke-overlay` 假画面，不依赖真实屏幕捕获。
+- 录制压测默认 10 秒，可通过环境变量提升到 590 秒；超过 1MB 的临时残留会使脚本失败。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 4 个压测脚本通过 `node --check` 语法检查。
+- 当前沙箱无法执行真实屏幕捕获和 PowerShell，需要在普通 Windows 交互桌面运行压测。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

@@ -81,6 +81,7 @@
 - [x] 通用 SidecarClient 抽取
 - [x] ScreenCaptureProvider / OcrProvider / WindowProvider 抽取
 - [ ] 平台契约测试
+- [x] 覆盖层/OCR/录制压测脚本
 - [ ] 200 次覆盖层、100 次 OCR、3 次 10 分钟录制压测
 - [ ] CI 双平台矩阵与发版门禁
 

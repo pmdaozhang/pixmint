@@ -48,7 +48,8 @@ flowchart TD
 - [ ] 崩溃报告和诊断包导出为单个压缩包。
 - [x] 通用 SidecarClient 抽取完成。
 - [x] 平台 Provider 抽取完成（Windows 捕获/窗口/OCR）。
-- [ ] 压测脚本覆盖 200 次覆盖层、100 次 OCR、3 次 10 分钟录制。
+- [x] 压测脚本覆盖 200 次覆盖层、100 次 OCR、可配置录制时长。
+- [ ] 压测已在目标 Windows 机器通过并记录结果。
 - [ ] CI 双平台矩阵和发版门禁。
 
 ## 变更记录
@@ -76,6 +77,10 @@ flowchart TD
   - `src/main/platform/index.ts`
   - `src/main/platform/win32/index.ts`
   - `src/main/index.ts`
+  - `scripts/soak/lib.cjs`
+  - `scripts/soak/overlay-soak.cjs`
+  - `scripts/soak/ocr-soak.cjs`
+  - `scripts/soak/recording-soak.cjs`
   - `src/preload/index.ts`
   - `src/shared/api.ts`
   - `src/shared/types.ts`

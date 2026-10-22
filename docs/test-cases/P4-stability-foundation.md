@@ -24,6 +24,9 @@
 | TC-106 | sidecar 响应被拆成多个 chunk | 行缓冲拼接后再解析，不丢请求 |
 | TC-107 | sidecar 返回非法 ID 或缺少分隔符 | 忽略该行，不影响其他请求 |
 | TC-108 | 在未接入的平台启动并触发截图/OCR | 应用可启动，调用真实能力时给出明确的“平台未接入”错误 |
+| TC-109 | 运行 `pnpm soak:overlay` | 生成 `test-results/overlay-*.json`，包含失败、p95、内存和临时文件 |
+| TC-110 | 运行 `pnpm soak:ocr` | 生成 `test-results/ocr-*.json`，失败数为 0 时退出码为 0 |
+| TC-111 | 运行 `pnpm soak:recording` | 生成 `test-results/recording-*.json`，超过 1MB 的临时残留会使脚本失败 |
 
 ## 异常场景
 

@@ -5,6 +5,7 @@ release/
 .DS_Store
 Thumbs.db
 coverage/
+test-results/
 playground/node_modules/
 playground/shots/
 playground/style-samples/

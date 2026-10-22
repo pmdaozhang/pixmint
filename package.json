@@ -16,6 +16,9 @@
     "e2e:overlay": "node e2e-overlay.cjs",
     "e2e:pin": "node e2e-pin.cjs",
     "e2e:recording": "node e2e-recording.cjs",
+    "soak:overlay": "node scripts/soak/overlay-soak.cjs",
+    "soak:ocr": "node scripts/soak/ocr-soak.cjs",
+    "soak:recording": "node scripts/soak/recording-soak.cjs",
     "package": "electron-builder"
   },
   "dependencies": {
