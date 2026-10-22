@@ -1,5 +1,7 @@
 import type { Settings } from './types'
 
+const TRANSLATION_TIMEOUT_MS = 15_000
+
 export interface TranslationRequest {
   url: string
   method: 'GET' | 'POST'
@@ -113,28 +115,42 @@ export function parseMyMemoryTranslation(json: unknown): string {
 async function requestTranslation(
   request: TranslationRequest,
   parse: (json: unknown) => string,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  timeoutMs = TRANSLATION_TIMEOUT_MS
 ): Promise<string> {
-  const response = await fetchImpl(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: request.method === 'POST' ? request.body : undefined
-  })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`翻译请求失败 (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetchImpl(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: request.method === 'POST' ? request.body : undefined,
+      signal: controller.signal
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(
+        `翻译请求失败 (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`
+      )
+    }
+    const json = (await response.json()) as unknown
+    const translated = parse(json)
+    if (!translated) throw new Error('翻译服务没有返回译文')
+    return translated
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('翻译请求超时')
+    throw error
+  } finally {
+    clearTimeout(timer)
   }
-  const json = (await response.json()) as unknown
-  const translated = parse(json)
-  if (!translated) throw new Error('翻译服务没有返回译文')
-  return translated
 }
 
 export async function translateText(
   text: string,
   settings: Settings,
   apiKey: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = TRANSLATION_TIMEOUT_MS
 ): Promise<string> {
   if (!text.trim()) throw new Error('没有可翻译的文字')
   if (settings.translationProvider === 'none') throw new Error('未配置翻译服务')
@@ -146,14 +162,16 @@ export async function translateText(
       return await requestTranslation(
         buildFreeTranslationRequest(text, settings),
         parseFreeTranslation,
-        fetchImpl
+        fetchImpl,
+        timeoutMs
       )
     } catch (firstError) {
       try {
         return await requestTranslation(
           buildMyMemoryTranslationRequest(text, settings),
           parseMyMemoryTranslation,
-          fetchImpl
+          fetchImpl,
+          timeoutMs
         )
       } catch {
         throw firstError
@@ -169,6 +187,7 @@ export async function translateText(
     settings.translationProvider === 'deepl'
       ? parseDeepLTranslation
       : parseOpenAiTranslation,
-    fetchImpl
+    fetchImpl,
+    timeoutMs
   )
 }

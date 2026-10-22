@@ -3,9 +3,14 @@ import { unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { OcrResult } from '../../shared/types'
 import { normalizeOcrText, ocrUpscaleFactor } from '../../shared/text-analysis'
+import { enqueueOcr } from './queue'
 import { recognizeWindows } from './windows'
 
-export async function recognizeImageDataUrl(dataUrl: string): Promise<OcrResult> {
+export function recognizeImageDataUrl(dataUrl: string): Promise<OcrResult> {
+  return enqueueOcr(() => recognizeImageDataUrlNow(dataUrl))
+}
+
+async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
   if (process.platform !== 'win32') {
     throw new Error('P1.0 当前仅接入 Windows 系统 OCR；macOS Vision 后端待实机接入')
   }
