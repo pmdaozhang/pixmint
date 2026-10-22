@@ -208,6 +208,18 @@
 - OCR 100 次压测：0 失败，p50 895ms、p95 952ms、max 1099ms。
 - 真实桌面捕获仍被当前会话拒绝：`Failed to assign the desktop to the current thread: 170`，这是环境权限问题。
 
+### 正常启动截图验证（2026-10-22）
+
+#### Added
+
+- 新增仅用于验证的 `--capture-once` 参数，跳过 smoke 入口，走正常启动、托盘初始化和真实 `startCapture`。
+
+#### Verified
+
+- 正常源码版通过 `--show-settings` 打开可见 Pixmint 窗口，主进程响应正常。
+- `--capture-once` 触发真实截图路径，输出 `CAPTURE_KIND fallback`；系统仍报桌面分配错误，5 秒超时后返回，不再挂死。
+- 最小 Electron 探针和纯 GDI 探针也拿不到像素，确认阻塞点在当前 Windows 桌面会话，不在 Pixmint 截图实现。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

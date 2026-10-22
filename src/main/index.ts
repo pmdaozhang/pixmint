@@ -120,6 +120,7 @@ const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
 const isOcrFileSmoke = Boolean(ocrFileSmokePath)
 const isSoakOcr = process.argv.includes('--soak-ocr')
+const isCaptureOnce = process.argv.includes('--capture-once')
 const isDebugTrayMenu = process.argv.includes('--debug-tray-menu')
 
 let settingsStore: SettingsStore
@@ -790,6 +791,7 @@ if (
   !isFastCaptureSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
+  !isCaptureOnce &&
   !isSettingsE2e &&
   !isOnboardingE2e &&
   !app.requestSingleInstanceLock()
@@ -808,6 +810,7 @@ if (
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
+      !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath
@@ -893,6 +896,11 @@ if (
     }
     overlayManager.prewarm([displayInfo])
     void overlayManager.warmup(displayInfo)
+    if (isCaptureOnce) {
+      setTimeout(() => {
+        void startCapture()
+      }, 1200)
+    }
     console.log(
       'STARTUP_VISIBLE_WINDOWS',
       BrowserWindow.getAllWindows().filter((window) => window.isVisible()).length
@@ -911,6 +919,7 @@ if (
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
+      !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath
