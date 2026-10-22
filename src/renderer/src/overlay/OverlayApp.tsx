@@ -23,6 +23,7 @@ import {
   type ResizeDir
 } from './selection-geometry'
 import { Toolbar } from './Toolbar'
+import { useOverlayImageSession } from './useOverlayImageSession'
 import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import './overlay.css'
 
@@ -57,7 +58,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 export function OverlayApp(): JSX.Element {
-  const [init, setInit] = useState<OverlayInit | null>(null)
   const [selection, setSelection] = useState<Rect | null>(null)
   const [phase, setPhase] = useState<Phase>('selecting')
   const [options, setOptions] = useState<OverlayOptions>(DEFAULT_OPTIONS)
@@ -66,8 +66,6 @@ export function OverlayApp(): JSX.Element {
   const [canRedo, setCanRedo] = useState(false)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  const [preparing, setPreparing] = useState(false)
-  const [imageReady, setImageReady] = useState(false)
   const [hoverRect, setHoverRect] = useState<Rect | null>(null)
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
@@ -78,6 +76,8 @@ export function OverlayApp(): JSX.Element {
   const [countdownNumber, setCountdownNumber] = useState(0)
   // 倒计时结束后先撤掉冻结截图，等合成器提交两帧再真正开录，避免首帧录进截图界面。
   const [captureClean, setCaptureClean] = useState(false)
+  const { init, preparing, imageReady, load: loadSessionImage, clear: clearSessionImage } =
+    useOverlayImageSession()
   const imageRef = useRef<HTMLImageElement | null>(null)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const brushCursorRef = useRef<HTMLDivElement | null>(null)
@@ -88,7 +88,6 @@ export function OverlayApp(): JSX.Element {
   const pendingRecordModeRef = useRef<RecorderMode | null>(null)
   const recordCancelledRef = useRef(false)
   const autoCopiedRef = useRef(false)
-  const initTokenRef = useRef(0)
   const selectionRef = useRef<Rect | null>(null)
   const snapQueryIdRef = useRef(0)
   const lastSnapAtRef = useRef(0)
@@ -137,10 +136,7 @@ export function OverlayApp(): JSX.Element {
     recorderOptionsRef.current = recorderOptions
   }, [recorderOptions])
 
-  const applyInit = useCallback((data: OverlayInit) => {
-    const token = ++initTokenRef.current
-    setPreparing(true)
-    setImageReady(false)
+  const resetUiForInit = useCallback((data: OverlayInit) => {
     updateSelection(null)
     snapQueryIdRef.current += 1
     lastSnapPointRef.current = null
@@ -161,24 +157,16 @@ export function OverlayApp(): JSX.Element {
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
     document.documentElement.dataset.theme = theme
-    // 先把图片解码完再提交 init，保证覆盖层显示时第一帧就是新截图。
-    const image = new Image()
-    const commit = (): void => {
-      if (initTokenRef.current !== token) return
-      setInit(data)
-      setPreparing(false)
-      setImageReady(true)
-    }
-    image.onload = commit
-    image.onerror = commit
-    image.src = data.imageDataUrl
   }, [resetRecorderState, updateSelection])
 
-  const applyPrepare = useCallback((settings: Settings) => {
-    initTokenRef.current += 1
-    setPreparing(true)
-    setImageReady(false)
-    setInit(null)
+  const applyInit = useCallback(
+    (data: OverlayInit) => {
+      loadSessionImage(data, () => resetUiForInit(data))
+    },
+    [loadSessionImage, resetUiForInit]
+  )
+
+  const resetUiForPrepare = useCallback((settings: Settings) => {
     updateSelection(null)
     snapQueryIdRef.current += 1
     lastSnapPointRef.current = null
@@ -201,11 +189,14 @@ export function OverlayApp(): JSX.Element {
     document.documentElement.dataset.theme = theme
   }, [resetRecorderState, updateSelection])
 
-  const applyReset = useCallback(() => {
-    initTokenRef.current += 1
-    setPreparing(false)
-    setImageReady(false)
-    setInit(null)
+  const applyPrepare = useCallback(
+    (settings: Settings) => {
+      clearSessionImage(() => resetUiForPrepare(settings), true)
+    },
+    [clearSessionImage, resetUiForPrepare]
+  )
+
+  const resetUiForReset = useCallback(() => {
     updateSelection(null)
     snapQueryIdRef.current += 1
     lastSnapPointRef.current = null
@@ -223,6 +214,10 @@ export function OverlayApp(): JSX.Element {
     setError('')
     autoCopiedRef.current = false
   }, [resetRecorderState, updateSelection])
+
+  const applyReset = useCallback(() => {
+    clearSessionImage(resetUiForReset, false)
+  }, [clearSessionImage, resetUiForReset])
 
   useEffect(() => {
     const off = window.snapglass.overlay.onInit(applyInit)

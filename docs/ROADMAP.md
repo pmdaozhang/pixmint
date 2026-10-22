@@ -91,7 +91,8 @@
 - [x] 全部窗口 sandbox 开启并通过真实 E2E
 - [x] 生产 CSP 移除开发地址
 - [x] OverlayApp 第一批拆分：选区几何、压暗层、纯函数测试
-- [ ] OverlayApp 会话/选择状态 hook 化
+- [x] OverlayApp 图片会话状态 hook 化
+- [ ] OverlayApp 选择/标注状态 hook 化
 - [x] 覆盖层内存增长定位到 Chromium 原生层（canvas 试验无效）
 - [x] 压测采样 private/shared bytes
 - [x] 1000 次覆盖层长跑确认原生内存线性增长、尚未封顶

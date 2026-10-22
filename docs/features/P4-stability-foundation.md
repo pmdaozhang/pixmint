@@ -62,6 +62,7 @@ flowchart TD
 - [x] 压测报告记录 renderer private/shared bytes，确认增长在 Chromium 私有原生内存。
 - [x] 1000 次长跑确认线性增长；renderer reload 回收无效并撤回。
 - [x] OverlayApp 第一批拆分：几何计算和 DimAround 独立模块 + 5 个单测。
+- [x] OverlayApp 图片会话状态抽入 `useOverlayImageSession`，保留解码令牌和 preparing/imageReady。
 - [x] 所有 BrowserWindow 开启 sandbox，并通过 smoke/设置/覆盖层/贴图 E2E。
 - [x] 生产 CSP 移除开发地址，开发服务器通过插件注入 HMR 地址。
 - [ ] CI 双平台矩阵和发版门禁。
