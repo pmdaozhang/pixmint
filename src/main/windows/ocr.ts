@@ -40,7 +40,7 @@ export class OcrManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     })
     window.setMenuBarVisibility(false)

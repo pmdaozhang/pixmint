@@ -136,4 +136,26 @@ describe('translateText', () => {
     )
     await expect(translateText('Hello', settings, 'bad', fetchMock)).rejects.toThrow('401')
   })
+
+  it('times out a stalled request', async () => {
+    const fetchMock = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal
+          const abort = (): void => reject(new Error('aborted'))
+          if (!signal) return
+          if (signal.aborted) abort()
+          else signal.addEventListener('abort', abort, { once: true })
+        })
+    )
+    await expect(
+      translateText(
+        'Hello',
+        settings,
+        'secret',
+        fetchMock as unknown as typeof fetch,
+        20
+      )
+    ).rejects.toThrow('翻译请求超时')
+  })
 })

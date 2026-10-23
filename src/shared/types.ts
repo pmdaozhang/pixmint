@@ -31,6 +31,7 @@ export type RecorderPhase =
   | 'result'
 
 export interface Settings {
+  schemaVersion?: number
   shortcut: string
   theme: ThemeSetting
   language: Language
@@ -41,6 +42,17 @@ export interface Settings {
   translationModel: string
   translationTarget: 'zh-CN' | 'en-US'
   hasTranslationKey?: boolean
+}
+
+export interface DiagnosticsInfo {
+  version: string
+  platform: string
+  logPath: string
+  crashReportsDir: string
+  crashReportCount: number
+  latestCrashFile: string | null
+  latestCrashAt: string | null
+  safeMode: boolean
 }
 
 export interface DisplayCapture {
@@ -61,7 +73,7 @@ export interface OverlayCompletePayload {
   action: OverlayAction
   displayId: number
   selection: Rect
-  pngDataUrl: string
+  pngBytes: Uint8Array
   autoTranslate?: boolean
 }
 
@@ -71,7 +83,6 @@ export interface OcrResult {
 }
 
 export interface OcrInit extends OcrResult {
-  imageDataUrl: string
   mode: 'ocr' | 'translate'
   autoTranslate: boolean
   settings: Settings
@@ -86,10 +97,18 @@ export interface DictionaryEntry {
 
 export interface PinInit {
   id: string
-  dataUrl: string
+  imageBytes: Uint8Array
   width: number
   height: number
   opacity: number
+}
+
+export interface PinEditLayout {
+  width: number
+  height: number
+  imageWidth: number
+  imageHeight: number
+  toolbarWidth: number
 }
 
 export interface AnnoStyle {

@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && electron-vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --pool=threads --exclude tests/windows-ocr.test.ts",
     "test:watch": "vitest",
     "smoke": "electron . --smoke-test",
     "smoke:capture": "electron . --smoke-capture",
@@ -16,6 +17,12 @@
     "e2e:overlay": "node e2e-overlay.cjs",
     "e2e:pin": "node e2e-pin.cjs",
     "e2e:recording": "node e2e-recording.cjs",
+    "soak:overlay": "node scripts/soak/overlay-soak.cjs",
+    "soak:ocr": "node scripts/soak/ocr-soak.cjs",
+    "soak:recording": "node scripts/soak/recording-soak.cjs",
+    "soak:real-overlay": "node scripts/soak/real-overlay-soak.cjs",
+    "soak:memory": "node scripts/soak/memory-path-soak.cjs",
+    "soak:crash-recovery": "node scripts/soak/crash-recovery.cjs",
     "package": "electron-builder"
   },
   "dependencies": {

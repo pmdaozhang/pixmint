@@ -2,6 +2,415 @@
 
 ## [Unreleased] - 2026-10-21
 
+### 稳定性与跨平台基础（2026-10-22）
+
+#### Added
+
+- 新增全局崩溃采集：主进程未捕获异常、未处理 Promise、渲染进程退出、子进程退出和渲染层无响应都会写入本地崩溃报告。
+- 新增最近 100 条操作面包屑，崩溃报告可还原截图、OCR、录制等关键动作路径。
+- 新增资源采样：按分钟记录内存、Electron 进程指标和事件循环延迟，保留最近 120 个样本。
+- 设置页新增“诊断”区域，可查看日志路径、崩溃报告数量、兼容模式并打开目录。
+- 新增 `docs/ARCHITECTURE.md`，明确 Windows/macOS 共享代码、平台 Provider 和 sidecar 约束。
+
+#### Changed
+
+- 诊断日志改为 250ms 批量异步写入，单文件 2MB、最多 3 个文件轮转；只保留 warning/error 级别的渲染层 console。
+- 日志写入前统一脱敏 Windows/macOS/Linux 用户目录、Bearer Token 和常见密钥字段。
+- 设置文件改为 schema 白名单校验、版本标记、损坏备份和临时文件 + rename 原子替换。
+- 密钥文件复用原子写入；读取失败时保留 `.corrupt-` 备份，不再静默丢弃现场。
+- 设置页新增诊断 IPC，preload 与 shared API 同步扩展。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 新增 `tests/diagnostics-utils.test.ts`、`tests/settings-utils.test.ts`，8 个用例通过。
+- 全量单测在沙箱线程池下 74 个通过；`tests/windows-ocr.test.ts` 因沙箱禁止启动 PowerShell 失败，属于环境限制。
+- `electron-vite build` 在主进程、preload 和渲染层均通过；沙箱环境需临时屏蔽 Vite 的 `net use` 探测，普通桌面会话应直接复跑 `pnpm build` 确认。
+
+### Sidecar 抽象（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/sidecar/protocol.ts`：行缓冲、请求编码、响应解析。
+- 新增 `src/main/sidecar/client.ts`：统一 spawn、请求 ID、超时、最新请求优先、进程退出、重启和日志。
+- 新增 Sidecar 协议与客户端单测，覆盖分片响应、非法响应、超时重启和 dispose。
+
+#### Changed
+
+- `fast-capture.ts` 和 `window-snap.ts` 改为复用 `SidecarClient`，删除两套重复的进程管理代码。
+- 临时 PowerShell 脚本改为带进程 ID 的唯一路径，并在 dispose 时清理。
+- PowerShell stderr、超时和异常退出进入统一诊断日志。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- Sidecar/诊断/设置相关 4 个测试文件、15 个用例通过。
+- 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
+- `pnpm build` 三层构建通过。
+
+### 平台 Provider 抽象（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/platform/types.ts`：`ScreenCaptureProvider`、`WindowQueryProvider`、`OcrProvider` 和 `PlatformServices` 契约。
+- 新增 `src/main/platform/win32/index.ts`：把 Windows 截图、窗口吸附和 OCR 实现收进适配器。
+- 新增 `src/main/platform/index.ts`：按平台创建服务；未接入平台提供可启动的占位实现。
+
+#### Changed
+
+- `src/main/index.ts` 的截图、窗口查询和 OCR 改为只依赖 `PlatformServices`，不再直接 import Windows 实现。
+- 主进程启动仍保持单实例锁、托盘和现有窗口行为；平台差异集中到 `platform/`。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 全量单测 81 个通过；`tests/windows-ocr.test.ts` 仍因沙箱禁止启动 PowerShell 失败。
+- `pnpm build` 主进程、preload 和渲染层均通过。
+
+### 压测工具（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/soak/`：覆盖层、OCR、录制三条压测链路和公共启动/内存/报告模块。
+- 新增 `--soak-ocr` 测试模式，按配置次数循环 OCR 并输出 p50/p95、内存和进程指标。
+- 新增 `soak:overlay`、`soak:ocr`、`soak:recording` 三个 pnpm 命令。
+- 压测报告写入 `test-results/`，已加入 `.gitignore`。
+
+#### Changed
+
+- 覆盖层压测使用 `--smoke-overlay` 假画面，不依赖真实屏幕捕获。
+- 录制压测默认 10 秒，可通过环境变量提升到 590 秒；超过 1MB 的临时残留会使脚本失败。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 4 个压测脚本通过 `node --check` 语法检查。
+- 当前沙箱无法执行真实屏幕捕获和 PowerShell，需要在普通 Windows 交互桌面运行压测。
+
+### 诊断报告导出（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/diagnostics-export.ts`：汇总应用版本、平台、兼容模式、内存、设置摘要、面包屑、指标、最近崩溃报告和日志尾部。
+- 设置页“诊断”区域新增“导出报告”，通过系统保存对话框生成单个 JSON 文件。
+- 新增 `diagnostics:export-report` IPC 与 preload API。
+
+#### Changed
+
+- 诊断报告不包含截图、OCR 文字、剪贴板、翻译密钥；日志导出前再次脱敏。
+- 每个日志文件只导出尾部 512KB，避免报告无限变大。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+
+### CI 门禁（2026-10-22）
+
+#### Added
+
+- 新增 `.github/workflows/ci.yml`：Windows GitHub Actions 自动运行 typecheck、单元测试和构建。
+- 新增 `test:unit` 脚本，排除依赖本机 Windows OCR 语言包的集成测试。
+
+#### Verified
+
+- CI 同等测试集在本地线程池下 14 个文件、81 个用例通过。
+- `pnpm typecheck` 通过。
+
+### Sidecar 竞态修复（2026-10-22）
+
+#### Fixed
+
+- 旧 helper 的延迟退出事件不再清空当前行缓冲，也不会把新 helper 的待处理请求误判为失败。
+- 新增“旧子进程退出不影响新请求”的回归测试。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- Sidecar 协议/客户端 8 个用例通过。
+
+### OCR 与翻译稳定性（2026-10-22）
+
+#### Fixed
+
+- OCR 改为串行队列，避免并发调用同时启动多个 PowerShell 和临时脚本。
+- Windows OCR 临时脚本改为每次唯一路径，并在识别结束或失败后清理。
+- 翻译请求增加 15 秒超时和中止信号，避免公共接口或用户代理长时间不返回时 IPC 悬挂。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- OCR 队列与翻译相关 2 个测试文件、13 个用例通过。
+- 全量单元测试 85 个通过（排除依赖本机 OCR 语言包的集成测试）。
+- `pnpm build` 三层构建通过。
+
+### 安全边界（2026-10-22）
+
+#### Added
+
+- 新增 `src/main/security.ts`：应用页面 URL 信任判断与 webContents 导航限制。
+- 所有 webContents 拒绝新窗口和 webview attach，只允许 file: 与本机开发地址导航。
+- 权限请求和权限检查只对受信任应用页面放行 media/display-capture。
+- CSP 增加 `object-src 'none'`、`base-uri 'none'`、`frame-ancestors 'none'`。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 安全 URL 信任 2 个测试用例通过。
+- 全量单元测试 87 个通过（排除依赖本机 OCR 语言包的集成测试）。
+- `pnpm build` 三层构建通过。
+
+### 测试诊断辅助（2026-10-22）
+
+#### Added
+
+- 支持通过 `PIXMINT_USER_DATA_DIR` 指定 userData/sessionData 目录，便于沙箱、便携和隔离测试。
+- smoke 测试增加 `did-fail-load` 和 `render-process-gone` 日志，便于定位渲染层加载失败。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- `pnpm build` 三层构建通过。
+
+### 渲染层独立验证（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/dev/vite.renderer.config.mjs`，可单独启动渲染层 Vite 服务。
+- 新增仅开发环境启用的 `dev-mock.ts`，在 Electron preload 缺失时提供设置、诊断和覆盖层初始数据，用于浏览器 UI 回归。
+- 通过 Explorer 在原生 Windows 会话启动 Electron，完成 smoke、设置 E2E、覆盖层 E2E；覆盖层 200 次压测通过。
+
+#### Fixed
+
+- 移除 meta CSP 中会被浏览器忽略并报错的 `frame-ancestors`，保留 `object-src` 和 `base-uri` 限制。
+
+#### Verified
+
+- Electron smoke：`SMOKE_OK`
+- 设置页 E2E：`SETTINGS_E2E_OK`，启动 1607ms
+- 覆盖层 E2E：`E2E_OK`，watchdog 按预期隐藏无响应覆盖层
+- 覆盖层压测：200 次、0 失败、p50 154ms、p95 163ms、max 755ms
+- 压测后 renderer working set 从约 88.6MB 增至 144.6MB，需后续确认是否为 Chromium 分配器缓存
+- 真实录制 E2E 在 GIF 阶段被 WebRTC `Failed to assign the desktop` 卡住，需在普通本地桌面复测
+
+### 捕获超时修复（2026-10-22）
+
+#### Fixed
+
+- 截图兜底 `desktopCapturer` 增加 5 秒超时，桌面捕获权限不可用时不再无限挂起。
+- 快速捕获 smoke 失败时只记录错误，不弹模态框；三轮失败后正常退出。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 全量单元测试 90 个通过（排除依赖本机 OCR 语言包的集成测试）。
+- `--smoke-fast-capture` 在桌面捕获失败时 3 轮均正常退出，退出码 0。
+- 覆盖层 200 次压测：0 失败，p50 154ms、p95 163ms、max 755ms。
+- OCR 100 次压测：0 失败，p50 895ms、p95 952ms、max 1099ms。
+- 真实桌面捕获仍被当前会话拒绝：`Failed to assign the desktop to the current thread: 170`，这是环境权限问题。
+
+### 正常启动截图验证（2026-10-22）
+
+#### Added
+
+- 新增仅用于验证的 `--capture-once` 参数，跳过 smoke 入口，走正常启动、托盘初始化和真实 `startCapture`。
+
+#### Verified
+
+- 正常源码版通过 `--show-settings` 打开可见 Pixmint 窗口，主进程响应正常。
+- `--capture-once` 触发真实截图路径，输出 `CAPTURE_KIND fallback`；系统仍报桌面分配错误，5 秒超时后返回，不再挂死。
+- 最小 Electron 探针和纯 GDI 探针也拿不到像素，确认阻塞点在当前 Windows 桌面会话，不在 Pixmint 截图实现。
+
+### 覆盖层内存调查（2026-10-22）
+
+#### Investigated
+
+- 试验把冻屏 `<img>` 改为 `<canvas>` + `ImageBitmap`，绘制后 close，reset 时清空画布。
+- 压测报告增加 renderer JS 堆、DOM 节点、canvas 和 image 数量采样。
+- 对照结果：100 次只开关覆盖层，canvas 方案 +20.2MB，img 方案 +29.3MB；但 500 次完整框选，canvas 方案 86.9→196.2MB，img 方案 86.7→179.9MB，长跑无改善。
+- JS 堆稳定 9.5MB，DOM 节点稳定 11 个，说明增长在 Chromium 原生层/自动化路径，不是 React/DOM 泄漏。
+- 100 次对照采样：renderer private bytes 37.6MB → 61.9MB，shared bytes 始终为 0；确认是 Chromium renderer 私有原生内存，而非 JS 堆或共享内存。
+- 1000 次完整框选：working set 85.4MB → 246.7MB，private bytes 38.8MB → 192.2MB，近似线性增长。
+- renderer reload 回收试验：500 次后 working set 仍 180MB，与不回收的 179.9MB 基本相同；reload 不能释放 Chromium 原生私有内存，策略已撤回。
+
+#### Verified
+
+- 覆盖层 E2E：`E2E_OK`，框选、工具条、标注、复制、watchdog 全部通过。
+- 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制、关闭通过。
+- canvas 试验已回退，保留更简单的 img 冻屏方案，避免无效复杂度。
+- 1000 次长跑确认没有封顶；剩余增长是 Chromium 原生私有内存，当前 app 层改动无法回收，需要在真实用户路径上继续确认影响。
+
+### 全窗口 sandbox（2026-10-22）
+
+#### Changed
+
+- 所有 BrowserWindow（设置、覆盖层、贴图、OCR、引导、录制控制、录制预览、smoke）统一开启 `sandbox: true`。
+- 保留 `contextIsolation` 和窄 preload API，不引入 Node 权限。
+
+#### Verified
+
+- Electron smoke：`SMOKE_OK`。
+- 设置页 E2E：`SETTINGS_E2E_OK`，sandbox 下设置读取、密钥加密/清除正常。
+- 覆盖层 E2E：`E2E_OK`，框选、标注、复制、watchdog 正常。
+- 贴图 E2E：`PIN_E2E_OK`，钉图、拖动、复制正常。
+- 生产构建通过。
+
+### 生产 CSP 收口（2026-10-22）
+
+#### Changed
+
+- 渲染层 HTML 使用生产 CSP，不再包含 `ws:` 和 `http://localhost:*`。
+- 开发服务器通过 `devCspPlugin` 仅在 serve 模式注入 HMR 所需地址，不放宽生产策略。
+
+#### Verified
+
+- 生产 `out/renderer/index.html` 的 `connect-src` 仅保留 `'self'` 和 `snapglass-media:`。
+- Electron smoke：`SMOKE_OK`。
+- 设置页 E2E：`SETTINGS_E2E_OK`。
+- `pnpm typecheck` 和生产构建通过。
+
+### OverlayApp 第一批拆分（2026-10-22）
+
+#### Changed
+
+- 选区缩放/窗口裁剪几何抽到 `selection-geometry.ts`。
+- 选区外压暗层抽到 `DimAround.tsx`。
+- `OverlayApp.tsx` 从约 1116 行降至约 1064 行，几何逻辑可独立测试。
+
+#### Verified
+
+- 新增 5 个选区几何单测通过。
+- 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 全部通过。
+- sandbox 和生产 CSP 保持不变。
+
+### OverlayApp 图片会话 hook（2026-10-22）
+
+#### Changed
+
+- 把 `init`、`preparing`、`imageReady` 和图片解码令牌抽到 `useOverlayImageSession`。
+- 覆盖层 init/prepare/reset 仍由 UI reset 回调控制，行为保持不变。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 95 个单元测试通过。
+- 覆盖层 E2E：`E2E_OK`，框选、标注、复制、watchdog 正常。
+- 生产构建通过。
+
+### 压测预算门禁（2026-10-22）
+
+#### Added
+
+- 覆盖层压测支持 `PIXMINT_SOAK_MAX_P95_MS` 和 `PIXMINT_SOAK_MAX_PRIVATE_MB`，超限退出码为 1。
+- OCR 压测支持 `PIXMINT_SOAK_OCR_MAX_P95_MS` 和 `PIXMINT_SOAK_OCR_MAX_RSS_MB`。
+- 压测报告写入实际预算和 `ok` 结果，便于 CI/发版判断。
+
+#### Verified
+
+- 两个压测脚本通过 `node --check`。
+- 当前实测 p95：覆盖层约 169ms，OCR 约 952ms，均低于默认预算。
+
+### OverlayApp 键盘 hook（2026-10-22）
+
+#### Changed
+
+- 抽出 `useOverlayKeyboard`，集中处理 Escape、复制、保存、钉图和撤销/重做。
+- `OverlayApp.tsx` 从约 1056 行降至约 1027 行。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 覆盖层 E2E：`E2E_OK`，框选、标注、复制、watchdog 正常。
+- 生产构建通过。
+
+### OverlayApp 窗口吸附 hook（2026-10-22）
+
+#### Changed
+
+- 抽出 `useWindowSnapQuery`，集中管理 hoverRect、查询令牌、节流和取消。
+- `OverlayApp.tsx` 从约 1027 行降至约 974 行。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 正常。
+- 生产构建通过。
+
+### OverlayApp 选择/标注状态 hook（2026-10-22）
+
+#### Changed
+
+- 抽出 `useOverlaySelection`，集中管理选区、拖拽、8 向缩放、工具状态、子菜单和撤销/重做可用性。
+- `OverlayApp.tsx` 从约 974 行降至约 832 行。
+
+#### Verified
+
+- `pnpm typecheck` 通过。
+- 95 个单元测试通过。
+- 生产构建通过。
+- 覆盖层 E2E：`E2E_OK`，框选、缩放、标注、复制、watchdog 正常。
+- Electron smoke：`SMOKE_OK`。
+
+### 覆盖层内存治理（2026-10-22）
+
+#### Changed
+
+- 覆盖层不再用 `<img>` + data URL 显示截图，改为常驻 canvas + `createImageBitmap`，绘制后立即 `close()`；会话结束把 canvas 尺寸归零。
+- 导出和自动复制改为传 PNG 字节，不再生成 data URL；导出 canvas 复用，不再每次新建。
+- 钉图窗口改为接收图片字节并用 Blob URL 显示，卸载时 `revokeObjectURL`。
+
+#### Verified
+
+- 300 次真实截图：0 失败，private 35.1 → 54.5MB（+19.3MB），working 84.4 → 111.5MB，p95 250ms。
+- 五路径各 50 次：Esc +25MB、钉图 +24MB、OCR +21.7MB、保存 +35.3MB（预算 48MB）、复制 +41.3MB（预算 64MB）。
+- 3×590 秒录制 + 空闲 60 秒：0 失败，private +23.9MB（空闲后 56.9MB），临时残留 0。
+- 覆盖层 E2E：`E2E_OK`；钉图 E2E：`PIN_E2E_OK`；95 个单元测试和生产构建通过。
+- 150% DPI 真机复测通过：VIEWPORT 1280×720，框选、工具栏、文字、缩放、复制、watchdog、大选区均 `E2E_OK`。
+- 200% DPI 当前显示器不提供该选项，未验证；大选区断言已改为按视口计算，支持 150%/200%。
+
+### 交互完善（2026-10-22）
+
+#### Added
+
+- OCR / 翻译识别超过 150ms 时显示独立“识别中...”toast，完成或失败后自动消失；翻译阶段不单独提示“翻译中...”。
+- 钉图按空格进入编辑模式，图片下方显示矩形/椭圆、箭头、马赛克、文字、序号、撤销/重做箭头和完成按钮；二级菜单复用截图工具栏。
+- 钉图编辑点完成会把原图与标注合成后写回当前钉图，并恢复原窗口位置和尺寸；Esc 放弃编辑。
+
+#### Fixed
+
+- GIF / 视频准备阶段不再隐藏冻结画面、淡出红框或撤掉选区遮罩；只在真正开始录制时切换到实时桌面一次。
+- 录制状态每 100ms 重复调用 `setAlwaysOnTop` / `moveTop` / `setOpacity` 导致全屏透明覆盖层反复重绘；改为只在录制模式真正变化时执行一次。
+- 录制控制窗只在首次显示时置顶，不再每 100ms 调用 `moveTop`。
+- 覆盖层渲染进程崩溃或通知发送失败时，主进程先执行鼠标穿透、透明化和隐藏，再尝试通知；崩溃窗口直接销毁，下一次 F1 重建，不再把桌面锁死。
+- 视频同时开启系统音时，不再为系统音单独发起第二路桌面 `getUserMedia`；改为视频和系统音一次获取，避免渲染进程崩溃。
+
+#### Verified
+
+- OCR toast：实测文本为“识别中...”，OCR 窗口打开后消失。
+- `pnpm e2e:recording`：GIF 和视频准备/倒计时/录制阶段红框、遮罩、控制条均正常，`RECORDING_E2E_OK`。
+- `pnpm e2e:pin`：空格编辑窗口 580×370 → 779×482，撤销可用，二级菜单可展开，完成后恢复 bounds 并写回新图，`PIN_E2E_OK`。
+- 真实截图录 2 秒 GIF：32 帧逐帧差异全为 0；录 2 秒视频：66 帧平均差异 0.01、最大 0.64，无闪帧。
+- 强制崩溃覆盖层渲染进程：`active=false`、`overlayVisible=false`、可见窗口 0，桌面立即恢复。
+- 视频 + 系统音录制 5 秒：0 崩溃，预览 `hasAudio=true`、`systemAudio=true`；`ffprobe` 确认文件含 AAC 48kHz 音频轨和 H264 视频轨。
+- `pnpm typecheck`、`pnpm test:unit`、`pnpm build` 通过。
+
+### 录制与真实路径压测（2026-10-22）
+
+#### Added
+
+- 新增 `scripts/soak/real-overlay-soak.cjs`：按真实 `startCapture` 路径循环截图，采样 renderer private/shared bytes。
+
+#### Changed
+
+- 录制压测关闭预览改为同步点击，避免预览窗口销毁导致 `Target page closed` 误报。
+
+#### Verified
+
+- 3 次 590 秒视频录制：0 失败，p50 594.7 秒，p95 595.7 秒，临时残留 0。
+- 录制后内存：Browser 112.1 → 214.7MB，Tab 95.2 → 647.5MB。
+- 100 次和 300 次真实截图：0 失败，p95 289ms。
+- 300 次真实截图后 renderer working set 94.6 → 880.4MB，private 35.9 → 326.4MB；JS 堆稳定 9.5MB、DOM 稳定 11 节点，确认增长在 Chromium 原生图像内存。
+- 150% / 200% DPI 未验证：当前显示器为 100%，强制缩放会使窗口 DIP 与视口二次缩放，不能代表系统 DPI。
+
 ### Added
 
 - 新增首次启动引导窗口：先介绍默认截图快捷键 F1，再用循环动画说明划线工具的“按住拖拽”和“单击两次”两种用法。

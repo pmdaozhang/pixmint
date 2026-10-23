@@ -10,6 +10,7 @@ import type {
   RecorderState,
   RecorderStatePatch,
   Settings,
+  DiagnosticsInfo,
   VideoDoneMeta
 } from '../shared/types'
 
@@ -39,7 +40,7 @@ const api: SnapglassApi = {
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),
-    autoCopy: (pngDataUrl: string) => ipcRenderer.send('overlay:auto-copy', pngDataUrl),
+    autoCopy: (pngBytes: Uint8Array) => ipcRenderer.send('overlay:auto-copy', pngBytes),
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')
   },
@@ -54,7 +55,9 @@ const api: SnapglassApi = {
     dragStart: () => ipcRenderer.send('pin:drag-start'),
     dragMove: (dx: number, dy: number) => ipcRenderer.send('pin:drag-move', dx, dy),
     dragEnd: () => ipcRenderer.send('pin:drag-end'),
-    contextMenu: () => ipcRenderer.send('pin:context-menu')
+    contextMenu: () => ipcRenderer.send('pin:context-menu'),
+    setEditMode: (active: boolean) => ipcRenderer.invoke('pin:set-edit-mode', active),
+    commitEdit: (imageBytes: Uint8Array) => ipcRenderer.invoke('pin:commit-edit', imageBytes)
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
@@ -118,6 +121,15 @@ const api: SnapglassApi = {
   app: {
     platform: process.platform,
     version: () => ipcRenderer.invoke('app:version')
+  },
+  diagnostics: {
+    info: () => ipcRenderer.invoke('diagnostics:info') as Promise<DiagnosticsInfo>,
+    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<string>,
+    openCrashFolder: () =>
+      ipcRenderer.invoke('diagnostics:open-crash-folder') as Promise<string>,
+    flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
+    exportReport: () =>
+      ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
   }
 }
 

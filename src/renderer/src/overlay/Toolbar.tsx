@@ -26,6 +26,8 @@ interface Props {
   onRedo(): void
   canUndo: boolean
   canRedo: boolean
+  variant?: 'overlay' | 'pin'
+  onConfirm?: () => void
 }
 
 const ARROW_MODES: Array<{ value: ArrowMode; label: string }> = [
@@ -309,7 +311,9 @@ export function Toolbar({
   onUndo,
   onRedo,
   canUndo,
-  canRedo
+  canRedo,
+  variant = 'overlay',
+  onConfirm
 }: Props): JSX.Element {
   const widthKey = options.tool === 'shape' ? 'shape' : options.tool === 'arrow' ? 'arrow' : 'pen'
   const setBrushSize = (value: number): void => {
@@ -383,37 +387,46 @@ export function Toolbar({
           <Icon name="redo" />
         </button>
         <span className="div" />
-        <button className="act" title="识别选区文字" onClick={() => onAction('ocr')}>
-          <Icon name="ocr" size={16} />
-          识别
-        </button>
-        <button className="act" title="识别并翻译" onClick={() => onAction('translate')}>
-          <Icon name="translate" size={16} />
-          翻译
-        </button>
-        <button className="tb tb-gif" title="录制 GIF" onClick={() => onAction('gif')}>
-          <Icon name="gif" />
-        </button>
-        <button className="tb" title="录制视频" onClick={() => onAction('video')}>
-          <Icon name="video" />
-        </button>
-        <span className="div" />
-        <button className="act" onClick={() => onAction('close')}>
-          <Icon name="close" size={16} />
-          关闭
-        </button>
-        <button className="act" onClick={() => onAction('pin')}>
-          <Icon name="pin" size={16} />
-          钉图
-        </button>
-        <button className="act" onClick={() => onAction('save')}>
-          <Icon name="save" size={16} />
-          保存
-        </button>
-        <button className="act" onClick={() => onAction('copy')}>
-          <Icon name="copy" size={16} />
-          复制
-        </button>
+        {variant === 'pin' ? (
+          <button className="act" title="完成编辑" onClick={onConfirm}>
+            <Icon name="check" size={16} />
+            完成
+          </button>
+        ) : (
+          <>
+            <button className="act" title="识别选区文字" onClick={() => onAction('ocr')}>
+              <Icon name="ocr" size={16} />
+              识别
+            </button>
+            <button className="act" title="识别并翻译" onClick={() => onAction('translate')}>
+              <Icon name="translate" size={16} />
+              翻译
+            </button>
+            <button className="tb tb-gif" title="录制 GIF" onClick={() => onAction('gif')}>
+              <Icon name="gif" />
+            </button>
+            <button className="tb" title="录制视频" onClick={() => onAction('video')}>
+              <Icon name="video" />
+            </button>
+            <span className="div" />
+            <button className="act" onClick={() => onAction('close')}>
+              <Icon name="close" size={16} />
+              关闭
+            </button>
+            <button className="act" onClick={() => onAction('pin')}>
+              <Icon name="pin" size={16} />
+              钉图
+            </button>
+            <button className="act" onClick={() => onAction('save')}>
+              <Icon name="save" size={16} />
+              保存
+            </button>
+            <button className="act" onClick={() => onAction('copy')}>
+              <Icon name="copy" size={16} />
+              复制
+            </button>
+          </>
+        )}
       </div>
 
       {submenuOpen && <div className="submenu-divider" />}

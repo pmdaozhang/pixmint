@@ -5,13 +5,16 @@ import {
   useRef,
   useState
 } from 'react'
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  RefObject
+} from 'react'
 import type {
   Annotation,
   AnnoStyle,
   LineAnno,
   MosaicAnno,
-  OverlayInit,
   Point,
   Rect,
   TextAnno
@@ -36,7 +39,10 @@ export interface AnnotationCanvasHandle {
 }
 
 interface Props {
-  init: OverlayInit
+  imageWidth: number
+  imageHeight: number
+  bounds: Rect
+  imageCanvasRef: RefObject<HTMLCanvasElement | null>
   selection: Rect
   options: OverlayOptions
   onTextInputStart(annotation?: TextAnno): void
@@ -52,7 +58,19 @@ interface TextDraft {
 }
 
 export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
-  function AnnotationCanvas({ init, selection, options, onTextInputStart, onHistoryChange }, ref) {
+  function AnnotationCanvas(
+    {
+      imageWidth,
+      imageHeight,
+      bounds,
+      imageCanvasRef,
+      selection,
+      options,
+      onTextInputStart,
+      onHistoryChange
+    },
+    ref
+  ) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
     const annotationsRef = useRef<Annotation[]>([])
@@ -231,43 +249,36 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
      */
     useEffect(() => {
       backgroundCanvasRef.current = null
-      let cancelled = false
-      const image = new Image()
-      image.src = init.imageDataUrl
-      image.onload = () => {
-        if (cancelled) return
-        const scaleX = init.imageWidth / init.bounds.width
-        const scaleY = init.imageHeight / init.bounds.height
-        const width = Math.max(1, Math.round(selection.width))
-        const height = Math.max(1, Math.round(selection.height))
-        const offscreen = document.createElement('canvas')
-        offscreen.width = width
-        offscreen.height = height
-        const offCtx = offscreen.getContext('2d')
-        if (!offCtx) return
-        offCtx.drawImage(
-          image,
-          selection.x * scaleX,
-          selection.y * scaleY,
-          selection.width * scaleX,
-          selection.height * scaleY,
-          0,
-          0,
-          width,
-          height
-        )
-        backgroundCanvasRef.current = offscreen
-        redraw()
-      }
-      return () => {
-        cancelled = true
-      }
+      const source = imageCanvasRef.current
+      if (!source || !source.width || !source.height) return
+      const scaleX = imageWidth / bounds.width
+      const scaleY = imageHeight / bounds.height
+      const width = Math.max(1, Math.round(selection.width))
+      const height = Math.max(1, Math.round(selection.height))
+      const offscreen = document.createElement('canvas')
+      offscreen.width = width
+      offscreen.height = height
+      const offCtx = offscreen.getContext('2d')
+      if (!offCtx) return
+      offCtx.drawImage(
+        source,
+        selection.x * scaleX,
+        selection.y * scaleY,
+        selection.width * scaleX,
+        selection.height * scaleY,
+        0,
+        0,
+        width,
+        height
+      )
+      backgroundCanvasRef.current = offscreen
+      redraw()
     }, [
-      init.imageDataUrl,
-      init.imageWidth,
-      init.imageHeight,
-      init.bounds.width,
-      init.bounds.height,
+      imageCanvasRef,
+      imageWidth,
+      imageHeight,
+      bounds.width,
+      bounds.height,
       selection.x,
       selection.y,
       selection.width,

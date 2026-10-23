@@ -173,8 +173,10 @@ export class RecorderManager {
         this.state.phase === 'paused' ||
         this.state.phase === 'encoding'
       ) {
-        if (!this.controlWindow.isVisible()) this.controlWindow.showInactive()
-        this.controlWindow.moveTop()
+        if (!this.controlWindow.isVisible()) {
+          this.controlWindow.showInactive()
+          this.controlWindow.moveTop()
+        }
       } else {
         this.controlWindow.hide()
       }
@@ -517,7 +519,7 @@ export class RecorderManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         backgroundThrottling: false
       }
     })
@@ -593,7 +595,7 @@ export class RecorderManager {
         preload: this.preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         // 结果卡失焦后仍要继续播放 GIF 动图，不能被 Chromium 后台节流暂停。
         backgroundThrottling: false
       }

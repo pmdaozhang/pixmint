@@ -1,8 +1,9 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Rect } from '../shared/types'
+import { logDiagnostic } from './diagnostics'
+import { SidecarClient } from './sidecar/client'
 
 const CAPTURE_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
@@ -55,27 +56,54 @@ while ($true) {
 }
 `
 
-interface PendingCapture {
-  id: number
-  resolve: (dataUrl: string | null) => void
-  timer: NodeJS.Timeout
+let scriptPath = ''
+
+function captureScriptPath(): string {
+  if (scriptPath) return scriptPath
+  scriptPath = join(tmpdir(), `snapglass-fast-capture-${process.pid}.ps1`)
+  writeFileSync(scriptPath, CAPTURE_SCRIPT, 'utf8')
+  return scriptPath
+}
+
+function removeCaptureScript(): void {
+  if (!scriptPath) return
+  try {
+    if (existsSync(scriptPath)) unlinkSync(scriptPath)
+  } catch {
+    // 临时脚本清理失败不应影响退出
+  }
+  scriptPath = ''
 }
 
 /**
- * Windows GDI 截屏助手。desktopCapturer 单次调用固定要 0.6-0.8 秒，
- * 这里用常驻 PowerShell 进程 + CopyFromScreen，单次约 150-300ms。
+ * 背景：desktopCapturer 单次调用固定要 0.6-0.8 秒，F1 需要更快的冻结画面。
+ * 设计意图：保留常驻 PowerShell + GDI CopyFromScreen，但把进程生命周期交给通用 SidecarClient。
+ * 关键约束：request 会取消旧请求；超时返回 null，由调用方回退到 desktopCapturer。
  */
 export class FastCapture {
-  private process: ChildProcessWithoutNullStreams | null = null
-  private buffer = ''
-  private pending: PendingCapture | null = null
-  private nextId = 1
   private warmed = false
   private disposed = false
+  private readonly client = new SidecarClient({
+    name: 'fast-capture',
+    launch: () => ({
+      command: 'powershell.exe',
+      args: [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        captureScriptPath()
+      ]
+    }),
+    defaultTimeoutMs: 900,
+    onLog: (message) => logDiagnostic('fast-capture', message, 'warn')
+  })
 
   prewarm(): void {
     if (this.disposed) return
-    this.ensureStarted()
+    this.client.ensureStarted()
     void this.capture({ x: 0, y: 0, width: 1, height: 1 }, 2000).then((dataUrl) => {
       this.warmed = Boolean(dataUrl)
     })
@@ -83,114 +111,22 @@ export class FastCapture {
 
   async capture(rect: Rect, timeout?: number): Promise<string | null> {
     if (this.disposed) return null
-    this.ensureStarted()
-    if (!this.process?.stdin.writable) return null
-
-    const previous = this.pending
-    if (previous) {
-      clearTimeout(previous.timer)
-      previous.resolve(null)
-      this.pending = null
-    }
-
-    const id = this.nextId++
-    return new Promise((resolve) => {
-      const effectiveTimeout = timeout ?? (this.warmed ? 450 : 900)
-      const timer = setTimeout(() => {
-        if (this.pending?.id === id) {
-          this.pending = null
-          this.restart()
-        }
-        resolve(null)
-      }, effectiveTimeout)
-      this.pending = { id, resolve, timer }
-      try {
-        const x = Math.round(rect.x)
-        const y = Math.round(rect.y)
-        const width = Math.round(rect.width)
-        const height = Math.round(rect.height)
-        this.process?.stdin.write(`${id},${x},${y},${width},${height}\n`)
-      } catch {
-        this.finish(id, null)
-      }
-    })
+    const x = Math.round(rect.x)
+    const y = Math.round(rect.y)
+    const width = Math.round(rect.width)
+    const height = Math.round(rect.height)
+    const payload = await this.client.request(
+      `${x},${y},${width},${height}`,
+      timeout ?? (this.warmed ? 450 : 900)
+    )
+    if (!payload || payload === 'ERROR') return null
+    return `data:image/png;base64,${payload}`
   }
 
   dispose(): void {
     this.disposed = true
-    if (this.pending) {
-      clearTimeout(this.pending.timer)
-      this.pending.resolve(null)
-      this.pending = null
-    }
-    this.process?.kill()
-    this.process = null
-  }
-
-  private ensureStarted(): void {
-    if (this.process || this.disposed) return
-    try {
-      const scriptPath = join(tmpdir(), 'snapglass-fast-capture.ps1')
-      writeFileSync(scriptPath, CAPTURE_SCRIPT, 'utf8')
-      const child = spawn(
-        'powershell.exe',
-        [
-          '-NoLogo',
-          '-NoProfile',
-          '-NonInteractive',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-File',
-          scriptPath
-        ],
-        { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
-      )
-      child.stdout.setEncoding('utf8')
-      child.stdout.on('data', (chunk: string) => this.onData(chunk))
-      child.stderr.on('data', () => {})
-      child.on('exit', () => {
-        if (this.process === child) this.process = null
-        if (this.pending) {
-          clearTimeout(this.pending.timer)
-          const { resolve } = this.pending
-          this.pending = null
-          resolve(null)
-        }
-      })
-      this.process = child
-    } catch {
-      this.process = null
-    }
-  }
-
-  private restart(): void {
-    this.process?.kill()
-    this.process = null
-    this.buffer = ''
-  }
-
-  private onData(chunk: string): void {
-    this.buffer += chunk
-    const lines = this.buffer.split(/\r?\n/)
-    this.buffer = lines.pop() ?? ''
-    for (const raw of lines) {
-      const line = raw.trim()
-      if (!line) continue
-      const separator = line.indexOf('|')
-      if (separator < 0) continue
-      const id = Number(line.slice(0, separator))
-      const payload = line.slice(separator + 1)
-      if (!this.pending || this.pending.id !== id) continue
-      this.finish(id, payload === 'ERROR' ? null : `data:image/png;base64,${payload}`)
-    }
-  }
-
-  private finish(id: number, dataUrl: string | null): void {
-    if (!this.pending || this.pending.id !== id) return
-    clearTimeout(this.pending.timer)
-    const { resolve } = this.pending
-    this.pending = null
-    resolve(dataUrl)
+    this.client.dispose()
+    removeCaptureScript()
   }
 }
 

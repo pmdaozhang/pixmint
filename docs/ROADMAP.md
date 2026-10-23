@@ -38,7 +38,7 @@
 - [ ] OPUS-MT 本地翻译模型（en↔zh 量化 ONNX，网络/模型待下载）
 - [ ] PaddleOCR 模型接入
 - [ ] macOS Vision OCR
-- [ ] ECDICT 数据随包分发
+- [ ] ECDICT 数据随包分发（当前 OCR 窗口无词典入口，需先恢复单词卡）
 
 ## P2 GIF 录制
 
@@ -50,7 +50,8 @@
 - [x] `gifenc` Worker 逐帧量化（调色板两遍法）
 - [x] 独立控制条、预览、保存、首帧 PNG 复制
 - [x] 录制中保留红框与 `REC` 徽章，边框画在选区外侧
-- [ ] 150% / 200% DPI 真机复测
+- [x] 150% DPI 真机复测（E2E_OK，VIEWPORT 1280×720）
+- [ ] 200% DPI 复测（当前显示器不提供 200% 选项）
 
 ## P3 视频录制
 
@@ -66,6 +67,53 @@
 - [x] 托盘 / F4 入口
 - [ ] macOS ScreenCaptureKit 实机验证
 - [ ] 系统音平台兼容性复测
+
+## P4 稳定性与跨平台基础
+
+状态：开发中
+
+- [x] 全局崩溃采集、本地崩溃报告和最近操作面包屑
+- [x] 诊断日志批量写入、分级、轮转和脱敏
+- [x] 内存/CPU/事件循环资源采样
+- [x] 设置与密钥 schema 校验、损坏备份、原子写入
+- [x] 设置页诊断入口
+- [x] 架构文档与跨平台依赖规则
+- [x] 单文件 JSON 诊断报告导出
+- [x] 通用 SidecarClient 抽取
+- [x] ScreenCaptureProvider / OcrProvider / WindowProvider 抽取
+- [ ] 平台契约测试
+- [x] 覆盖层/OCR/录制压测脚本
+- [x] 200 次覆盖层压测通过（0 失败，p95 163ms）
+- [x] 100 次 OCR 压测通过（0 失败，p95 952ms）
+- [x] 3 次 10 分钟录制压测（0 失败，p50 594.7s）
+- [x] 覆盖层/OCR 压测 p95 与内存预算门禁
+- [x] Windows CI：typecheck + unit + build
+- [ ] CI 双平台矩阵与发版门禁
+- [x] 外部导航/新窗口/webview 限制
+- [x] 全部窗口 sandbox 开启并通过真实 E2E
+- [x] 生产 CSP 移除开发地址
+- [x] OverlayApp 第一批拆分：选区几何、压暗层、纯函数测试
+- [x] OverlayApp 图片会话状态 hook 化
+- [x] OverlayApp 键盘快捷键 hook 化
+- [x] OverlayApp 窗口吸附查询 hook 化
+- [x] OverlayApp 选择/标注状态 hook 化
+- [x] 覆盖层内存增长定位到 Chromium 原生层（canvas 试验无效）
+- [x] 压测采样 private/shared bytes
+- [x] 1000 次覆盖层长跑确认原生内存线性增长、尚未封顶
+- [x] renderer reload 回收试验无效并撤回
+- [x] 在真实用户路径确认内存增长是否影响长时间驻留（300 次真实截图线性增长）
+- [x] 真实截图路径内存增长治理（修复后 300 次 private +19.3MB，p95 250ms）
+- [x] 五路径内存回归（Esc / 保存 / 复制 / 钉图 / OCR）
+- [x] 内存门禁接入 CI 快速压测与发版检查单
+
+## P5 交互完善
+
+状态：已实现
+
+- [x] OCR / 翻译识别中 toast，翻译阶段不重复提示
+- [x] GIF / 视频准备阶段红框、遮罩、冻结画面稳定，不再闪烁
+- [x] 钉图空格进入编辑，复用截图工具栏和二级菜单
+- [x] 对勾写回编辑后的钉图并恢复窗口，Esc 放弃编辑
 
 ## 跨平台验证
 

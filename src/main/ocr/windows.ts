@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -48,32 +48,49 @@ $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
 `
 
 function scriptPath(): string {
-  return join(tmpdir(), 'snapglass-windows-ocr.ps1')
+  return join(tmpdir(), `snapglass-windows-ocr-${process.pid}-${Date.now()}.ps1`)
 }
 
 export async function recognizeWindows(imagePath: string): Promise<OcrResult> {
   const path = scriptPath()
   writeFileSync(path, WINDOWS_OCR_SCRIPT, 'utf8')
-  const { stdout } = await execFileAsync(
-    'powershell.exe',
-    ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path, '-ImagePath', imagePath],
-    { windowsHide: true, timeout: 60000, maxBuffer: 20 * 1024 * 1024 }
-  )
-  const encoded = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .pop()
-  if (!encoded) throw new Error('Windows OCR did not return data')
-  const decoded = Buffer.from(encoded, 'base64').toString('utf8')
-  const parsed = JSON.parse(decoded) as {
-    text?: string
-    lines?: string[] | string
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path,
+        '-ImagePath',
+        imagePath
+      ],
+      { windowsHide: true, timeout: 60000, maxBuffer: 20 * 1024 * 1024 }
+    )
+    const encoded = stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop()
+    if (!encoded) throw new Error('Windows OCR did not return data')
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8')
+    const parsed = JSON.parse(decoded) as {
+      text?: string
+      lines?: string[] | string
+    }
+    const lines = Array.isArray(parsed.lines)
+      ? parsed.lines
+      : parsed.lines
+        ? [parsed.lines]
+        : []
+    return { text: parsed.text ?? '', lines }
+  } finally {
+    try {
+      unlinkSync(path)
+    } catch {
+      // 临时脚本清理失败不影响识别结果
+    }
   }
-  const lines = Array.isArray(parsed.lines)
-    ? parsed.lines
-    : parsed.lines
-      ? [parsed.lines]
-      : []
-  return { text: parsed.text ?? '', lines }
 }

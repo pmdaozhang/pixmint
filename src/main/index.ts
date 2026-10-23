@@ -10,9 +10,10 @@ import {
   protocol,
   screen,
   session,
+  shell,
   Tray
 } from 'electron'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
@@ -26,9 +27,7 @@ import type {
   Settings,
   VideoDoneMeta
 } from '../shared/types'
-import { captureDisplay, captureDisplayFast, captureDisplays } from './capture'
-import { fastCapture } from './fast-capture'
-import { copyImage, imageFromDataUrl, notify, saveImage } from './image-utils'
+import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from './image-utils'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
 import { createTray } from './tray'
@@ -36,15 +35,32 @@ import { OverlayManager } from './windows/overlay'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
 import { WindowSnapHelper } from './window-snap'
+import { createPlatformServices, type PlatformServices } from './platform'
 import { createSettingsWindow } from './windows/settings-window'
 import { createOnboardingWindow } from './windows/onboarding-window'
 import { loadRoute } from './windows/load'
+import { StatusToast } from './windows/status-toast'
 import { FAKE_SCREEN_PNG } from './test-fixture'
 import { recognizeImageDataUrl } from './ocr'
 import { translateText } from '../shared/translation'
 import { RecorderManager } from './recording'
 import { enableSafeMode, hasUncleanSession, safeModeRequested } from './safe-mode'
-import { diagnosticsPath, logDiagnostic } from './diagnostics'
+import { addBreadcrumb } from './breadcrumbs'
+import {
+  crashReportsDirectory,
+  getCrashReportSummary,
+  installCrashHandlers
+} from './crash-report'
+import {
+  ensureDiagnosticsDirectory,
+  diagnosticsPath,
+  flushDiagnosticsSync,
+  logDiagnostic
+} from './diagnostics'
+import { writeDiagnosticsExport } from './diagnostics-export'
+import { installWebContentsSecurity, isTrustedAppUrl } from './security'
+import { withTimeout } from '../shared/async'
+import { startMetricsSampling, stopMetricsSampling } from './metrics'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -58,11 +74,29 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 
+/**
+ * 背景：沙箱/便携环境可能禁止写 AppData，但测试和现场诊断仍需要 userData。
+ * 设计意图：允许通过环境变量显式指定数据目录，不改变默认安装行为。
+ * 关键约束：必须在读取 safe-mode、settings、diagnostics 之前设置；目录不可写时仍交给上层报错。
+ */
+const userDataOverride = process.env.PIXMINT_USER_DATA_DIR?.trim()
+if (userDataOverride) {
+  mkdirSync(userDataOverride, { recursive: true })
+  app.setPath('userData', userDataOverride)
+  app.setPath('sessionData', userDataOverride)
+}
+
 const hadUncleanSession = hasUncleanSession()
 if (hadUncleanSession) {
   enableSafeMode('上次截图/录制会话未正常结束')
 }
 const safeModeThisRun = safeModeRequested() || hadUncleanSession
+installCrashHandlers()
+addBreadcrumb('app', 'boot', {
+  safeMode: safeModeThisRun,
+  platform: process.platform,
+  arch: process.arch
+})
 if (process.platform === 'win32') {
   // MediaRecorder 的硬件 H.264 编码在部分 NVIDIA 驱动上会卡死整个桌面；
   // 软件编码牺牲一点 CPU，换取录制不再把系统拖入无响应。
@@ -84,8 +118,11 @@ const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
+const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
 const isOcrFileSmoke = Boolean(ocrFileSmokePath)
+const isSoakOcr = process.argv.includes('--soak-ocr')
+const isCaptureOnce = process.argv.includes('--capture-once')
 const isDebugTrayMenu = process.argv.includes('--debug-tray-menu')
 
 let settingsStore: SettingsStore
@@ -95,6 +132,7 @@ let pinManager: PinManager
 let ocrManager: OcrManager
 let recorderManager: RecorderManager
 let windowSnap: WindowSnapHelper
+let platformServices: PlatformServices
 let tray: Tray | null = null
 let preloadPath = ''
 let overlayReadyCount = 0
@@ -147,6 +185,7 @@ function registerShortcut(settings: Settings): void {
 
 async function startCapture(mode?: RecorderMode): Promise<void> {
   const triggered = Date.now()
+  addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot' })
   if (!overlayManager) return
   ocrManager?.closeAll()
   if (recorderManager?.isRecordingSession()) return
@@ -164,10 +203,20 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
       scaleFactor: display.scaleFactor
     })
     const started = Date.now()
-    const fast = await captureDisplayFast(display)
+    const fast = await platformServices.capture.captureFast(display)
     console.log('CAPTURE_KIND', fast ? 'fast' : 'fallback')
-    const capture = fast ?? (await captureDisplay(display))
+    const capture =
+      fast ??
+      (await withTimeout(
+        platformServices.capture.captureDisplay(display),
+        5000,
+        '截图超时，请检查屏幕录制权限'
+      ))
     console.log('CAPTURE_MS', Date.now() - started)
+    addBreadcrumb('capture', 'captured', {
+      fast: Boolean(fast),
+      durationMs: Date.now() - started
+    })
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     tray?.closeContextMenu()
     await overlayManager.start(capture, mode)
@@ -175,7 +224,12 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
   } catch (error) {
     overlayManager?.hideAll()
     const message = error instanceof Error ? error.message : String(error)
-    dialog.showErrorBox('截图失败', message)
+    addBreadcrumb('capture', 'failed', { message })
+    if (isFastCaptureSmoke) {
+      console.error('CAPTURE_FAILED', message)
+    } else {
+      dialog.showErrorBox('截图失败', message)
+    }
   }
 }
 
@@ -183,10 +237,14 @@ async function handleOverlayComplete(
   payload: OverlayCompletePayload,
   capture: DisplayCapture
 ): Promise<void> {
-  const image = imageFromDataUrl(payload.pngDataUrl)
+  const image = imageFromBytes(payload.pngBytes)
   if (image.isEmpty()) return
+  addBreadcrumb('action', payload.action, {
+    width: payload.selection.width,
+    height: payload.selection.height
+  })
   if (payload.action === 'copy') {
-    copyImage(payload.pngDataUrl)
+    copyImageBytes(payload.pngBytes)
     notify('已复制到剪贴板')
     return
   }
@@ -197,18 +255,23 @@ async function handleOverlayComplete(
       filters: [{ name: 'PNG 图片', extensions: ['png'] }]
     })
     if (!result.canceled && result.filePath) {
-      saveImage(payload.pngDataUrl, result.filePath)
+      saveImageBytes(payload.pngBytes, result.filePath)
       notify(`已保存：${result.filePath}`)
     }
     return
   }
   if (payload.action === 'ocr') {
+    let toastTimer: ReturnType<typeof setTimeout> | null = null
     try {
-      notify('正在识别文字…')
-      const result = await recognizeImageDataUrl(payload.pngDataUrl)
+      // 快速识别不闪 toast；超过 150ms 才提示，避免短任务频繁闪窗。
+      toastTimer = setTimeout(() => statusToast.show('识别中...'), 150)
+      const result = await platformServices.ocr.recognizeDataUrl(
+        imageFromBytes(payload.pngBytes).toDataURL()
+      )
+      if (toastTimer) clearTimeout(toastTimer)
+      statusToast.hide()
       const settings = settingsStore.get()
       ocrManager.open({
-        imageDataUrl: payload.pngDataUrl,
         text: result.text,
         lines: result.lines,
         mode: payload.autoTranslate ? 'translate' : 'ocr',
@@ -217,13 +280,15 @@ async function handleOverlayComplete(
         hasTranslationKey: secretStore.hasTranslationKey()
       })
     } catch (error) {
+      if (toastTimer) clearTimeout(toastTimer)
+      statusToast.hide()
       const message = error instanceof Error ? error.message : String(error)
       dialog.showErrorBox('OCR 失败', message)
     }
     return
   }
   if (payload.action === 'pin') {
-    pinManager.create(payload.pngDataUrl, payload.selection.width, payload.selection.height, {
+    pinManager.create(payload.pngBytes, payload.selection.width, payload.selection.height, {
       x: capture.bounds.x + payload.selection.x,
       y: capture.bounds.y + payload.selection.y
     })
@@ -250,13 +315,13 @@ function registerIpc(): void {
     const pointY = Number(y)
     if (!Number.isFinite(pointX) || !Number.isFinite(pointY)) return null
     const physical = screen.dipToScreenPoint({ x: pointX, y: pointY })
-    const rect = await windowSnap.query(physical.x, physical.y)
+    const rect = await platformServices.windowQuery.query(physical.x, physical.y)
     if (!rect) return null
     return screen.screenToDipRect(null, rect)
   })
-  ipcMain.on('overlay:auto-copy', (event, pngDataUrl: string) => {
+  ipcMain.on('overlay:auto-copy', (event, pngBytes: Uint8Array) => {
     if (!overlayManager.captureFor(event.sender.id)) return
-    const image = imageFromDataUrl(pngDataUrl)
+    const image = imageFromBytes(pngBytes)
     if (!image.isEmpty()) clipboard.writeImage(image)
   })
   ipcMain.on('overlay:complete', (event, payload: OverlayCompletePayload) => {
@@ -306,6 +371,12 @@ function registerIpc(): void {
     pinManager.copy(event.sender.id)
   })
   ipcMain.handle('pin:save', (event) => pinManager.save(event.sender.id))
+  ipcMain.handle('pin:set-edit-mode', (event, active: boolean) =>
+    pinManager.setEditMode(event.sender.id, active)
+  )
+  ipcMain.handle('pin:commit-edit', (event, imageBytes: Uint8Array) =>
+    pinManager.commitEdit(event.sender.id, imageBytes)
+  )
   ipcMain.handle('pin:set-opacity', (event, value: number) =>
     pinManager.setOpacity(event.sender.id, value)
   )
@@ -338,6 +409,44 @@ function registerIpc(): void {
   ipcMain.on('settings:open-window', () => createSettingsWindow(preloadPath))
 
   ipcMain.handle('app:version', () => app.getVersion())
+
+  ipcMain.handle('diagnostics:info', () => {
+    const summary = getCrashReportSummary()
+    return {
+      version: app.getVersion(),
+      platform: process.platform,
+      logPath: diagnosticsPath(),
+      crashReportsDir: crashReportsDirectory(),
+      crashReportCount: summary.count,
+      latestCrashFile: summary.latestFile,
+      latestCrashAt: summary.latestAt,
+      safeMode: safeModeRequested()
+    }
+  })
+  ipcMain.handle('diagnostics:open-log-folder', () =>
+    shell.openPath(ensureDiagnosticsDirectory())
+  )
+  ipcMain.handle('diagnostics:open-crash-folder', () => {
+    const dir = crashReportsDirectory()
+    mkdirSync(dir, { recursive: true })
+    return shell.openPath(dir)
+  })
+  ipcMain.handle('diagnostics:flush', () => {
+    flushDiagnosticsSync()
+  })
+  ipcMain.handle('diagnostics:export-report', async () => {
+    const result = await dialog.showSaveDialog({
+      title: '导出诊断报告',
+      defaultPath: join(
+        app.getPath('documents'),
+        `Pixmint-diagnostics-${formatStamp()}.json`
+      ),
+      filters: [{ name: 'JSON 诊断报告', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    writeDiagnosticsExport(result.filePath, settingsStore.get())
+    return result.filePath
+  })
 
   ipcMain.handle('ocr:ready', (event) => ocrManager.initFor(event.sender.id))
   ipcMain.on('ocr:close', (event) => ocrManager.close(event.sender.id))
@@ -373,6 +482,7 @@ function initServices(): void {
   pinManager = new PinManager(preloadPath)
   ocrManager = new OcrManager(preloadPath, () => createSettingsWindow(preloadPath))
   windowSnap = new WindowSnapHelper()
+  platformServices = createPlatformServices(windowSnap)
   overlayManager = new OverlayManager(
     preloadPath,
     () => settingsStore.get(),
@@ -391,11 +501,17 @@ function initServices(): void {
     hideRecordingOverlay: (id) => overlayManager.hideRecordingOverlay(id),
     hideOverlay: () => overlayManager.hideAll()
   })
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+    if (!isTrustedAppUrl(contents.getURL())) {
+      callback(false)
+      return
+    }
     callback(permission === 'media' || permission === 'display-capture')
   })
-  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media'
+  session.defaultSession.setPermissionCheckHandler((contents, permission, requestingOrigin) => {
+    if (!contents || !isTrustedAppUrl(requestingOrigin || contents.getURL())) return false
+    const name = String(permission)
+    return name === 'media' || name === 'display-capture'
   })
   protocol.handle('snapglass-media', (request) => {
     const url = new URL(request.url)
@@ -405,14 +521,19 @@ function initServices(): void {
     }
     return net.fetch(pathToFileURL(filePath).toString())
   })
-  fastCapture.prewarm()
-  windowSnap.prewarm()
+  platformServices.capture.prewarm()
+  platformServices.windowQuery.prewarm()
   registerIpc()
   applySystemSettings()
   app.on('web-contents-created', (_event, contents) => {
+    installWebContentsSecurity(contents)
     contents.on('console-message', (event) => {
-      logDiagnostic('renderer', `${event.level}: ${event.message}`)
-      if (event.level === 'error') console.error('RENDERER_ERROR', event.message)
+      // 高频 info 日志会放大磁盘和主进程开销，只保留 warning/error 作为诊断信号。
+      if (event.level === 'error') {
+        logDiagnostic('renderer', `${event.level}: ${event.message}`, 'error')
+      } else if (event.level === 'warning') {
+        logDiagnostic('renderer', `${event.level}: ${event.message}`, 'warn')
+      }
     })
   })
   logDiagnostic('main', `Pixmint ${app.getVersion()} started`)
@@ -441,7 +562,7 @@ function runSmokeTest(): void {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
   let failed = false
@@ -450,6 +571,14 @@ function runSmokeTest(): void {
       failed = true
       console.error('SMOKE_CONSOLE', event.message)
     }
+  })
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    failed = true
+    console.error('SMOKE_LOAD_FAIL', code, description, url)
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    failed = true
+    console.error('SMOKE_RENDER_GONE', details.reason, details.exitCode)
   })
   window.webContents.once('did-finish-load', () => {
     setTimeout(() => {
@@ -466,7 +595,11 @@ function runSmokeTest(): void {
 
 async function runCaptureSmoke(): Promise<void> {
   try {
-    const captures = await captureDisplays()
+    const captures = await withTimeout(
+      platformServices.capture.captureAll(),
+      8000,
+      '屏幕捕获超时，请检查屏幕录制权限'
+    )
     console.log('SMOKE_CAPTURES', captures.length)
     overlayReadyCount = 0
     overlayManager.prewarm(
@@ -571,7 +704,6 @@ async function runOcrSmoke(mode: 'ocr' | 'translate' = 'ocr'): Promise<void> {
     console.log('OCR_SMOKE_TEXT', result.text)
     const settings = settingsStore.get()
     ocrManager.open({
-      imageDataUrl: dataUrl,
       text: result.text,
       lines: result.lines,
       mode,
@@ -583,6 +715,61 @@ async function runOcrSmoke(mode: 'ocr' | 'translate' = 'ocr'): Promise<void> {
     console.error('OCR_SMOKE_ERROR', error)
     app.exit(1)
   }
+}
+
+async function runOcrSoak(): Promise<void> {
+  const rawCount = Number(process.env.PIXMINT_SOAK_OCR_ITERATIONS ?? 100)
+  const count = Number.isFinite(rawCount) ? Math.min(1000, Math.max(1, Math.round(rawCount))) : 100
+  const imagePath = join(app.getAppPath(), 'tests', 'fixtures', 'ocr-word.png')
+  const dataUrl = `data:image/png;base64,${readFileSync(imagePath).toString('base64')}`
+  const durations: number[] = []
+  const memoryBefore = process.memoryUsage()
+  let failures = 0
+  for (let index = 0; index < count; index += 1) {
+    const started = Date.now()
+    try {
+      const result = await recognizeImageDataUrl(dataUrl)
+      if (!result.text.trim()) failures += 1
+    } catch (error) {
+      failures += 1
+      console.error('SOAK_OCR_ITERATION_ERROR', index, error)
+    }
+    durations.push(Date.now() - started)
+    if ((index + 1) % 10 === 0) {
+      console.log('SOAK_OCR_PROGRESS', index + 1, count)
+    }
+  }
+  const memoryAfter = process.memoryUsage()
+  const processes = app.getAppMetrics().map((metric) => ({
+    type: metric.type,
+    pid: metric.pid,
+    cpuPercent: metric.cpu.percentCPUUsage,
+    workingSetKb: metric.memory.workingSetSize
+  }))
+  console.log(
+    'SOAK_OCR_RESULT',
+    JSON.stringify({
+      iterations: count,
+      failures,
+      p50Ms: percentile(durations, 50),
+      p95Ms: percentile(durations, 95),
+      maxMs: durations.length ? Math.max(...durations) : 0,
+      memoryBefore,
+      memoryAfter,
+      processes
+    })
+  )
+  app.exit(failures === 0 ? 0 : 1)
+}
+
+function percentile(values: number[], target: number): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil((target / 100) * sorted.length) - 1)
+  )
+  return sorted[index]
 }
 
 function runPrepareSmoke(): void {
@@ -617,6 +804,8 @@ if (
   !isPrepareSmoke &&
   !isFastCaptureSmoke &&
   !isOcrFileSmoke &&
+  !isSoakOcr &&
+  !isCaptureOnce &&
   !isSettingsE2e &&
   !isOnboardingE2e &&
   !app.requestSingleInstanceLock()
@@ -634,6 +823,8 @@ if (
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
+      !isSoakOcr &&
+      !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath
@@ -645,6 +836,10 @@ if (
   app.whenReady().then(() => {
     if (isOcrFileSmoke) {
       void runOcrFileSmoke(ocrFileSmokePath)
+      return
+    }
+    if (isSoakOcr) {
+      void runOcrSoak()
       return
     }
     initServices()
@@ -688,6 +883,7 @@ if (
       runSmokeTest()
       return
     }
+    startMetricsSampling()
     tray = createTray({
       onCapture: () => {
         void startCapture()
@@ -714,6 +910,11 @@ if (
     }
     overlayManager.prewarm([displayInfo])
     void overlayManager.warmup(displayInfo)
+    if (isCaptureOnce) {
+      setTimeout(() => {
+        void startCapture()
+      }, 1200)
+    }
     console.log(
       'STARTUP_VISIBLE_WINDOWS',
       BrowserWindow.getAllWindows().filter((window) => window.isVisible()).length
@@ -731,6 +932,8 @@ if (
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
       !isOcrFileSmoke &&
+      !isSoakOcr &&
+      !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
       preloadPath
@@ -740,15 +943,18 @@ if (
   })
 
   app.on('before-quit', () => {
+    addBreadcrumb('app', 'before-quit')
+    statusToast.hide()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()
     recorderManager?.destroyAll()
     overlayManager?.destroyAll()
-    fastCapture.dispose()
-    windowSnap?.dispose()
+    platformServices.dispose()
     tray?.destroy()
     tray = null
+    stopMetricsSampling()
+    flushDiagnosticsSync()
   })
 
   app.on('window-all-closed', () => {

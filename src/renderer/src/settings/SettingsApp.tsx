@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import type { Settings, ThemeSetting } from '@shared/types'
+import type { DiagnosticsInfo, Settings, ThemeSetting } from '@shared/types'
 import { Icon } from '../components/Icon'
 import './settings.css'
 
@@ -51,6 +51,7 @@ function BrandMark(): JSX.Element {
 export function SettingsApp(): JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [version, setVersion] = useState('')
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsInfo | null>(null)
   const [toast, setToast] = useState('')
   const [translationKey, setTranslationKey] = useState('')
 
@@ -66,6 +67,11 @@ export function SettingsApp(): JSX.Element {
     ])
     setSettings(nextSettings)
     setVersion(nextVersion)
+    try {
+      setDiagnostics(await window.snapglass.diagnostics.info())
+    } catch (error) {
+      console.warn('DIAGNOSTICS_INFO_FAILED', error)
+    }
     applyTheme(nextSettings.theme)
   }
 
@@ -310,9 +316,86 @@ export function SettingsApp(): JSX.Element {
           </div>
         </section>
 
+        {diagnostics && (
+          <section className="card">
+            <div className="card-title">
+              <Icon name="folder" size={16} />
+              诊断
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>诊断日志</strong>
+                <span className="path-text">{diagnostics.logPath}</span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    const filePath = await window.snapglass.diagnostics.exportReport()
+                    if (filePath) flash('诊断报告已导出')
+                  }}
+                >
+                  导出报告
+                </button>
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.flush()
+                    await window.snapglass.diagnostics.openLogFolder()
+                    flash('已打开日志目录')
+                  }}
+                >
+                  打开目录
+                </button>
+              </div>
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>崩溃报告</strong>
+                <span>
+                  {diagnostics.crashReportCount} 份
+                  {diagnostics.latestCrashAt
+                    ? ` · 最近 ${new Date(diagnostics.latestCrashAt).toLocaleString()}`
+                    : ''}
+                </span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.openCrashFolder()
+                    flash('已打开崩溃报告目录')
+                  }}
+                >
+                  打开目录
+                </button>
+              </div>
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>兼容模式</strong>
+                <span>
+                  {diagnostics.safeMode ? '已启用（上次会话异常退出）' : '未启用'}
+                </span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.flush()
+                    flash('诊断日志已写入')
+                  }}
+                >
+                  立即写入日志
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         <footer className="settings-footer">
           <span>Pixmint v{version} · {window.snapglass.app.platform}</span>
-          <span>P0 + P1</span>
+          <span>P0–P4</span>
         </footer>
       </div>
 
