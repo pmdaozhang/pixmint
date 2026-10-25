@@ -87,6 +87,7 @@ export function OverlayApp(): JSX.Element {
     submenuOpen,
     canUndo,
     canRedo,
+    selectionDragging,
     selectionRef,
     resetSelection,
     setOptions,
@@ -638,7 +639,11 @@ export function OverlayApp(): JSX.Element {
 
   return (
     <div
-      className={`overlay-root${recorderModeActive ? ' recording' : ''}`}
+      className={`overlay-root${phase === 'selecting' ? ' selecting' : ''}${
+        selectionDragging ? ' dragging-selection' : ''
+      }${
+        recorderModeActive ? ' recording' : ''
+      }`}
       onPointerDown={onSelectDown}
       onPointerMove={onSelectMove}
       onPointerUp={onSelectUp}
@@ -714,6 +719,8 @@ export function OverlayApp(): JSX.Element {
                 imageCanvasRef={imageCanvasRef}
                 selection={selection}
                 options={options}
+                selectionDragging={selectionDragging}
+                moveCursor="grab"
                 onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
               />

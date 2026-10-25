@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 
 export type IconName =
+  | 'move'
   | 'shape'
   | 'arrow'
   | 'mosaic'
@@ -26,6 +27,12 @@ export type IconName =
   | 'volume'
 
 const paths: Record<IconName, JSX.Element> = {
+  move: (
+    <>
+      <path d="M12 3v5M12 16v5M3 12h5M16 12h5" />
+      <circle cx="12" cy="12" r="2.2" />
+    </>
+  ),
   shape: (
     <>
       <rect x="3.5" y="5.5" width="12.5" height="10" rx="1.5" />

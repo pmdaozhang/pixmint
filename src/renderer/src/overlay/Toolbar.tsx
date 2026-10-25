@@ -345,6 +345,13 @@ export function Toolbar({
     <div className="tooldock glass-2">
       <div className="row1">
         <ToolButton
+          tool="move"
+          current={options.tool}
+          icon={<Icon name="move" />}
+          label="移动选区"
+          onClick={onToolClick}
+        />
+        <ToolButton
           tool="shape"
           current={options.tool}
           icon={<Icon name="shape" />}

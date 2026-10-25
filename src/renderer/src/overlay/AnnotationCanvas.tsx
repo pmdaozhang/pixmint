@@ -45,6 +45,8 @@ interface Props {
   imageCanvasRef: RefObject<HTMLCanvasElement | null>
   selection: Rect
   options: OverlayOptions
+  selectionDragging?: boolean
+  moveCursor?: 'grab' | 'crosshair'
   onTextInputStart(annotation?: TextAnno): void
   onHistoryChange(canUndo: boolean, canRedo: boolean): void
 }
@@ -66,6 +68,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       imageCanvasRef,
       selection,
       options,
+      selectionDragging = false,
+      moveCursor = 'crosshair',
       onTextInputStart,
       onHistoryChange
     },
@@ -96,12 +100,16 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
 
     const dpr = window.devicePixelRatio || 1
     sizeRef.current = { width: selection.width, height: selection.height }
+    const moveToolCursor =
+      moveCursor === 'grab' ? (selectionDragging ? 'grabbing' : 'grab') : 'crosshair'
     const defaultCursor =
-      options.tool === 'text' || options.tool === 'seq'
-        ? 'text'
-        : options.tool === 'mosaic' && options.mosaicMode === 'brush'
-          ? 'none'
-          : 'crosshair'
+      options.tool === 'move'
+        ? moveToolCursor
+        : options.tool === 'text' || options.tool === 'seq'
+          ? 'text'
+          : options.tool === 'mosaic' && options.mosaicMode === 'brush'
+            ? 'none'
+            : 'crosshair'
     const defaultCursorRef = useRef(defaultCursor)
     defaultCursorRef.current = defaultCursor
     const cursorRef = useRef(defaultCursor)
@@ -115,7 +123,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
 
     useEffect(() => {
       updateCursor(defaultCursorRef.current)
-    }, [options.tool, options.mosaicMode])
+    }, [options.tool, options.mosaicMode, selectionDragging])
 
     useEffect(() => {
       if (!textDraft) return
@@ -314,6 +322,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     }
 
     const cursorForPoint = (point: Point): string => {
+      if (options.tool === 'move') return moveToolCursor
       if (options.tool === 'mosaic' && options.mosaicMode === 'brush') return 'none'
       if (options.tool === 'text') return hitIndex(point, 'text') >= 0 ? 'move' : 'text'
       if (options.tool === 'seq') return 'text'
@@ -337,6 +346,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     }
 
     const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+      if (options.tool === 'move') return
       if (event.button !== 0) return
       event.currentTarget.setPointerCapture(event.pointerId)
       const point = pointFromEvent(event)
@@ -438,6 +448,10 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     }
 
     const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+      if (options.tool === 'move') {
+        updateCursor(moveToolCursor)
+        return
+      }
       const point = pointFromEvent(event)
       if (movingRef.current) {
         const moving = movingRef.current
@@ -522,6 +536,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     }
 
     const handlePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+      if (options.tool === 'move') return
       try {
         event.currentTarget.releasePointerCapture(event.pointerId)
       } catch {

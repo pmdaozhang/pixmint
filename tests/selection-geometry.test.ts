@@ -3,6 +3,7 @@ import {
   MIN_SELECTION,
   RESIZE_DIRS,
   clampWindowRect,
+  moveSelectionRect,
   resizeSelectionRect
 } from '../src/renderer/src/overlay/selection-geometry'
 
@@ -35,6 +36,30 @@ describe('overlay selection geometry', () => {
   it('exposes all eight resize directions', () => {
     expect(RESIZE_DIRS).toHaveLength(8)
     expect(new Set(RESIZE_DIRS).size).toBe(8)
+  })
+
+  it('moves a selection without changing its size', () => {
+    expect(moveSelectionRect(start, 30, -20, 1920, 1080)).toEqual({
+      x: 130,
+      y: 80,
+      width: 200,
+      height: 100
+    })
+  })
+
+  it('clamps a moved selection inside the viewport', () => {
+    expect(moveSelectionRect(start, -500, -500, 1920, 1080)).toEqual({
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100
+    })
+    expect(moveSelectionRect(start, 5000, 5000, 1920, 1080)).toEqual({
+      x: 1720,
+      y: 980,
+      width: 200,
+      height: 100
+    })
   })
 
   it('clamps a window rect into the display and rejects tiny intersections', () => {

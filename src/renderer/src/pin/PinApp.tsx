@@ -113,6 +113,12 @@ export function PinApp(): JSX.Element {
 
   const onToolClick = useCallback(
     (tool: Tool): void => {
+      if (tool === 'move') {
+        annotationRef.current?.cancelInteraction()
+        setOptions((previous) => ({ ...previous, tool }))
+        setSubmenuOpen(false)
+        return
+      }
       if (options.tool === tool) {
         setSubmenuOpen((open) => !open)
         return

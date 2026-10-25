@@ -25,6 +25,14 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   const windows = app.windows()
   const pinWindow = pin ?? windows[windows.length - 1]
   await pinWindow.waitForSelector('.pin-root', { timeout: 8000 })
+  const pinAlwaysOnTop = await app.evaluate(({ BrowserWindow }) => {
+    const candidate = BrowserWindow.getAllWindows().find(
+      (window) => window.isVisible() && window.webContents.getURL().includes('pin')
+    )
+    return candidate ? candidate.isAlwaysOnTop() : false
+  })
+  console.log('PIN_ALWAYS_ON_TOP', pinAlwaysOnTop)
+  if (!pinAlwaysOnTop) throw new Error('pin window is not always on top')
   const imageSrc = await pinWindow.locator('.pin-image').getAttribute('src')
   const imageLoaded = await pinWindow
     .locator('.pin-image')
@@ -48,6 +56,21 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await pinWindow.mouse.move(60, 60)
   await pinWindow.mouse.down()
   await pinWindow.mouse.move(140, 110, { steps: 5 })
+  const pinDragging = await pinWindow.locator('.pin-root').evaluate((element) => ({
+    className: element.className,
+    cursor: getComputedStyle(element).cursor
+  }))
+  const pinPointCursor = await pinWindow.evaluate(() => {
+    const element = document.elementFromPoint(140, 110)
+    return element ? getComputedStyle(element).cursor : null
+  })
+  console.log('PIN_DRAGGING_CURSOR', pinDragging, 'PIN_POINT_CURSOR', pinPointCursor)
+  if (!pinDragging.className.includes('dragging') || pinDragging.cursor !== 'grabbing') {
+    throw new Error('pin drag should keep the grabbing cursor on the root')
+  }
+  if (pinPointCursor !== 'grabbing') {
+    throw new Error('pin drag should keep the grabbing cursor under the pointer')
+  }
   await pinWindow.mouse.up()
   await new Promise((resolve) => setTimeout(resolve, 250))
   const after = await app.evaluate(({ BrowserWindow }) => {

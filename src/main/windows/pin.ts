@@ -70,7 +70,14 @@ export class PinManager {
         sandbox: true
       }
     })
-    window.setAlwaysOnTop(true, 'floating')
+    const keepOnTop = (): void => {
+      if (window.isDestroyed()) return
+      window.setAlwaysOnTop(true, 'screen-saver')
+      window.moveTop()
+    }
+    keepOnTop()
+    window.on('blur', keepOnTop)
+    window.on('show', keepOnTop)
     const id = window.webContents.id
     const state: PinState = {
       window,

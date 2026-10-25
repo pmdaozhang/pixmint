@@ -55,8 +55,9 @@
   justify-content: flex-start;
 }
 
-.pin-root.dragging .pin-image {
-  cursor: grabbing;
+.pin-root.dragging,
+.pin-root.dragging * {
+  cursor: grabbing !important;
 }
 
 .pin-actions {

@@ -5,12 +5,13 @@ import {
   type PointerEvent as ReactPointerEvent
 } from 'react'
 import type { Rect, TextAnno, Tool } from '../../../shared/types'
-import { normalizeRect } from '../../../shared/geometry'
+import { normalizeRect, pointInRect } from '../../../shared/geometry'
 import type { AnnotationCanvasHandle } from './AnnotationCanvas'
 import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import {
   MIN_SELECTION,
   RESIZE_DIRS,
+  moveSelectionRect,
   resizeSelectionRect,
   type ResizeDir
 } from './selection-geometry'
@@ -38,6 +39,7 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
   const [submenuOpen, setSubmenuOpen] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [selectionDragging, setSelectionDragging] = useState(false)
   const selectionRef = useRef<Rect | null>(null)
   const dragRef = useRef<{
     startX: number
@@ -52,6 +54,12 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     moved: false,
     hover: null
   })
+  const selectionDragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    startRect: Rect
+  } | null>(null)
 
   const updateSelection = useCallback((next: Rect | null) => {
     selectionRef.current = next
@@ -65,6 +73,8 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     setSubmenuOpen(false)
     setCanUndo(false)
     setCanRedo(false)
+    selectionDragRef.current = null
+    setSelectionDragging(false)
   }, [updateSelection])
 
   const point = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
@@ -92,7 +102,28 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
   }
 
   const onSelectDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (phase === 'editing' || event.button !== 0) return
+    if (event.button !== 0) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest('.tooldock, .toolbar-position, .text-draft, .rec-bar-position')) {
+      return
+    }
+    if (phase === 'editing') {
+      if (toolOptions.tool !== 'move') return
+      const current = selectionRef.current
+      if (!current) return
+      const p = point(event)
+      if (!pointInRect(p, current)) return
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      selectionDragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startRect: current
+      }
+      setSelectionDragging(true)
+      return
+    }
     const p = point(event)
     dragRef.current = {
       startX: p.x,
@@ -107,6 +138,20 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
   }
 
   const onSelectMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const selectionDrag = selectionDragRef.current
+    if (selectionDrag) {
+      event.preventDefault()
+      updateSelection(
+        moveSelectionRect(
+          selectionDrag.startRect,
+          event.clientX - selectionDrag.startX,
+          event.clientY - selectionDrag.startY,
+          window.innerWidth,
+          window.innerHeight
+        )
+      )
+      return
+    }
     updateBrushCursor(event)
     if (phase === 'editing') return
     const p = point(event)
@@ -129,6 +174,17 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
   }
 
   const onSelectUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const selectionDrag = selectionDragRef.current
+    if (selectionDrag) {
+      selectionDragRef.current = null
+      setSelectionDragging(false)
+      try {
+        event.currentTarget.releasePointerCapture(selectionDrag.pointerId)
+      } catch {
+        // ignore
+      }
+      return
+    }
     const drag = dragRef.current
     drag.dragging = false
     try {
@@ -198,6 +254,12 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
 
   const onToolClick = useCallback(
     (tool: Tool): void => {
+      if (tool === 'move') {
+        annotationRef.current?.cancelInteraction()
+        setToolOptions((previous) => ({ ...previous, tool }))
+        setSubmenuOpen(false)
+        return
+      }
       if (toolOptions.tool === tool) {
         setSubmenuOpen((open) => !open)
         return
@@ -245,6 +307,7 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     submenuOpen,
     canUndo,
     canRedo,
+    selectionDragging,
     selectionRef,
     updateSelection,
     resetSelection,
@@ -257,6 +320,6 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     onTextInputStart,
     onHistoryChange,
     closeSubmenu,
-    isDragging: () => dragRef.current.dragging
+    isDragging: () => dragRef.current.dragging || selectionDragRef.current !== null
   }
 }

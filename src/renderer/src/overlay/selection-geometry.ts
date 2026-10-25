@@ -40,6 +40,25 @@ export function resizeSelectionRect(
   }
 }
 
+export function moveSelectionRect(
+  start: Rect,
+  dx: number,
+  dy: number,
+  maxWidth: number,
+  maxHeight: number
+): Rect {
+  const width = Math.min(Math.round(start.width), Math.max(0, Math.round(maxWidth)))
+  const height = Math.min(Math.round(start.height), Math.max(0, Math.round(maxHeight)))
+  const maxX = Math.max(0, Math.round(maxWidth) - width)
+  const maxY = Math.max(0, Math.round(maxHeight) - height)
+  return {
+    x: Math.round(Math.max(0, Math.min(maxX, start.x + dx))),
+    y: Math.round(Math.max(0, Math.min(maxY, start.y + dy))),
+    width,
+    height
+  }
+}
+
 export function clampWindowRect(rect: Rect, bounds: Rect): Rect | null {
   const x = Math.max(0, rect.x - bounds.x)
   const y = Math.max(0, rect.y - bounds.y)

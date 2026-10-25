@@ -22,19 +22,30 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await window.waitForSelector('.overlay-root', { timeout: 15000 })
   // 预热窗口的 DOM 会先存在；等覆盖层真正显示后再开始拖选。
   await window.waitForTimeout(700)
+  await window.waitForFunction(() => document.visibilityState === 'visible')
+  await window.bringToFront()
+  await window.evaluate(() => window.focus())
   const viewport = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }))
-  console.log('VIEWPORT', viewport)
+  console.log(
+    'VIEWPORT',
+    viewport,
+    'WINDOWS',
+    app.windows().length,
+    'DPR',
+    await window.evaluate(() => devicePixelRatio)
+  )
 
-  const x1 = 120
-  const y1 = 100
-  const x2 = Math.min(viewport.width - 120, 760)
+  let x1 = 120
+  let y1 = 100
+  // 选区宽度需大于工具栏宽度，才能验证“右边缘对齐”而不是触发左侧夹取。
+  const x2 = Math.min(viewport.width - 120, 920)
   const y2 = Math.min(viewport.height - 140, 520)
   await window.mouse.move(x1, y1)
   await window.mouse.down()
   await window.mouse.move(x2, y2, { steps: 8 })
   await window.mouse.up()
   await window.waitForSelector('.tooldock', { timeout: 5000 })
-  const selectedBox = await window.locator('.selection').boundingBox()
+  let selectedBox = await window.locator('.selection').boundingBox()
   console.log('SELECTED', selectedBox)
   await new Promise((resolve) => setTimeout(resolve, 250))
   const toolbarBox = await window.locator('.tooldock').boundingBox()
@@ -48,6 +59,95 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   ) {
     throw new Error('toolbar is not right-aligned with the selection')
   }
+
+  const moveToolClass = await window
+    .locator('.tb[title="移动选区"]')
+    .getAttribute('class')
+  const shapeToolClass = await window
+    .locator('.tb[title="矩形 / 椭圆"]')
+    .getAttribute('class')
+  const moveCursor = await window
+    .locator('.anno-canvas')
+    .evaluate((element) => getComputedStyle(element).cursor)
+  const rootCursor = await window
+    .locator('.overlay-root')
+    .evaluate((element) => getComputedStyle(element).cursor)
+  console.log(
+    'DEFAULT_TOOL',
+    moveToolClass,
+    shapeToolClass,
+    'CURSOR',
+    moveCursor,
+    'ROOT_CURSOR',
+    rootCursor
+  )
+  if (!moveToolClass?.includes('on') || shapeToolClass?.includes('on')) {
+    throw new Error('overlay should default to the move tool')
+  }
+  if (moveCursor !== 'grab') {
+    throw new Error('move tool should use the grab cursor')
+  }
+  if (rootCursor !== 'default') {
+    throw new Error('overlay outside the selection should not use the crosshair cursor')
+  }
+
+  const centerX = selectedBox.x + selectedBox.width / 2
+  const centerY = selectedBox.y + selectedBox.height / 2
+  await window.mouse.move(centerX, centerY)
+  await window.mouse.down()
+  await window.waitForTimeout(120)
+  const draggingCursor = await window
+    .locator('.anno-canvas')
+    .evaluate((element) => getComputedStyle(element).cursor)
+  const draggingRoot = await window.locator('.overlay-root').evaluate((element) => ({
+    className: element.className,
+    cursor: getComputedStyle(element).cursor
+  }))
+  console.log('DRAGGING_CURSOR', draggingCursor, 'DRAGGING_ROOT', draggingRoot)
+  if (draggingCursor !== 'grabbing') {
+    throw new Error('dragging the selection should use the grabbing cursor')
+  }
+  if (
+    !draggingRoot.className.includes('dragging-selection') ||
+    draggingRoot.cursor !== 'grabbing'
+  ) {
+    throw new Error('selection drag should keep the grabbing cursor on the overlay root')
+  }
+  await window.mouse.move(centerX + 40, centerY + 30, { steps: 6 })
+  const movedCursor = await window.evaluate(
+    ([x, y]) => {
+      const element = document.elementFromPoint(x, y)
+      return element ? getComputedStyle(element).cursor : null
+    },
+    [centerX + 40, centerY + 30]
+  )
+  console.log('MOVED_CURSOR', movedCursor)
+  if (movedCursor !== 'grabbing') {
+    throw new Error('moving the selection should not fall back to the arrow cursor')
+  }
+  await window.mouse.up()
+  await window.waitForTimeout(120)
+  const releasedCursor = await window
+    .locator('.anno-canvas')
+    .evaluate((element) => getComputedStyle(element).cursor)
+  console.log('RELEASED_CURSOR', releasedCursor)
+  if (releasedCursor !== 'grab') {
+    throw new Error('releasing the selection should restore the grab cursor')
+  }
+  const movedBox = await window.locator('.selection').boundingBox()
+  console.log('MOVE_SELECTION', selectedBox, movedBox)
+  if (
+    !movedBox ||
+    Math.abs(movedBox.width - selectedBox.width) > 1 ||
+    Math.abs(movedBox.height - selectedBox.height) > 1 ||
+    Math.abs(movedBox.x - selectedBox.x - 40) > 2 ||
+    Math.abs(movedBox.y - selectedBox.y - 30) > 2
+  ) {
+    throw new Error('move tool did not drag the selection without resizing it')
+  }
+  selectedBox = movedBox
+  x1 = movedBox.x
+  y1 = movedBox.y
 
   await window.locator('.tb[title="录制 GIF"]').click()
   await window.waitForSelector('.rec-ctrl', { timeout: 3000 })
