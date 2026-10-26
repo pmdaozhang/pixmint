@@ -3,13 +3,18 @@ const path = require('node:path')
 
 const PROJECT = __dirname
 const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electron.exe')
+const PROFILE = path.join(PROJECT, '..', '_staging', 'e2e-translate-profile')
 
 ;(async () => {
   const app = await electron.launch({
     executablePath: ELECTRON,
     args: ['.', '--smoke-ocr-translate'],
     cwd: PROJECT,
-    env: { ...process.env, OCR_SMOKE_FIXTURE: 'tests/fixtures/ocr-ambiguous.png' }
+    env: {
+      ...process.env,
+      OCR_SMOKE_FIXTURE: 'tests/fixtures/ocr-ambiguous.png',
+      PIXMINT_USER_DATA_DIR: PROFILE
+    }
   })
   const window = await app.firstWindow()
   await window.waitForSelector('.ocr-root', { timeout: 15000 })
