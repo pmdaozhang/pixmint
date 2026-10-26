@@ -1,0 +1,78 @@
+{
+  "version": "0.4.1",
+  "date": "2026-10-26T20:55:00+08:00",
+  "commit": "a01baab",
+  "level": "light",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119455825,
+    "sourceFiles": 132,
+    "sourceLines": 18715,
+    "testFiles": 21,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "node node_modules/typescript/bin/tsc --noEmit"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "node node_modules/vitest/vitest.mjs run --pool=threads --exclude tests/windows-ocr.test.ts",
+        "detail": "20 files, 123 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "node node_modules/electron-vite/bin/electron-vite.js build"
+      },
+      {
+        "name": "real_feed_no_release",
+        "status": "pass",
+        "command": "0.4.1 packaged app with GitHub feed",
+        "detail": "up-to-date, no-release note"
+      },
+      {
+        "name": "bad_feed_checksum",
+        "status": "pass",
+        "command": "local generic feed 0.4.2 with bad sha512"
+      },
+      {
+        "name": "e2e_settings",
+        "status": "pass",
+        "command": "node e2e-settings.cjs"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.4.1.exe 119455825 bytes"
+      },
+      {
+        "name": "install",
+        "status": "pass",
+        "command": "silent install 0.4.1",
+        "detail": "FileVersion 0.4.1.0"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.4.1 补丁，只审补丁影响面。0.4.0 的签名、GitHub Release、差分/中断/OCR录制 E2E 等发布级缺口仍由 0.4.0 回顾跟踪，不在本补丁结论内。"
+}
