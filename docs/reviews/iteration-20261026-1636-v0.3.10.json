@@ -1,0 +1,72 @@
+{
+  "version": "0.3.10",
+  "date": "2026-10-26T16:36:30+08:00",
+  "commit": "1723a57",
+  "level": "light",
+  "conclusion": "conditional",
+  "baseline_created": true,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "Y1",
+      "dimension": "performance",
+      "item": "常驻内存、冷启动、截图延迟未实测，基线与预算待补",
+      "deadline": "2026-11-02",
+      "owner": ""
+    },
+    {
+      "id": "Y2",
+      "dimension": "regression",
+      "item": "回归映射刚建立，尚未在真实业务迭代中验证覆盖完整性",
+      "deadline": "2026-11-02",
+      "owner": ""
+    },
+    {
+      "id": "Y3",
+      "dimension": "testing",
+      "item": "本次未重跑 typecheck、unit、e2e，仅沿用 0.3.10 的通过记录",
+      "deadline": "2026-11-02",
+      "owner": ""
+    }
+  ],
+  "green": [
+    "regression",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119059768,
+    "sourceFiles": 130,
+    "sourceLines": 17957,
+    "testFiles": 20,
+    "runtimeDependencies": 5,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "not_run",
+        "command": "pnpm typecheck",
+        "reason": "本次未改业务代码，未重跑"
+      },
+      {
+        "name": "unit",
+        "status": "not_run",
+        "command": "pnpm test",
+        "reason": "本次未改业务代码，未重跑"
+      },
+      {
+        "name": "e2e",
+        "status": "not_run",
+        "command": "node e2e-overlay.cjs",
+        "reason": "本次未改业务代码，未重跑"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "首轮基线。本次只改工作区回顾流程、模板和发布门禁，没有修改应用业务代码。"
+}

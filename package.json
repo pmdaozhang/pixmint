@@ -1,6 +1,6 @@
 {
   "name": "snapglass",
-  "version": "0.3.10",
+  "version": "0.4.0",
   "private": true,
   "description": "Pixmint - cross-platform screenshot, pin, OCR and recording tool",
   "main": "./out/main/index.js",
@@ -23,9 +23,11 @@
     "soak:real-overlay": "node scripts/soak/real-overlay-soak.cjs",
     "soak:memory": "node scripts/soak/memory-path-soak.cjs",
     "soak:crash-recovery": "node scripts/soak/crash-recovery.cjs",
-    "package": "electron-builder"
+    "release:win": "pnpm typecheck && pnpm test && pnpm build && electron-builder",
+    "package": "node ../scripts/review/release-gate.mjs --project . && electron-builder"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "gifenc": "^1.0.3",
     "onnxruntime-node": "1.22.0",
     "paddleocr": "1.2.0",

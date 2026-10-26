@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.4.0] - 2026-10-26
+
+### Added
+
+- 新增应用内更新：设置页“关于与更新”支持手动检查、发现新版本、下载进度、SHA-512 校验和重启安装。
+- 打包版启动 15 秒后静默检查一次；更新源为 GitHub Releases。
+- 新增 `electron-updater` 6.8.11 依赖，以及 `UpdateState` 状态机、中文错误映射和 18 个单测。
+- 新增 `PIXMINT_UPDATE_URL` 测试覆盖入口，仅用于本地 generic 源 E2E。
+
+### Changed
+
+- `electron-builder.yml` 显式配置 GitHub publish；安装包名统一为 `Pixmint-Setup-<version>.exe`。
+- NSIS 显式每用户安装，覆盖安装不需要管理员权限。
+- 更新器在开发模式、非 Windows 平台自动禁用。
+
+### Fixed
+
+- 修复辅助安装器（`oneClick=false`）可能弹出需要点击的 NSIS 向导的问题，改为显式静默安装。
+
+### Verified
+
+- `tsc --noEmit` 通过。
+- 20 个测试文件、121 个用例全部通过。
+- `electron-vite build` 通过。
+- `node e2e-settings.cjs` 通过。
+- `node e2e-overlay.cjs` 通过（E2E_OK）。
+- 0.4.0 安装包 119,455,568 字节，较 0.3.10 增加 395,800 字节（+0.33%）。
+- 本地 generic 源完整验证：0.4.0 → 0.4.1 检查、下载、SHA-512 校验、静默安装、自动重启；最终 `app.getVersion()` 为 0.4.1。
+- 本地 generic 源验证同版本、断网、404、哈希失败四条路径：分别显示“已是最新”“无法连接更新源”“更新源不可用”“校验失败，已阻止安装”。
+- 0.3.10 → 0.4.0 覆盖安装通过，设置、密钥、历史和日志保留。
+- 更新后 `%APPDATA%\snapglass` 的 `settings.json`、`secrets.json`、`history` 和日志保留。
+- 未实测：GitHub Releases 真实下载速度、差分下载命中、Windows 代码签名、下载中断、真实安装失败注入、OCR / 录制 E2E。
+
 ## [0.3.10] - 2026-10-26
 
 ### Changed

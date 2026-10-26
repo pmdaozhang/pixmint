@@ -1,6 +1,7 @@
 appId: com.pixmint.desktop
 productName: Pixmint
 executableName: Pixmint
+artifactName: ${productName}-Setup-${version}.${ext}
 directories:
   output: release
 electronDist: node_modules/electron/dist
@@ -33,11 +34,16 @@ extraResources:
       - '*.onnx'
       - '*.txt'
 asar: true
+publish:
+  provider: github
+  owner: pmdaozhang
+  repo: pixmint
 win:
   icon: assets/icon-mark.ico
   target: nsis
 nsis:
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
 mac:
   target: dmg

@@ -285,3 +285,31 @@ export type RecorderControlCommand =
   | { type: 'cancel' }
   | { type: 'pause' }
   | { type: 'resume' }
+
+export type UpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'verifying'
+  | 'downloaded'
+  | 'installing'
+  | 'error'
+  | 'disabled'
+
+export interface UpdateProgress {
+  percent: number
+  transferred: number
+  total: number
+}
+
+export interface UpdateState {
+  status: UpdatePhase
+  version?: string
+  releaseNotes?: string
+  progress?: UpdateProgress
+  error?: string
+  checkedAt?: string
+  sizeBytes?: number
+}

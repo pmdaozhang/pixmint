@@ -15,6 +15,7 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
+  UpdateState,
   VideoDoneMeta
 } from './types'
 
@@ -100,5 +101,12 @@ export interface SnapglassApi {
     openCrashFolder(): Promise<string>
     flush(): Promise<void>
     exportReport(): Promise<string | null>
+  }
+  updater: {
+    getState(): Promise<UpdateState>
+    check(): Promise<UpdateState>
+    download(): Promise<UpdateState>
+    install(): Promise<void>
+    onState(callback: (state: UpdateState) => void): () => void
   }
 }

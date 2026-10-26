@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import type { DiagnosticsInfo, Settings, ThemeSetting } from '@shared/types'
+import type { DiagnosticsInfo, Settings, ThemeSetting, UpdateState } from '@shared/types'
+import { describeUpdate } from '@shared/update'
 import { Icon } from '../components/Icon'
 import './settings.css'
 
@@ -54,6 +55,7 @@ export function SettingsApp(): JSX.Element {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsInfo | null>(null)
   const [toast, setToast] = useState('')
   const [translationKey, setTranslationKey] = useState('')
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
 
   const flash = (message: string): void => {
     setToast(message)
@@ -79,6 +81,23 @@ export function SettingsApp(): JSX.Element {
     void load()
   }, [])
 
+  useEffect(() => {
+    let active = true
+    const unsubscribe = window.snapglass.updater.onState((state) => {
+      if (active) setUpdateState(state)
+    })
+    void window.snapglass.updater
+      .getState()
+      .then((state) => {
+        if (active) setUpdateState(state)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
+
   const update = async (patch: Partial<Settings>): Promise<void> => {
     const next = await window.snapglass.settings.update(patch)
     setSettings(next)
@@ -87,6 +106,13 @@ export function SettingsApp(): JSX.Element {
   }
 
   if (!settings) return <div className="settings-loading">正在加载设置…</div>
+
+  const updateView = describeUpdate(updateState, version)
+  const runUpdateAction = async (): Promise<void> => {
+    if (updateView.actionKind === 'check') await window.snapglass.updater.check()
+    else if (updateView.actionKind === 'download') await window.snapglass.updater.download()
+    else if (updateView.actionKind === 'install') await window.snapglass.updater.install()
+  }
 
   return (
     <div className="settings-root">
@@ -313,6 +339,61 @@ export function SettingsApp(): JSX.Element {
               />
               <span />
             </label>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-title">
+            <Icon name="settings" size={16} />
+            关于与更新
+            {updateView.showBadge && <span className="update-chip">NEW</span>}
+          </div>
+          <div className="row update-row">
+            <div className="row-label">
+              <strong>
+                <span className={`version-dot ${updateView.tone}`} />
+                {updateView.title}
+              </strong>
+              <span
+                className={`update-desc ${updateView.tone}`}
+                aria-live="polite"
+              >
+                {updateView.description}
+              </span>
+            </div>
+            <div className="row-actions">
+              <button
+                className={updateView.actionVariant}
+                disabled={updateView.actionDisabled}
+                onClick={() => void runUpdateAction()}
+              >
+                {updateView.actionLabel}
+              </button>
+            </div>
+          </div>
+          {updateView.showProgress && (
+            <div className="progress-block">
+              <div
+                className="progress-track"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={updateView.progressPercent}
+              >
+                <div
+                  className={`progress-fill ${updateView.progressPercent >= 100 ? 'done' : ''}`}
+                  style={{ width: `${updateView.progressPercent}%` }}
+                />
+              </div>
+              <div className="progress-meta">
+                <span>{updateView.progressLabel}</span>
+                <span>{Math.round(updateView.progressPercent)}%</span>
+              </div>
+            </div>
+          )}
+          <div className={`update-note ${updateView.noteTone === 'error' ? 'err' : ''}`}>
+            <Icon name={updateView.noteTone === 'error' ? 'close' : 'check'} size={13} />
+            <span>{updateView.note}</span>
           </div>
         </section>
 

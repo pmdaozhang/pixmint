@@ -61,6 +61,7 @@ import { writeDiagnosticsExport } from './diagnostics-export'
 import { installWebContentsSecurity, isTrustedAppUrl } from './security'
 import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
+import { disposeUpdater, initUpdater } from './updater'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -525,6 +526,7 @@ function initServices(): void {
   platformServices.windowQuery.prewarm()
   registerIpc()
   applySystemSettings()
+  initUpdater()
   app.on('web-contents-created', (_event, contents) => {
     installWebContentsSecurity(contents)
     contents.on('console-message', (event) => {
@@ -957,6 +959,7 @@ if (
   app.on('before-quit', () => {
     addBreadcrumb('app', 'before-quit')
     statusToast.hide()
+    disposeUpdater()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()

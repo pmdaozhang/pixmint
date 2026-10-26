@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · P6 应用内更新</title>
+    <style>
+      :root {
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 10px;
+        --radius-xl: 12px;
+        --radius-full: 9999px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Segoe UI", sans-serif;
+        --mono: "SF Mono", Consolas, monospace;
+      }
+
+      [data-theme="dark"] {
+        --page: #08090c;
+        --page-glow: rgba(58, 131, 247, 0.14);
+        --bg: #0d0d0d;
+        --bg-2: #181818;
+        --bg-3: #212121;
+        --text: #ffffff;
+        --text-2: #afafaf;
+        --text-3: #767676;
+        --border: #ffffff1a;
+        --border-strong: #ffffff26;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.35);
+        --accent: #3a83f7;
+        --accent-hover: #5a94ff;
+        --accent-soft: #12233a;
+        --primary-bg: #ffffff;
+        --primary-text: #0d0d0d;
+        --success: #30d158;
+        --success-soft: #102515;
+        --danger: #ff453a;
+        --danger-soft: #2a1213;
+        --segmented-bg: #181818;
+        --segmented-selected: #303030;
+      }
+
+      [data-theme="light"] {
+        --page: #eef1f5;
+        --page-glow: rgba(2, 133, 255, 0.12);
+        --bg: #f9f9f9;
+        --bg-2: #ffffff;
+        --bg-3: #ededed;
+        --text: #0d0d0d;
+        --text-2: #5d5d5d;
+        --text-3: #8f8f8f;
+        --border: #0000001a;
+        --border-strong: #00000026;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
+        --accent: #0285ff;
+        --accent-hover: #0170dd;
+        --accent-soft: #e5f3ff;
+        --primary-bg: #0d0d0d;
+        --primary-text: #ffffff;
+        --success: #248a3d;
+        --success-soft: #e6f4ea;
+        --danger: #d70015;
+        --danger-soft: #fdecec;
+        --segmented-bg: #ededed;
+        --segmented-selected: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        padding: 36px 18px 56px;
+        display: flex;
+        justify-content: center;
+        background:
+          radial-gradient(720px 440px at 50% -8%, var(--page-glow), transparent 62%),
+          radial-gradient(
+            640px 380px at 84% 22%,
+            color-mix(in srgb, var(--text) 5%, transparent),
+            transparent 65%
+          ),
+          var(--page);
+        color: var(--text);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .demo-shell {
+        width: min(980px, 100%);
+      }
+
+      .demo-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        margin: 0 auto 18px;
+      }
+
+      .demo-kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 9px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .demo-kicker::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+
+      .demo-head h1 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .demo-head p {
+        max-width: 520px;
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.65;
+      }
+
+      .theme-toggle {
+        flex: none;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-2);
+        color: var(--text-2);
+        font-size: 11.5px;
+      }
+
+      .theme-toggle:hover {
+        border-color: var(--border-strong);
+        color: var(--text);
+      }
+
+      .demo-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: 0 auto 18px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: color-mix(in srgb, var(--bg-2) 76%, transparent);
+        backdrop-filter: blur(14px);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .demo-controls > span {
+        margin: 0 6px 0 4px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .state-btn {
+        height: 27px;
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        color: var(--text-2);
+        font-size: 11.5px;
+        transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+      }
+
+      .state-btn:hover {
+        background: var(--bg-3);
+        color: var(--text);
+      }
+
+      .state-btn:active {
+        transform: translateY(0.5px);
+      }
+
+      .state-btn.on {
+        border-color: var(--border-strong);
+        background: var(--segmented-selected);
+        color: var(--text);
+      }
+
+      .window-frame {
+        padding: 28px;
+        border-radius: 24px;
+        background: color-mix(in srgb, var(--bg) 42%, transparent);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+      }
+
+      .settings-root {
+        position: relative;
+        width: 916px;
+        max-width: 100%;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        box-shadow:
+          0 8px 18px rgba(0, 0, 0, 0.22),
+          0 2px 6px rgba(0, 0, 0, 0.12);
+      }
+
+      .settings-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 18px 20px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .settings-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        flex: none;
+        color: var(--text);
+      }
+
+      .settings-header h1 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: 0.2px;
+      }
+
+      .settings-header p {
+        margin: 4px 0 0;
+        font-size: 11.5px;
+        color: var(--text-2);
+      }
+
+      .window-close {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+      }
+
+      .window-close:hover {
+        background: rgba(255, 69, 58, 0.85);
+        color: #fff;
+      }
+
+      .settings-scroll {
+        flex: 1;
+        padding: 16px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        padding: 14px 16px;
+      }
+
+      .card-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .card-title svg {
+        color: var(--accent);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 10px 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .row:first-of-type {
+        border-top: none;
+      }
+
+      .row-label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+
+      .row-label strong {
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+
+      .row-label span {
+        font-size: 10.5px;
+        color: var(--text-3);
+        line-height: 1.5;
+      }
+
+      .row-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+      }
+
+      button.secondary,
+      button.primary {
+        height: 28px;
+        padding: 0 11px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-3);
+        color: var(--text);
+        font-size: 11.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition:
+          background 0.12s ease,
+          border-color 0.12s ease,
+          opacity 0.12s ease,
+          transform 0.08s ease;
+      }
+
+      button.secondary:hover {
+        border-color: var(--border-strong);
+        background: color-mix(in srgb, var(--bg-3) 72%, transparent);
+      }
+
+      button.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      button.primary:hover {
+        background: var(--accent-hover);
+      }
+
+      button.secondary:active,
+      button.primary:active {
+        transform: translateY(0.5px);
+      }
+
+      button:disabled {
+        cursor: default;
+        opacity: 0.55;
+        transform: none;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        height: 17px;
+        margin-left: 2px;
+        padding: 0 7px;
+        border-radius: var(--radius-full);
+        background: var(--accent-soft);
+        color: var(--accent);
+        font: 600 9px/1 var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .chip[hidden] {
+        display: none;
+      }
+
+      .update-row strong {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .version-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text-3);
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .version-dot.ok {
+        background: var(--success);
+        box-shadow: 0 0 0 3px var(--success-soft);
+      }
+
+      .version-dot.new {
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .version-dot.err {
+        background: var(--danger);
+        box-shadow: 0 0 0 3px var(--danger-soft);
+      }
+
+      .update-desc.ok {
+        color: var(--success);
+      }
+
+      .update-desc.err {
+        color: var(--danger);
+      }
+
+      .spin {
+        animation: spin 0.9s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .progress-block {
+        padding: 2px 0 8px;
+      }
+
+      .progress-block[hidden] {
+        display: none;
+      }
+
+      .progress-track {
+        height: 5px;
+        overflow: hidden;
+        border-radius: var(--radius-full);
+        background: var(--bg-3);
+      }
+
+      .progress-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+        transition: width 0.18s ease;
+      }
+
+      .progress-fill.done {
+        background: var(--success);
+      }
+
+      .progress-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 7px;
+        color: var(--text-3);
+        font: 10px/1 var(--mono);
+      }
+
+      .update-note {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        color: var(--text-3);
+        font-size: 10.5px;
+        line-height: 1.55;
+      }
+
+      .update-note svg {
+        flex: none;
+        color: var(--text-3);
+      }
+
+      .update-note.err {
+        color: var(--danger);
+      }
+
+      .update-note.err svg {
+        color: var(--danger);
+      }
+
+      .settings-footer {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 2px 0;
+        font-size: 10.5px;
+        color: var(--text-3);
+      }
+
+      .toast {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        padding: 7px 14px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--border-strong);
+        background: var(--bg-2);
+        color: var(--text);
+        box-shadow: var(--shadow-sm);
+        font-size: 11.5px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, 8px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .muted-card .row {
+        padding: 8px 0;
+      }
+
+      .muted-card .row-label span {
+        color: var(--text-3);
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 22px 10px 40px;
+        }
+
+        .demo-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .window-frame {
+          padding: 10px;
+          border-radius: 18px;
+        }
+
+        .settings-root {
+          width: 100%;
+        }
+
+        .settings-header,
+        .settings-scroll {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+
+        .row {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 9px;
+        }
+
+        .row-actions {
+          width: 100%;
+        }
+
+        .row-actions button {
+          flex: 1;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-shell">
+      <header class="demo-head">
+        <div>
+          <div class="demo-kicker">P6 · Auto Update</div>
+          <h1>应用内更新状态预览</h1>
+          <p>
+            设置页新增“关于与更新”卡片。点击下方状态可查看检查、发现新版本、下载、校验失败和重启安装的完整布局；
+            也可以直接点卡片按钮走一遍交互流程。
+          </p>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" type="button">切换浅色</button>
+      </header>
+
+      <div class="demo-controls" role="group" aria-label="预览状态">
+        <span>State</span>
+        <button class="state-btn on" type="button" data-state="idle">空闲</button>
+        <button class="state-btn" type="button" data-state="checking">检查中</button>
+        <button class="state-btn" type="button" data-state="uptodate">已是最新</button>
+        <button class="state-btn" type="button" data-state="available">发现新版</button>
+        <button class="state-btn" type="button" data-state="downloading">下载中</button>
+        <button class="state-btn" type="button" data-state="downloaded">下载完成</button>
+        <button class="state-btn" type="button" data-state="installing">安装中</button>
+        <button class="state-btn" type="button" data-state="error">检查失败</button>
+      </div>
+
+      <div class="window-frame">
+        <div class="settings-root">
+          <header class="settings-header">
+            <div class="settings-title">
+              <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
+                <g transform="rotate(-2 256 270)">
+                  <path
+                    d="M 148 118 H 364 C 414 118 444 148 444 198 V 342 C 444 392 414 422 364 422 H 148 C 98 422 68 392 68 342 V 198 C 68 148 98 118 148 118 Z"
+                    fill="currentColor"
+                  />
+                  <circle cx="190" cy="250" r="24" fill="var(--bg)" />
+                  <circle cx="322" cy="250" r="24" fill="var(--bg)" />
+                </g>
+                <path
+                  d="M 380 58 H 460 V 138"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="26"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <div>
+                <h1>Pixmint</h1>
+                <p>截图 · 贴图 · OCR 翻译 · 录屏</p>
+              </div>
+            </div>
+            <button class="window-close" type="button" title="关闭" aria-label="关闭">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </header>
+
+          <div class="settings-scroll">
+            <section class="card muted-card">
+              <div class="card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 0-4H13a2 2 0 0 1 0-4h5a3 3 0 0 0 3-3 7 7 0 0 0-9-7z" />
+                  <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+                  <circle cx="10.5" cy="7" r="1" fill="currentColor" stroke="none" />
+                  <circle cx="14.5" cy="7" r="1" fill="currentColor" stroke="none" />
+                </svg>
+                外观与启动
+              </div>
+              <div class="row">
+                <div class="row-label">
+                  <strong>主题</strong>
+                  <span>跟随系统或固定深浅色</span>
+                </div>
+                <div class="row-actions">
+                  <button class="secondary" type="button">跟随系统</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-title">
+                <svg id="title-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+                  <path d="M20 4v5h-5" />
+                </svg>
+                关于与更新
+                <span class="chip" id="update-chip" hidden>NEW</span>
+              </div>
+
+              <div class="row update-row">
+                <div class="row-label">
+                  <strong>
+                    <span class="version-dot" id="version-dot"></span>
+                    <span id="update-title">Pixmint v0.4.0</span>
+                  </strong>
+                  <span class="update-desc" id="update-desc" aria-live="polite">
+                    检查更新，获取最新功能与修复
+                  </span>
+                </div>
+                <div class="row-actions">
+                  <button class="secondary" id="update-action" type="button">检查更新</button>
+                </div>
+              </div>
+
+              <div class="progress-block" id="progress-block" hidden>
+                <div
+                  class="progress-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                  id="progress-track"
+                >
+                  <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-meta">
+                  <span id="progress-label">正在下载 0.4.1</span>
+                  <span id="progress-percent">0%</span>
+                </div>
+              </div>
+
+              <div class="update-note" id="update-note">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <span id="update-note-text">更新源 GitHub Releases · 下载后校验 SHA-512 · 重启后完成安装</span>
+              </div>
+            </section>
+
+            <section class="card muted-card">
+              <div class="card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 6.5h6l2 2h9v9a2 2 0 0 1-2 2h-15z" />
+                </svg>
+                诊断
+              </div>
+              <div class="row">
+                <div class="row-label">
+                  <strong>诊断日志</strong>
+                  <span>%LOCALAPPDATA%\Pixmint\logs\pixmint.log</span>
+                </div>
+                <div class="row-actions">
+                  <button class="secondary" type="button">打开目录</button>
+                </div>
+              </div>
+            </section>
+
+            <footer class="settings-footer">
+              <span>Pixmint v<span id="footer-version">0.4.0</span> · win32</span>
+              <span>P6</span>
+            </footer>
+          </div>
+
+          <div class="toast" id="toast" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const root = document.documentElement
+      const stateButtons = Array.from(document.querySelectorAll('.state-btn'))
+      const actionButton = document.getElementById('update-action')
+      const title = document.getElementById('update-title')
+      const desc = document.getElementById('update-desc')
+      const chip = document.getElementById('update-chip')
+      const versionDot = document.getElementById('version-dot')
+      const progressBlock = document.getElementById('progress-block')
+      const progressTrack = document.getElementById('progress-track')
+      const progressFill = document.getElementById('progress-fill')
+      const progressLabel = document.getElementById('progress-label')
+      const progressPercent = document.getElementById('progress-percent')
+      const note = document.getElementById('update-note')
+      const noteText = document.getElementById('update-note-text')
+      const toast = document.getElementById('toast')
+      const footerVersion = document.getElementById('footer-version')
+      const titleIcon = document.getElementById('title-icon')
+
+      let currentState = 'idle'
+      let installedVersion = '0.4.0'
+      let progressTimer = null
+      let stateTimer = null
+
+      const states = {
+        idle: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '检查更新，获取最新功能与修复',
+          descTone: '',
+          dotTone: '',
+          chip: false,
+          action: { label: '检查更新', variant: 'secondary', disabled: false, icon: 'refresh' },
+          progress: null,
+          noteTone: '',
+          note: '更新源 GitHub Releases · 下载后校验 SHA-512 · 重启后完成安装'
+        },
+        checking: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '正在检查更新…',
+          descTone: '',
+          dotTone: '',
+          chip: false,
+          action: { label: '检查中…', variant: 'secondary', disabled: true, icon: 'spin' },
+          progress: null,
+          noteTone: '',
+          note: '正在连接更新源，通常不超过 15 秒'
+        },
+        uptodate: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '已是最新版本',
+          descTone: 'ok',
+          dotTone: 'ok',
+          chip: false,
+          action: { label: '再次检查', variant: 'secondary', disabled: false, icon: 'refresh' },
+          progress: null,
+          noteTone: '',
+          note: '更新源 GitHub Releases · 最近检查：刚刚'
+        },
+        available: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '发现新版本 0.4.1 · 包含 3 项改进与 2 项修复',
+          descTone: '',
+          dotTone: 'new',
+          chip: true,
+          action: { label: '下载更新', variant: 'primary', disabled: false, icon: 'download' },
+          progress: null,
+          noteTone: '',
+          note: '安装包约 119MB · 下载完成后会校验 SHA-512'
+        },
+        downloading: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '正在下载 0.4.1',
+          descTone: '',
+          dotTone: 'new',
+          chip: false,
+          action: { label: '下载中…', variant: 'secondary', disabled: true, icon: 'spin' },
+          progress: { percent: 42, label: '正在下载 0.4.1 · 48.6MB / 119MB' },
+          noteTone: '',
+          note: '下载在后台进行，可以继续使用截图和 OCR'
+        },
+        downloaded: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '0.4.1 已下载并校验完成，重启后安装',
+          descTone: 'ok',
+          dotTone: 'ok',
+          chip: false,
+          action: { label: '重启并安装', variant: 'primary', disabled: false, icon: 'restart' },
+          progress: { percent: 100, label: '安装包已校验 · 119MB' },
+          noteTone: '',
+          note: '重启会关闭当前窗口，安装完成后自动重新启动 Pixmint'
+        },
+        installing: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '正在安装 0.4.1，应用即将重启…',
+          descTone: '',
+          dotTone: 'new',
+          chip: false,
+          action: { label: '安装中…', variant: 'secondary', disabled: true, icon: 'spin' },
+          progress: { percent: 100, label: '正在替换程序文件' },
+          noteTone: '',
+          note: '请不要手动关闭进程，安装完成后会自动启动'
+        },
+        error: {
+          title: () => `Pixmint v${installedVersion}`,
+          desc: '检查更新失败：无法连接更新源',
+          descTone: 'err',
+          dotTone: 'err',
+          chip: false,
+          action: { label: '重试', variant: 'secondary', disabled: false, icon: 'refresh' },
+          progress: null,
+          noteTone: 'err',
+          note: '可能是网络或代理问题；已写入诊断日志，可稍后重试'
+        }
+      }
+
+      const icons = {
+        refresh:
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>',
+        download:
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></svg>',
+        restart:
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.5 6.5a8 8 0 1 0 11 0"/></svg>',
+        spin:
+          '<svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/></svg>'
+      }
+
+      function clearTimers() {
+        if (progressTimer) {
+          clearInterval(progressTimer)
+          progressTimer = null
+        }
+        if (stateTimer) {
+          clearTimeout(stateTimer)
+          stateTimer = null
+        }
+      }
+
+      function setProgress(percent, label, done = false) {
+        progressFill.style.width = `${percent}%`
+        progressFill.classList.toggle('done', done)
+        progressPercent.textContent = `${percent}%`
+        progressLabel.textContent = label
+        progressTrack.setAttribute('aria-valuenow', String(percent))
+      }
+
+      function render(stateName, options = {}) {
+        const state = states[stateName]
+        if (!state) return
+        currentState = stateName
+        stateButtons.forEach((button) => {
+          button.classList.toggle('on', button.dataset.state === stateName)
+        })
+
+        title.textContent = state.title()
+        desc.textContent = state.desc
+        desc.className = `update-desc${state.descTone ? ` ${state.descTone}` : ''}`
+        versionDot.className = `version-dot${state.dotTone ? ` ${state.dotTone}` : ''}`
+        chip.hidden = !state.chip
+
+        actionButton.className = state.action.variant
+        actionButton.disabled = state.action.disabled
+        actionButton.innerHTML = `${icons[state.action.icon] || ''}<span>${state.action.label}</span>`
+
+        if (state.progress) {
+          progressBlock.hidden = false
+          setProgress(
+            options.percent ?? state.progress.percent,
+            options.progressLabel ?? state.progress.label,
+            (options.percent ?? state.progress.percent) >= 100
+          )
+        } else {
+          progressBlock.hidden = true
+          progressFill.style.width = '0%'
+          progressFill.classList.remove('done')
+        }
+
+        note.className = `update-note${state.noteTone ? ` ${state.noteTone}` : ''}`
+        noteText.textContent = state.note
+        footerVersion.textContent = installedVersion
+      }
+
+      function startCheck() {
+        clearTimers()
+        render('checking')
+        stateTimer = setTimeout(() => {
+          render('available')
+        }, 1400)
+      }
+
+      function startDownload() {
+        clearTimers()
+        let percent = 0
+        render('downloading', { percent: 0, progressLabel: '正在下载 0.4.1 · 0MB / 119MB' })
+        progressTimer = setInterval(() => {
+          percent = Math.min(100, percent + 4)
+          const mb = ((percent / 100) * 119).toFixed(1)
+          if (percent >= 100) {
+            clearInterval(progressTimer)
+            progressTimer = null
+            render('downloaded')
+            return
+          }
+          render('downloading', {
+            percent,
+            progressLabel: `正在下载 0.4.1 · ${mb}MB / 119MB`
+          })
+        }, 180)
+      }
+
+      function startInstall() {
+        clearTimers()
+        render('installing')
+        stateTimer = setTimeout(() => {
+          installedVersion = '0.4.1'
+          render('idle')
+          showToast('已更新到 0.4.1')
+        }, 1900)
+      }
+
+      function showToast(message) {
+        toast.textContent = message
+        toast.classList.add('show')
+        setTimeout(() => toast.classList.remove('show'), 2200)
+      }
+
+      actionButton.addEventListener('click', () => {
+        if (currentState === 'available') {
+          startDownload()
+          return
+        }
+        if (currentState === 'downloaded') {
+          startInstall()
+          return
+        }
+        if (currentState === 'installing' || currentState === 'downloading' || currentState === 'checking') {
+          return
+        }
+        if (currentState === 'uptodate') {
+          startCheck()
+          return
+        }
+        if (currentState === 'error') {
+          startCheck()
+          return
+        }
+        startCheck()
+      })
+
+      stateButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          clearTimers()
+          if (button.dataset.state === 'idle') {
+            installedVersion = '0.4.0'
+          }
+          render(button.dataset.state)
+        })
+      })
+
+      const themeToggle = document.getElementById('theme-toggle')
+      themeToggle.addEventListener('click', () => {
+        const next = root.dataset.theme === 'dark' ? 'light' : 'dark'
+        root.dataset.theme = next
+        themeToggle.textContent = next === 'dark' ? '切换浅色' : '切换深色'
+      })
+
+      render('idle')
+    </script>
+  </body>
+</html>

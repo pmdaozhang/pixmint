@@ -1,5 +1,5 @@
 import type { SnapglassApi } from '../../shared/api'
-import type { OverlayInit, Settings } from '../../shared/types'
+import type { OverlayInit, Settings, UpdateState } from '../../shared/types'
 
 const initialSettings: Settings = {
   schemaVersion: 1,
@@ -21,6 +21,19 @@ const initialSettings: Settings = {
  * 关键约束：不进入生产 Electron 路径；不模拟截图/录制等高风险能力。
  */
 const settings = { ...initialSettings }
+
+let updateState: UpdateState = { status: 'idle' }
+const updateListeners = new Set<(state: UpdateState) => void>()
+
+function setUpdateState(patch: Partial<UpdateState>): UpdateState {
+  updateState = { ...updateState, ...patch }
+  for (const listener of updateListeners) listener(updateState)
+  return updateState
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function createOverlayInit(): OverlayInit {
   const width = 1200
@@ -82,6 +95,52 @@ const api = {
     openCrashFolder: async (): Promise<string> => '',
     flush: async (): Promise<void> => {},
     exportReport: async (): Promise<string | null> => null
+  },
+  updater: {
+    getState: async (): Promise<UpdateState> => updateState,
+    check: async (): Promise<UpdateState> => {
+      setUpdateState({ status: 'checking', error: undefined })
+      await wait(700)
+      return setUpdateState({
+        status: 'available',
+        version: '0.4.1',
+        sizeBytes: 119059768
+      })
+    },
+    download: async (): Promise<UpdateState> => {
+      const total = 119059768
+      setUpdateState({
+        status: 'downloading',
+        version: '0.4.1',
+        progress: { percent: 0, transferred: 0, total }
+      })
+      for (let percent = 10; percent <= 100; percent += 10) {
+        await wait(120)
+        setUpdateState({
+          status: percent >= 100 ? 'verifying' : 'downloading',
+          progress: {
+            percent,
+            transferred: Math.round((total * percent) / 100),
+            total
+          }
+        })
+      }
+      await wait(200)
+      return setUpdateState({
+        status: 'downloaded',
+        version: '0.4.1',
+        progress: { percent: 100, transferred: total, total }
+      })
+    },
+    install: async (): Promise<void> => {
+      setUpdateState({ status: 'installing' })
+    },
+    onState: (callback: (state: UpdateState) => void) => {
+      updateListeners.add(callback)
+      return () => {
+        updateListeners.delete(callback)
+      }
+    }
   },
   overlay: {
     ready: async (): Promise<OverlayInit> => createOverlayInit(),

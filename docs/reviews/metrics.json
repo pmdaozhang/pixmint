@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-10-26T12:36:40.961Z",
+  "project": {
+    "name": "snapglass",
+    "version": "0.4.0",
+    "versionSource": "package.json",
+    "path": "D:\\AI project\\audio_type\\_snapglass_app"
+  },
+  "git": {
+    "branch": "feat/stability-foundation",
+    "commit": "1723a57",
+    "commitDate": "2026-10-26T03:10:47.000Z",
+    "lastTag": null,
+    "changedFiles": null,
+    "insertions": null,
+    "deletions": null
+  },
+  "source": {
+    "files": 132,
+    "lines": 18659,
+    "testFiles": 21,
+    "todoCount": 0,
+    "largest": [
+      {
+        "path": "src\\main\\index.ts",
+        "lines": 979
+      },
+      {
+        "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
+        "lines": 833
+      },
+      {
+        "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
+        "lines": 783
+      },
+      {
+        "path": "src\\main\\recording.ts",
+        "lines": 752
+      },
+      {
+        "path": "src\\renderer\\src\\overlay\\Toolbar.tsx",
+        "lines": 631
+      }
+    ]
+  },
+  "dependencies": {
+    "runtime": 6,
+    "dev": 12
+  },
+  "artifacts": {
+    "currentVersion": [
+      {
+        "path": "release\\Pixmint-Setup-0.4.0.exe",
+        "bytes": 119455568,
+        "modifiedAt": "2026-10-26T12:33:11.730Z"
+      }
+    ],
+    "largest": {
+      "path": "release\\Pixmint-Setup-0.4.0.exe",
+      "bytes": 119455568,
+      "modifiedAt": "2026-10-26T12:33:11.730Z"
+    },
+    "allCount": 7,
+    "allTotalBytes": 786929895
+  },
+  "python": {
+    "requirementLines": 0
+  }
+}

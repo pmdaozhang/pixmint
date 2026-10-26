@@ -49,6 +49,7 @@ pnpm soak:memory
 - 不修改 `playground/`、`reference/`、`PRD.md`，除非用户明确要求。
 - 每个功能必须配单测或 E2E；提交前至少运行 `pnpm typecheck`、`pnpm test`、`pnpm build`。
 - 文档更新（CHANGELOG + ROADMAP）在验证通过后、Code Review 前完成。
+- 迭代回顾与发布门禁以工作区根 AGENTS.md 为准；项目基线见 `docs/reviews/baseline.json`，回归映射见 `docs/regression-map.md`。红色项未清零不得发版。
 
 ## 资源与长跑验证
 

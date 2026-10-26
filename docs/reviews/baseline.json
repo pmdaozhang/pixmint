@@ -1,0 +1,23 @@
+{
+  "version": "0.3.10",
+  "date": "2026-10-26",
+  "metrics": {
+    "installerBytes": 119059768,
+    "installerName": "Pixmint Setup 0.3.10.exe",
+    "residentMemoryMB": null,
+    "coldStartMs": null,
+    "captureLatencyMs": null,
+    "runtimeDependencies": 5,
+    "devDependencies": 12,
+    "sourceFiles": 130,
+    "sourceLines": 17957,
+    "testFiles": 20
+  },
+  "budgets": {
+    "installerBytesMax": 142871722,
+    "residentMemoryMBMax": null,
+    "coldStartMsMax": null,
+    "captureLatencyMsMax": 500
+  },
+  "notes": "首轮基线（2026-10-26）。内存、冷启动、截图延迟未实测，保持 null。安装包硬上限为当前体积 +20%；超过 +10%（约 130965745 字节）记黄色。覆盖层延迟沿用项目 AGENTS.md 的 p95 ≤ 500ms。"
+}

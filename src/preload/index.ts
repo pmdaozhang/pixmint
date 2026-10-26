@@ -11,6 +11,7 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
+  UpdateState,
   VideoDoneMeta
 } from '../shared/types'
 
@@ -130,6 +131,19 @@ const api: SnapglassApi = {
     flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
     exportReport: () =>
       ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
+  },
+  updater: {
+    getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,
+    check: () => ipcRenderer.invoke('updater:check') as Promise<UpdateState>,
+    download: () => ipcRenderer.invoke('updater:download') as Promise<UpdateState>,
+    install: () => ipcRenderer.invoke('updater:install') as Promise<void>,
+    onState: (callback: (state: UpdateState) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: UpdateState) => {
+        callback(state)
+      }
+      ipcRenderer.on('updater:state', listener)
+      return () => ipcRenderer.removeListener('updater:state', listener)
+    }
   }
 }
 
