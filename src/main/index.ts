@@ -698,7 +698,9 @@ async function runOcrFileSmoke(filePath: string): Promise<void> {
 
 async function runOcrSmoke(mode: 'ocr' | 'translate' = 'ocr'): Promise<void> {
   try {
-    const imagePath = join(app.getAppPath(), 'tests', 'fixtures', 'ocr-word.png')
+    const fixture =
+      process.env.OCR_SMOKE_FIXTURE ?? join('tests', 'fixtures', 'ocr-word.png')
+    const imagePath = join(app.getAppPath(), fixture)
     const dataUrl = `data:image/png;base64,${readFileSync(imagePath).toString('base64')}`
     const result = await recognizeImageDataUrl(dataUrl)
     console.log('OCR_SMOKE_TEXT', result.text)

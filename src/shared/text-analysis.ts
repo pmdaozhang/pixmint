@@ -1,3 +1,5 @@
+import type { Language } from './types'
+
 export interface TextAnalysis {
   mode: 'word' | 'sentence'
   normalized: string
@@ -92,15 +94,22 @@ export function isCjkText(text: string): boolean {
 }
 
 export function detectTranslationTarget(
-  text: string,
-  fallback: 'zh-CN' | 'en-US' = 'zh-CN'
-): 'zh-CN' | 'en-US' {
+  text: string
+): 'zh-CN' | 'en-US' | null {
   const cjk = (text.match(/[\u3400-\u9fff]/g) ?? []).length
   const latin = (text.match(/[A-Za-z]/g) ?? []).length
-  if (cjk === 0 && latin === 0) return fallback
-  if (cjk === latin) return fallback
+  if (cjk === 0 && latin === 0) return null
+  if (cjk === latin) return null
   // 内容更少的那种语言就是翻译目标
   return cjk > latin ? 'en-US' : 'zh-CN'
+}
+
+/**
+ * 中英字符数相等或没有明确语言时，按界面语言给一个默认方向。
+ * 中文界面默认 CN→EN，英文界面默认 EN→CN；用户仍可在弹框里切换。
+ */
+export function defaultTranslationTarget(language: Language): 'zh-CN' | 'en-US' {
+  return language === 'en-US' ? 'zh-CN' : 'en-US'
 }
 
 /**

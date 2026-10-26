@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.9] - 2026-10-26
+
+### Added
+
+- 翻译弹框在中英字符数相等或没有明确语言时显示居中方向下拉，只有 `CN→EN` 和 `EN→CN` 两项。
+- 默认方向按界面语言决定：中文界面 `CN→EN`，英文界面 `EN→CN`。
+- 切换方向立即重新翻译，旧请求结果不会覆盖新译文。
+
+### Changed
+
+- `detectTranslationTarget` 在语言不明确时返回 `null`，不再默认猜测中文。
+- 方向下拉只保留纯文本选项，无确认按钮、无额外标题/副标题。
+
+### Verified
+
+- `pnpm typecheck` 通过。
+- `pnpm test` 通过，20 个测试文件、104 个用例全部通过。
+- `pnpm build` 通过。
+- `node e2e-ocr.cjs` 通过。
+- `node e2e-ocr-translate.cjs` 通过：`中文ab` 默认 `CN→EN`、菜单两项、切换 `EN→CN` 并关闭菜单。
+
 ## [0.3.8] - 2026-10-26
 
 ### Added

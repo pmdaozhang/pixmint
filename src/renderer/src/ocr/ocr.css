@@ -96,6 +96,114 @@
   min-height: 90px;
 }
 
+.translate-direction {
+  position: relative;
+  align-self: center;
+  flex: none;
+}
+
+.direction-trigger {
+  width: 146px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s,
+    background 0.16s;
+}
+
+.direction-trigger:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  background: var(--bg-2);
+}
+
+.direction-trigger[aria-expanded='true'],
+.direction-trigger:focus-visible {
+  border-color: var(--accent);
+  background: var(--bg-2);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+.direction-label {
+  color: var(--text);
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.direction-chevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform 0.18s ease;
+}
+
+.direction-trigger[aria-expanded='true'] .direction-chevron {
+  transform: rotate(180deg);
+}
+
+.direction-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 20;
+  width: 156px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--pop-bg);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  animation: direction-pop 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.direction-option {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.04em;
+  transition:
+    color 0.14s,
+    background 0.14s;
+}
+
+.direction-option + .direction-option {
+  margin-top: 1px;
+}
+
+.direction-option:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.direction-option.selected {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+@keyframes direction-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
 .translate-result {
   flex: 1;
   min-height: 0;
