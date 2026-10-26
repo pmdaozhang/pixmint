@@ -1,0 +1,115 @@
+{
+  "version": "0.4.0",
+  "date": "2026-10-26T20:42:00+08:00",
+  "commit": "2765cc1",
+  "level": "deep",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "Y1",
+      "dimension": "distribution",
+      "item": "Windows 安装包未签名，SmartScreen 可能拦截",
+      "deadline": "2026-11-09",
+      "owner": ""
+    },
+    {
+      "id": "Y2",
+      "dimension": "upgrade",
+      "item": "GitHub Release 真实发布与下载速度未实测；差分下载命中未实测",
+      "deadline": "2026-11-02",
+      "owner": ""
+    },
+    {
+      "id": "Y3",
+      "dimension": "e2e_coverage",
+      "item": "下载中断、真实安装失败注入、OCR / 录制真实路径未实测",
+      "deadline": "2026-11-09",
+      "owner": ""
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "dependencies",
+    "compatibility",
+    "experience",
+    "observability",
+    "documentation"
+  ],
+  "metrics": {
+    "installerBytes": 119455568,
+    "sourceFiles": 132,
+    "sourceLines": 18659,
+    "testFiles": 21,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "node node_modules/typescript/bin/tsc --noEmit"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "node node_modules/vitest/vitest.mjs run --pool=threads --exclude tests/windows-ocr.test.ts",
+        "detail": "20 files, 121 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "node node_modules/electron-vite/bin/electron-vite.js build"
+      },
+      {
+        "name": "e2e_settings",
+        "status": "pass",
+        "command": "node e2e-settings.cjs"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "node e2e-overlay.cjs"
+      },
+      {
+        "name": "e2e_update",
+        "status": "pass",
+        "command": "local generic feed 0.4.0 -> 0.4.1",
+        "detail": "final app.getVersion() = 0.4.1"
+      },
+      {
+        "name": "e2e_update_negative",
+        "status": "pass",
+        "command": "local generic feed: same version / offline / 404 / checksum mismatch"
+      },
+      {
+        "name": "e2e_old_install",
+        "status": "pass",
+        "command": "0.3.10 -> 0.4.0 silent install",
+        "detail": "settings preserved"
+      },
+      {
+        "name": "smoke",
+        "status": "pass",
+        "command": "electron . --smoke-test",
+        "detail": "exit code 0"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.4.0.exe 119455568 bytes"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P6 应用内更新。核心链路、异常路径、老用户覆盖安装和现有回归均有实测证据；代码签名、GitHub 真实源、差分下载、下载中断/安装失败注入、OCR/录制 E2E 未实测，记为黄色。"
+}
