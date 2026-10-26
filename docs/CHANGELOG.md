@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1] - 2026-10-26
+
+### Fixed
+
+- 修复 GitHub 仓库还没有任何 Release 时误显示红色“检查更新失败：No published versions on GitHub”的问题。现在显示绿色“已是最新版本”，备注“更新源暂无发布记录 · 发布新版本后会自动检测”。
+
+### Verified
+
+- `tsc --noEmit` 通过。
+- 单测覆盖“无发布版本”识别、错误映射和 `up-to-date` 文案。
+- 打包版连接真实 GitHub 源（0 个 Release）时显示“已是最新版本”，不再显示英文错误。
+- 本地 generic 源发现新版本、下载、校验和安装路径回归通过。
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

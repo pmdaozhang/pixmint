@@ -1,7 +1,11 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateState } from '../shared/types'
-import { mapUpdateError, normalizeReleaseNotes } from '../shared/update'
+import {
+  isNoPublishedReleaseError,
+  mapUpdateError,
+  normalizeReleaseNotes
+} from '../shared/update'
 import { logDiagnostic } from './diagnostics'
 
 const CHECK_DELAY_MS = 15_000
@@ -37,6 +41,29 @@ function rawErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/**
+ * 背景：仓库还没有 Release 时，GitHub provider 会抛错；这不是用户网络故障。
+ * 设计意图：把这种情况收敛成绿色的“已是最新”，并保留诊断日志。
+ * 关键约束：只在检查阶段使用；下载和安装阶段仍按真实错误处理。
+ */
+function applyCheckFailure(error: unknown): void {
+  const raw = rawErrorMessage(error)
+  logDiagnostic('updater', `check raw error: ${raw}`, 'error')
+  if (isNoPublishedReleaseError(error)) {
+    logDiagnostic('updater', 'no published releases; treated as up-to-date')
+    setState({
+      status: 'up-to-date',
+      error: undefined,
+      reason: 'no-release',
+      checkedAt: new Date().toISOString()
+    })
+    return
+  }
+  const message = mapUpdateError(error)
+  logDiagnostic('updater', `check failed: ${message}`, 'error')
+  setState({ status: 'error', error: message, reason: undefined })
+}
+
 export function getUpdateState(): UpdateState {
   return { ...snapshot }
 }
@@ -50,14 +77,11 @@ export async function checkForUpdates(): Promise<UpdateState> {
   if (!initialized || snapshot.status === 'disabled') return getUpdateState()
   if (isBusy() || snapshot.status === 'downloaded') return getUpdateState()
 
-  setState({ status: 'checking', error: undefined })
+  setState({ status: 'checking', error: undefined, reason: undefined })
   try {
     await autoUpdater.checkForUpdates()
   } catch (error) {
-    logDiagnostic('updater', `check raw error: ${rawErrorMessage(error)}`, 'error')
-    const message = mapUpdateError(error)
-    logDiagnostic('updater', `check failed: ${message}`, 'error')
-    setState({ status: 'error', error: message })
+    applyCheckFailure(error)
   }
   return getUpdateState()
 }
@@ -72,6 +96,7 @@ export async function downloadUpdate(): Promise<UpdateState> {
 
   setState({
     status: 'downloading',
+    reason: undefined,
     progress: { percent: 0, transferred: 0, total: snapshot.sizeBytes ?? 0 }
   })
   try {
@@ -173,7 +198,7 @@ export function initUpdater(): void {
   }
 
   autoUpdater.on('checking-for-update', () => {
-    setState({ status: 'checking', error: undefined })
+    setState({ status: 'checking', error: undefined, reason: undefined })
   })
   autoUpdater.on('update-available', (info) => {
     const size = info.files?.[0]?.size
@@ -182,13 +207,15 @@ export function initUpdater(): void {
       version: info.version,
       sizeBytes: typeof size === 'number' ? size : undefined,
       releaseNotes: normalizeReleaseNotes(info.releaseNotes),
-      error: undefined
+      error: undefined,
+      reason: undefined
     })
   })
   autoUpdater.on('update-not-available', () => {
     setState({
       status: 'up-to-date',
       error: undefined,
+      reason: undefined,
       checkedAt: new Date().toISOString()
     })
   })
@@ -214,14 +241,22 @@ export function initUpdater(): void {
     })
   })
   autoUpdater.on('error', (error) => {
-    logDiagnostic('updater', `raw error: ${rawErrorMessage(error)}`, 'error')
-    const message = mapUpdateError(error)
-    logDiagnostic(
-      'updater',
-      `${installRequested ? 'install' : 'update'} error: ${message}`,
-      'error'
-    )
-    setState({ status: 'error', error: message })
+    if (
+      snapshot.status === 'downloading' ||
+      snapshot.status === 'verifying' ||
+      snapshot.status === 'installing'
+    ) {
+      logDiagnostic('updater', `raw error: ${rawErrorMessage(error)}`, 'error')
+      const message = mapUpdateError(error)
+      logDiagnostic(
+        'updater',
+        `${installRequested ? 'install' : 'update'} error: ${message}`,
+        'error'
+      )
+      setState({ status: 'error', error: message, reason: undefined })
+      return
+    }
+    applyCheckFailure(error)
   })
 
   logDiagnostic('updater', `initialized for ${app.getVersion()}`)

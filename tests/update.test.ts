@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   describeUpdate,
   formatBytes,
+  isNoPublishedReleaseError,
   mapUpdateError,
   normalizeReleaseNotes
 } from '../src/shared/update'
@@ -39,6 +40,15 @@ describe('normalizeReleaseNotes', () => {
 })
 
 describe('mapUpdateError', () => {
+  it('recognizes a repository without published releases', () => {
+    expect(isNoPublishedReleaseError(new Error('No published versions on GitHub'))).toBe(true)
+    expect(isNoPublishedReleaseError(new Error('no published release'))).toBe(true)
+    expect(isNoPublishedReleaseError(new Error('network timeout'))).toBe(false)
+    expect(mapUpdateError(new Error('No published versions on GitHub'))).toBe(
+      '更新源暂无发布版本'
+    )
+  })
+
   it('maps missing channel to source unavailable', () => {
     expect(mapUpdateError(new Error('Cannot find latest.yml in the latest release'))).toBe(
       '更新源不可用，请稍后重试'
@@ -103,6 +113,17 @@ describe('describeUpdate', () => {
     expect(view.description).toBe('已是最新版本')
     expect(view.tone).toBe('ok')
     expect(view.actionLabel).toBe('再次检查')
+    expect(view.note).toBe('更新源 GitHub Releases · 已检查最新版本')
+  })
+
+  it('explains when the feed has no published release yet', () => {
+    const view = describeUpdate(
+      state({ status: 'up-to-date', reason: 'no-release' }),
+      '0.4.1'
+    )
+    expect(view.description).toBe('已是最新版本')
+    expect(view.tone).toBe('ok')
+    expect(view.note).toContain('暂无发布记录')
   })
 
   it('shows the new version and download action', () => {

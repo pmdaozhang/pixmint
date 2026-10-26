@@ -312,4 +312,5 @@ export interface UpdateState {
   error?: string
   checkedAt?: string
   sizeBytes?: number
+  reason?: 'no-release'
 }

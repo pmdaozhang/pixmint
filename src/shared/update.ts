@@ -66,6 +66,20 @@ export function normalizeReleaseNotes(notes: unknown): string | undefined {
 }
 
 /**
+ * 背景：GitHub 仓库一个 Release 都没有时，electron-updater 会抛错而不是返回空版本。
+ * 设计意图：把这个“还没有发布记录”的环境状态和真正的网络/校验失败区分开。
+ * 关键约束：只匹配明确的 no published versions 文案，不吞掉其他错误。
+ */
+export function isNoPublishedReleaseError(error: unknown): boolean {
+  const message = (error instanceof Error ? error.message : String(error)).toLowerCase()
+  return (
+    message.includes('no published versions on github') ||
+    message.includes('no published versions') ||
+    message.includes('no published release')
+  )
+}
+
+/**
  * 背景：electron-updater 的错误语义混在英文 message 里，直接给用户看没有可操作性。
  * 设计意图：按常见网络、404、校验、磁盘和安装失败归类成中文提示。
  * 关键约束：未知错误保留原始信息，便于诊断，不吞掉细节。
@@ -73,6 +87,9 @@ export function normalizeReleaseNotes(notes: unknown): string | undefined {
 export function mapUpdateError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   const lower = message.toLowerCase()
+  if (isNoPublishedReleaseError(error)) {
+    return '更新源暂无发布版本'
+  }
   if (
     lower.includes('404') ||
     lower.includes('latest.yml') ||
@@ -149,7 +166,10 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
         actionVariant: 'secondary',
         actionDisabled: false,
         tone: 'ok',
-        note: '更新源 GitHub Releases · 已检查最新版本'
+        note:
+          state.reason === 'no-release'
+            ? '更新源暂无发布记录 · 发布新版本后会自动检测'
+            : '更新源 GitHub Releases · 已检查最新版本'
       }
     case 'available':
       return {
