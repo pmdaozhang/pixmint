@@ -25,10 +25,13 @@
 
 ## P1 OCR + 翻译
 
-状态：Windows OCR + OCR 窗口 + 翻译配置已完成，PaddleOCR/macOS/ECDICT 数据待接入
+状态：PaddleOCR + Windows OCR 兜底 + OCR 窗口 + 翻译配置已完成，macOS/ECDICT 数据待接入
 
 - [x] Windows.Media.Ocr 离线识别
 - [x] 小选区自动放大后再 OCR
+- [x] 大选区自适应放大（2–3×），保留行结构
+- [x] 显式 `zh-Hans-CN` OCR 引擎与可用语言日志
+- [x] 提交号/IP/版本号/字节数/路径后处理
 - [x] 单词 / 句子智能分流
 - [x] 内置词典 + 缺失提示
 - [x] 翻译弹框去按钮，原文/译文可直接选中复制
@@ -36,7 +39,8 @@
 - [x] Web Speech API 发音
 - [x] OpenAI 兼容 / DeepL 配置与加密 Key
 - [ ] OPUS-MT 本地翻译模型（en↔zh 量化 ONNX，网络/模型待下载）
-- [ ] PaddleOCR 模型接入
+- [x] PaddleOCR PP-OCRv5 mobile + onnxruntime-node 本地推理
+- [x] PaddleOCR 失败时回退 Windows OCR
 - [ ] macOS Vision OCR
 - [ ] ECDICT 数据随包分发（当前 OCR 窗口无词典入口，需先恢复单词卡）
 

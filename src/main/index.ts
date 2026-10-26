@@ -723,6 +723,15 @@ async function runOcrSoak(): Promise<void> {
   const imagePath = join(app.getAppPath(), 'tests', 'fixtures', 'ocr-word.png')
   const dataUrl = `data:image/png;base64,${readFileSync(imagePath).toString('base64')}`
   const durations: number[] = []
+  // PaddleOCR 首次加载模型是固定成本，不计入后续循环的泄漏预算。
+  const warmupStarted = Date.now()
+  try {
+    await recognizeImageDataUrl(dataUrl)
+  } catch (error) {
+    console.error('SOAK_OCR_WARMUP_ERROR', error)
+  }
+  const warmupMs = Date.now() - warmupStarted
+  console.log('SOAK_OCR_WARMUP_MS', warmupMs)
   const memoryBefore = process.memoryUsage()
   let failures = 0
   for (let index = 0; index < count; index += 1) {
@@ -750,6 +759,7 @@ async function runOcrSoak(): Promise<void> {
     'SOAK_OCR_RESULT',
     JSON.stringify({
       iterations: count,
+      warmupMs,
       failures,
       p50Ms: percentile(durations, 50),
       p95Ms: percentile(durations, 95),

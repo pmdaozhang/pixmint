@@ -1,6 +1,8 @@
 allowBuilds:
   electron: true
   electron-winstaller: true
+  onnxruntime-node: true
 onlyBuiltDependencies:
   - electron
   - electron-winstaller
+  - onnxruntime-node

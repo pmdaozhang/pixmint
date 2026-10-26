@@ -1,10 +1,10 @@
 # P1 OCR + 翻译 · 需求与验收
 
 > 项目：Pixmint  
-> 版本：0.2.0  
-> 分支：`feat/p1-ocr-translation`  
-> 日期：2026-10-19  
-> 状态：Windows OCR + 结果窗口 + 翻译配置已实现；PaddleOCR/macOS/ECDICT 数据待接入
+> 版本：0.3.8  
+> 分支：`feat/stability-foundation`  
+> 日期：2026-10-26  
+> 状态：PaddleOCR 本地引擎 + Windows OCR 兜底 + 结果窗口 + 翻译配置已实现；macOS/ECDICT 数据待接入
 
 ## 1. 目标
 
@@ -15,17 +15,37 @@
 
 ## 2. OCR 后端策略
 
-PRD 目标后端仍是 PaddleOCR（onnxruntime-node + PP-OCRv4）。当前网络被代理拦截，无法下载模型和新增依赖，因此 P1.0 采用可插拔结构：
+0.3.8 起默认使用本地 PaddleOCR（onnxruntime-node + PP-OCRv5 mobile），Windows 系统 OCR 作为兜底：
 
 | 优先级 | 后端 | 状态 |
 |---|---|---|
-| 1 | Windows.Media.Ocr（系统 OCR） | 已在本机验证中文识别 |
-| 2 | PaddleOCR ONNX | 接口预留，待模型可下载后接入 |
+| 1 | PaddleOCR ONNX（PP-OCRv5 mobile） | 已接入，本地离线 |
+| 2 | Windows.Media.Ocr（系统 OCR） | 兜底；模型缺失或 PaddleOCR 失败时使用 |
 | 3 | macOS Vision | 接口预留，待 Mac 实机接入 |
 
 Windows OCR 输出会在中文字符间插入空格，主进程统一清洗后再进入分词/翻译。
 
-小选区 OCR：Windows OCR 对 30–40px 高的菜单文字经常返回空。识别前按选区高度自动放大（<80px 4×，<160px 2×，上限 8192px / 1600 万像素），已在 135×35 的托盘菜单文字上验证。
+小选区 OCR：Windows OCR 对 30–40px 高的菜单文字经常返回空。识别前按选区高度自动放大（<80px 4×，<200px 3×，其余 2×，上限 8192px / 1600 万像素），已在 135×35 的托盘菜单文字上验证。
+
+### OCR 精度优化（2026-10-26）
+
+- 放大策略改为 `<80px 4×`、`<200px 3×`、其余 `2×`，并保留 8192px / 1600 万像素上限；大选区里的小字不再直接 1× 识别。
+- 显式使用 `zh-Hans-CN` 引擎，失败时回退到用户配置语言；启动日志记录实际引擎和可用语言。
+- 多行结果按 `lines` 拼接，不再使用 Windows OCR 的合并 `Text`；中文标点后的换行不再被清洗掉。
+- 代码字段做保守后处理：全角数字/字母转半角、`ø/Ø` 在数字上下文转 `0`、提交号断字合并、IP/版本号/字节数纠正、路径分隔符空格清理、发布包版本-日期连字符纠正。
+- 灰度/反色/对比度/锐化预处理做过对照实验，但在 Windows OCR 上会让数字和代码更容易误识别，未默认启用。
+
+### PaddleOCR 本地引擎（0.3.8）
+
+- 模型：`PP-OCRv5_mobile_det_infer.onnx`（4.8MB）、`PP-OCRv5_mobile_rec_infer.onnx`（16.5MB）、`ppocrv5_dict.txt`（74KB）。
+- 运行时：`paddleocr` 1.2（MIT）+ `onnxruntime-node` 1.22（MIT），N-API 原生绑定，Windows x64 CPU 推理。
+- 模型来源：`https://huggingface.co/x3zvawq/paddleocr-js-onnx/tree/main/ppocr_v5_mobile`，由 PaddleOCR/PaddleX 转换（Apache-2.0）。
+- 模型随包放在 `resources/ocr`；开发态读取 `assets/ocr`。
+- 首次识别加载模型约 0.4–0.5 秒，之后复用单例；920×560 混排截图约 0.8–0.9 秒，620×170 UI 截图约 0.2 秒，置信度约 0.98。
+- 100 次 OCR 压测（warm-up 后计）：0 失败，p50 76ms，p95 100ms，RSS 增长约 53MB（预算 128MB）。
+- PaddleOCR 失败、模型缺失或显式设置 `OCR_BACKEND=windows` 时回退 Windows OCR；回退路径保留 2–3× 放大和中文引擎选择。
+- 字典首项是 CTC blank；PP-OCRv5 mobile 输出类别比字典多 1 项，加载时保留/补齐末尾空项，避免索引越界。
+- 安装包会因原生 ONNX 运行时和模型增加约 24MB（0.3.7 的 95.4MB → 0.3.8 的 119.1MB）；已排除其他平台和 DirectML/DX 文件。
 
 ## 3. 功能范围
 
@@ -95,6 +115,9 @@ Windows OCR 输出会在中文字符间插入空格，主进程统一清洗后�
 ## 6. 验收标准
 
 - Windows 中文/英文截图可识别，中文空格被清洗
+- 多行截图保持行结构，不再合并成一整段
+- 大选区小字按 2–3× 放大后识别
+- 提交号、IP、版本号、字节数和路径在代码字段内做保守纠正
 - 单词与句子分流正确
 - 单词卡片可发音、复制
 - 句子可编辑并调用已配置翻译服务
@@ -105,7 +128,10 @@ Windows OCR 输出会在中文字符间插入空格，主进程统一清洗后�
 
 ## 7. 已知限制
 
-- 当前网络无法下载 PaddleOCR 模型，P1.0 先使用 Windows 系统 OCR
+- PaddleOCR 模型和 `onnxruntime-node` 随包分发，安装包增大约 24MB
+- 首次 OCR 需要加载模型（约 0.5 秒），之后复用
+- Windows OCR 兜底路径本机只有 `zh-Hans-CN` 语言包，英文/代码字段仍弱
+- 14px 以下小字在 Windows OCR 下仍可能丢小数点；PaddleOCR 路径已能正确识别
 - macOS 端 OCR 后端尚未实机接入
 - ECDICT 数据未随包分发，P1.0 词典覆盖有限
 - 翻译服务需要用户自备 Key 和可用网络

@@ -6,6 +6,8 @@
 - `pnpm test:unit`
 - `pnpm build`
 - `pnpm soak:overlay`（200 次，假画面，只验证功能与基础预算）
+- 打包后确认 `resources/ocr` 含 PP-OCRv5 det/rec 模型和字典
+- 用打包后的 `Pixmint.exe --smoke-ocr-file` 识别混排测试图，确认 `OCR_BACKEND paddle`
 
 ## 交互桌面门禁（发布前必跑）
 

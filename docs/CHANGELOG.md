@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.3.8] - 2026-10-26
+
+### Added
+
+- 新增 PaddleOCR PP-OCRv5 mobile 本地离线引擎，模型随包分发，支持中英混排、路径、版本号、IP 和代码字段。
+- 新增 `onnxruntime-node` 原生 ONNX 推理，首次加载约 0.4–0.5 秒，单张 920×560 混排图约 0.8–0.9 秒。
+- PaddleOCR 失败、模型缺失或 `OCR_BACKEND=windows` 时自动回退 Windows OCR。
+- 新增 `assets/ocr/README.txt`，记录模型来源、许可和字典 blank 处理。
+
+### Changed
+
+- OCR 默认后端改为 PaddleOCR；Windows OCR 保留为兜底。
+- 安装包增加约 24MB（95.4MB → 119.1MB），排除其他平台和 DirectML/DX 文件。
+- OCR 放大策略改为小图 4×、200px 以下 3×、其余 2×，大选区中的 14–16px 小字不再直接按 1× 识别。
+- 显式使用 `zh-Hans-CN` OCR 引擎，并在日志中记录实际引擎与可用语言。
+- OCR 多行结果按行拼接，保留原始行结构；中文标点后的换行不再被清洗掉。
+- 新增代码字段后处理：提交号断字合并、IP/版本号/字节数纠正、路径分隔符空格清理、全角数字转半角。
+
+### Fixed
+
+- 修复 OCR 多行文本被合并成一整段、`Git` 等短行粘到上一行的问题。
+- 修复等宽字体把 `0` 读成 `ø`、发布包版本-日期连字符读成点等常见字段错误。
+
+### Verified
+
+- `pnpm typecheck` 通过。
+- `pnpm test` 通过，20 个测试文件、102 个用例（含 PaddleOCR 真实模型集成测试）。
+- `pnpm build` 通过。
+- Electron 主进程 PaddleOCR 冒烟：混排 920×560 约 861ms、14px 小字约 839ms、置信度 0.98；提交号、分支、路径、版本、IP 全部正确。
+- 打包后的 `release/win-unpacked/Pixmint.exe --smoke-ocr-file` 通过：模型从 `resources/ocr` 加载，`OCR_BACKEND paddle`，原生 ONNX 绑定可用。
+- 100 次 OCR 压测（warm-up 后计）：0 失败，p50 76ms，p95 100ms，RSS 增长约 53MB（预算 128MB）。
+- `--smoke-ocr-file` 回归：`ocr-test.png`、`ocr-mixed.png`、`ocr-mixed-small.png` 的提交号、分支、IP、版本号、字节数、路径和 `Git` 行均通过；Windows 兜底路径的 14px 限制仍记录在 P1 文档。
+- 灰度/反色/对比度/锐化预处理做过对照，数字和代码识别反而下降，未启用。
+
 ## [Unreleased] - 2026-10-25
 
 ### Changed

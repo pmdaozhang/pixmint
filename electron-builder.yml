@@ -11,6 +11,14 @@ files:
   - assets/icon.ico
   - assets/icon-mark.png
   - assets/icon-mark.ico
+  - '!node_modules/onnxruntime-node/bin/napi-v6/darwin/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/linux/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxil.dll'
+asarUnpack:
+  - node_modules/onnxruntime-node/**/*
 extraResources:
   - from: assets
     to: assets
@@ -19,6 +27,11 @@ extraResources:
       - icon.ico
       - icon-mark.png
       - icon-mark.ico
+  - from: assets/ocr
+    to: ocr
+    filter:
+      - '*.onnx'
+      - '*.txt'
 asar: true
 win:
   icon: assets/icon-mark.ico
