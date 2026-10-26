@@ -53,28 +53,27 @@ const PROFILE = path.join(PROJECT, '..', '_staging', 'e2e-translate-profile')
   const directionTrigger = window.locator('.direction-trigger')
   const defaultDirection = await directionTrigger.innerText()
   console.log('TRANSLATE_DIRECTION_DEFAULT', defaultDirection)
-  if (!defaultDirection.includes('CN→EN')) {
-    throw new Error('ambiguous text should default to CN→EN')
+  if (!defaultDirection.includes('请选择')) {
+    throw new Error('ambiguous text should start with 请选择')
   }
   await directionTrigger.click()
   await new Promise((resolve) => setTimeout(resolve, 100))
   const directionOptions = window.locator('.direction-option')
   const directionCount = await directionOptions.count()
   const directionLabels = await directionOptions.allInnerTexts()
-  const selectedClass = await directionOptions
-    .filter({ hasText: 'CN→EN' })
-    .getAttribute('class')
+  const selectedCount = await window.locator('.direction-option.selected').count()
   console.log(
     'TRANSLATE_DIRECTION_OPTIONS',
     directionCount,
     JSON.stringify(directionLabels),
-    selectedClass
+    'SELECTED',
+    selectedCount
   )
   if (
     directionCount !== 2 ||
     !directionLabels.includes('CN→EN') ||
     !directionLabels.includes('EN→CN') ||
-    !selectedClass?.includes('selected')
+    selectedCount !== 0
   ) {
     throw new Error('translation direction menu is incomplete')
   }
@@ -93,6 +92,20 @@ const PROFILE = path.join(PROJECT, '..', '_staging', 'e2e-translate-profile')
     window.dispatchEvent(new Event('focus'))
   })
   await new Promise((resolve) => setTimeout(resolve, 250))
+  const noProviderHint = await window.locator('.ocr-hint').count()
+  console.log('TRANSLATE_WINDOW_NONE_HINT', noProviderHint)
+  if (noProviderHint < 1) throw new Error('missing provider hint should be visible')
+
+  await directionOptions.filter({ hasText: 'CN→EN' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  const firstDirection = await directionTrigger.innerText()
+  console.log('TRANSLATE_DIRECTION_FIRST', firstDirection)
+  if (!firstDirection.includes('CN→EN')) {
+    throw new Error('selecting CN→EN failed')
+  }
+
+  await directionTrigger.click()
+  await new Promise((resolve) => setTimeout(resolve, 100))
   await directionOptions.filter({ hasText: 'EN→CN' }).click()
   await new Promise((resolve) => setTimeout(resolve, 150))
   const switchedDirection = await directionTrigger.innerText()

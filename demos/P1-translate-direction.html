@@ -258,11 +258,23 @@
         outline: none;
         user-select: text;
         font: 13px/1.7 var(--font);
-        scrollbar-width: none;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+        scrollbar-gutter: stable;
       }
 
       .source-box::-webkit-scrollbar {
-        display: none;
+        display: block;
+        width: 6px;
+      }
+
+      .source-box::-webkit-scrollbar-thumb {
+        border-radius: 99px;
+        background: var(--border-strong);
+      }
+
+      .source-box::-webkit-scrollbar-track {
+        background: transparent;
       }
 
       .result-box {
@@ -425,6 +437,12 @@
         letter-spacing: 0.04em;
       }
 
+      .trigger-text.placeholder {
+        color: var(--text-3);
+        font: 500 11px/1 var(--font);
+        letter-spacing: 0;
+      }
+
       .chevron {
         flex: none;
         color: var(--text-3);
@@ -579,7 +597,7 @@
           <div class="demo-kicker">Pixmint · OCR translate</div>
           <h1>翻译方向选择</h1>
           <p>
-            中英混排无法判断主语言时，默认 CN→EN；打开即翻译，可切换 EN→CN。英文界面后续默认 EN→CN。
+            中英混排无法判断主语言时默认“请选择”；语言明确时自动选中对应方向。
           </p>
         </div>
         <div class="demo-actions">
@@ -603,7 +621,11 @@
               <span>原文</span>
             </div>
             <textarea class="source-box" readonly spellcheck="false">截图识别完成。Git commit: 9c70fbb，branch: feat/stability-foundation。
-网络代理：127.0.0.1:7892。</textarea>
+网络代理：127.0.0.1:7892。
+校验：SHA256 与源文件一致。
+安装包：Pixmint Setup 0.3.7-20261025.exe。
+大小：95427331 字节。
+版本：0.3.7。</textarea>
           </div>
 
           <div class="direction-row">
@@ -615,14 +637,14 @@
               aria-expanded="false"
               aria-controls="menu"
             >
-              <span class="trigger-text selected" id="triggerText">CN→EN</span>
+              <span class="trigger-text placeholder" id="triggerText">请选择</span>
               <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </button>
 
             <div class="direction-menu" id="menu" role="listbox" aria-label="翻译方向">
-              <button class="menu-option selected" type="button" role="option" aria-selected="true" data-direction="zh-en">CN→EN</button>
+              <button class="menu-option" type="button" role="option" aria-selected="false" data-direction="zh-en">CN→EN</button>
               <button class="menu-option" type="button" role="option" aria-selected="false" data-direction="en-zh">EN→CN</button>
             </div>
           </div>
@@ -655,7 +677,7 @@
       </section>
 
       <footer class="demo-foot">
-        <span><b>默认：</b>CN→EN · 选择 EN→CN 立即重新翻译，无需确认按钮</span>
+        <span><b>语言不明确：</b>请选择 · 语言明确：自动选中对应方向</span>
         <span><span class="key">Esc</span> 关闭菜单 · 点击空白处也可关闭</span>
       </footer>
     </main>
@@ -685,7 +707,18 @@
       }
 
       function reset() {
-        selectDirection('zh-en', false)
+        window.clearTimeout(timer)
+        setMenu(false)
+        triggerText.textContent = '请选择'
+        triggerText.classList.remove('selected')
+        triggerText.classList.add('placeholder')
+        options.forEach((option) => {
+          option.classList.remove('selected')
+          option.setAttribute('aria-selected', 'false')
+        })
+        resultBox.classList.remove('loading', 'done')
+        resultText.textContent = ''
+        resultEmpty.hidden = false
       }
 
       function selectDirection(direction, instant = false) {
@@ -697,6 +730,7 @@
           option.setAttribute('aria-selected', String(active))
         })
         triggerText.textContent = label
+        triggerText.classList.remove('placeholder')
         triggerText.classList.add('selected')
         resultBox.classList.remove('done')
         resultBox.classList.add('loading')
@@ -749,12 +783,11 @@
         themeBtn.textContent = themeParam === 'dark' ? '浅色预览' : '深色预览'
       }
       if (state === 'open') {
-        selectDirection('zh-en', true)
         window.setTimeout(() => setMenu(true), 120)
       } else if (state === 'zh-en' || state === 'en-zh') {
         selectDirection(state, true)
       } else {
-        selectDirection('zh-en', false)
+        reset()
       }
     </script>
   </body>

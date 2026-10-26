@@ -78,6 +78,31 @@
   outline: none;
 }
 
+.ocr-root .ocr-compact-input,
+.ocr-root .translate-result {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-gutter: stable;
+}
+
+.ocr-root .ocr-compact-input::-webkit-scrollbar,
+.ocr-root .translate-result::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+  height: 6px;
+}
+
+.ocr-root .ocr-compact-input::-webkit-scrollbar-thumb,
+.ocr-root .translate-result::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+
+.ocr-root .ocr-compact-input::-webkit-scrollbar-track,
+.ocr-root .translate-result::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .ocr-compact-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -137,6 +162,12 @@
   color: var(--text);
   font: 600 11px/1 var(--mono);
   letter-spacing: 0.04em;
+}
+
+.direction-label.placeholder {
+  color: var(--text-3);
+  font: 500 11px/1 var(--font);
+  letter-spacing: 0;
 }
 
 .direction-chevron {

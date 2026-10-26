@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { OcrInit, Settings } from '@shared/types'
-import { defaultTranslationTarget, detectTranslationTarget } from '@shared/text-analysis'
+import { detectTranslationTarget } from '@shared/text-analysis'
 import { Icon } from '../components/Icon'
 import './ocr.css'
 
@@ -14,7 +14,6 @@ export function OcrApp(): JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [hasKey, setHasKey] = useState(false)
   const [target, setTarget] = useState<'zh-CN' | 'en-US' | null>(null)
-  const [directionRequired, setDirectionRequired] = useState(false)
   const [directionOpen, setDirectionOpen] = useState(false)
   const autoTranslatedRef = useRef(false)
   const translateSeqRef = useRef(0)
@@ -27,9 +26,7 @@ export function OcrApp(): JSX.Element {
       if (!data) return
       setInit(data)
       setText(data.text)
-      const detected = detectTranslationTarget(data.text)
-      setDirectionRequired(detected === null)
-      setTarget(detected ?? defaultTranslationTarget(data.settings.language))
+      setTarget(detectTranslationTarget(data.text))
       setSettings(data.settings)
       setHasKey(data.hasTranslationKey)
     })
@@ -88,7 +85,7 @@ export function OcrApp(): JSX.Element {
     autoTranslatedRef.current = true
     void translate(target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [init, canTranslate, target])
+  }, [init, canTranslate])
 
   useEffect(() => {
     if (!directionOpen) return
@@ -131,7 +128,7 @@ export function OcrApp(): JSX.Element {
       const resultHeight = Math.min(260, Math.max(70, resultRef.current?.scrollHeight ?? 100))
       const hint = canTranslate ? 0 : 50
       const errorHeight = error ? 40 : 0
-      const directionHeight = directionRequired ? 40 : 0
+      const directionHeight = 40
       window.snapglass.ocr.resize(
         28 +
           16 +
@@ -146,7 +143,7 @@ export function OcrApp(): JSX.Element {
       )
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [init, text, translation, canTranslate, error, directionRequired])
+  }, [init, text, translation, canTranslate, error])
 
   if (!init) return <div className="ocr-loading">正在打开结果…</div>
 
@@ -203,59 +200,57 @@ export function OcrApp(): JSX.Element {
           readOnly
           spellCheck={false}
         />
-        {directionRequired && (
-          <div className="translate-direction" ref={directionRef}>
-            <button
-              type="button"
-              className="direction-trigger"
-              aria-haspopup="listbox"
-              aria-expanded={directionOpen}
-              onClick={() => setDirectionOpen((open) => !open)}
+        <div className="translate-direction" ref={directionRef}>
+          <button
+            type="button"
+            className="direction-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={directionOpen}
+            onClick={() => setDirectionOpen((open) => !open)}
+          >
+            <span className={`direction-label${target ? '' : ' placeholder'}`}>
+              {target === 'en-US' ? 'CN→EN' : target === 'zh-CN' ? 'EN→CN' : '请选择'}
+            </span>
+            <svg
+              className="direction-chevron"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
             >
-              <span className="direction-label">
-                {target === 'zh-CN' ? 'EN→CN' : 'CN→EN'}
-              </span>
-              <svg
-                className="direction-chevron"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
+              <path
+                d="M7 10l5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          {directionOpen && (
+            <div className="direction-menu" role="listbox" aria-label="翻译方向">
+              <button
+                type="button"
+                role="option"
+                aria-selected={target === 'en-US'}
+                className={`direction-option${target === 'en-US' ? ' selected' : ''}`}
+                onClick={() => chooseDirection('en-US')}
               >
-                <path
-                  d="M7 10l5 5 5-5"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            {directionOpen && (
-              <div className="direction-menu" role="listbox" aria-label="翻译方向">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={target === 'en-US'}
-                  className={`direction-option${target === 'en-US' ? ' selected' : ''}`}
-                  onClick={() => chooseDirection('en-US')}
-                >
-                  CN→EN
-                </button>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={target === 'zh-CN'}
-                  className={`direction-option${target === 'zh-CN' ? ' selected' : ''}`}
-                  onClick={() => chooseDirection('zh-CN')}
-                >
-                  EN→CN
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                CN→EN
+              </button>
+              <button
+                type="button"
+                role="option"
+                aria-selected={target === 'zh-CN'}
+                className={`direction-option${target === 'zh-CN' ? ' selected' : ''}`}
+                onClick={() => chooseDirection('zh-CN')}
+              >
+                EN→CN
+              </button>
+            </div>
+          )}
+        </div>
         <div className="translate-result" ref={resultRef}>
           {translation || (translating ? '翻译中…' : '译文会显示在这里')}
         </div>

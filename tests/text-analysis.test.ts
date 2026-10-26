@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   analyzeText,
-  defaultTranslationTarget,
   detectTranslationTarget,
   normalizeOcrText,
   ocrUpscaleFactor
@@ -99,11 +98,6 @@ describe('OCR text analysis', () => {
   it('returns null when the language is ambiguous', () => {
     expect(detectTranslationTarget('中文ab')).toBeNull()
     expect(detectTranslationTarget('2026-10-26 10:30')).toBeNull()
-  })
-
-  it('defaults the translation direction by UI language', () => {
-    expect(defaultTranslationTarget('zh-CN')).toBe('en-US')
-    expect(defaultTranslationTarget('en-US')).toBe('zh-CN')
   })
 
   it('upscales small OCR selections', () => {
