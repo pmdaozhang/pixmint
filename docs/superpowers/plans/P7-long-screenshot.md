@@ -32,16 +32,18 @@
 
 ## 2. Windows 滚动驱动
 
-- [ ] 新增 `src/main/long-capture/scroll-driver.ts`
-- [ ] 复用 `SidecarClient`，常驻 PowerShell + `Add-Type` C#
-- [ ] helper 支持：
+- [x] 新增 `src/main/long-capture/scroll-driver.ts`
+- [x] 复用 `SidecarClient`，常驻 PowerShell + `Add-Type` C#
+- [x] helper 支持：
   - `target,x,y`：返回窗口句柄、类名、窗口矩形
   - `scroll,hwnd,x,y,notches`：置前、移动指针、`SendInput` 滚轮
   - `restore,x,y`：恢复用户鼠标位置
-- [ ] 滚动前检查 `GetForegroundWindow` 是否为目标窗口
-- [ ] 滚动后校验窗口句柄未变化
-- [ ] UAC/IPC 限制导致失败时返回明确错误码
-- [ ] 预热 helper，避免首次长截图等待 C# 编译
+- [x] 滚动前强制置前：`SetForegroundWindow` + `AttachThreadInput` + `SwitchToThisWindow` 兜底
+- [ ] 滚动后校验窗口句柄未变化（交给主进程会话实现）
+- [x] helper 返回明确错误：`error:window` / `error:foreground` / `error:cursor` / `error:sendinput`
+- [ ] 真实 UAC/受保护窗口实测
+- [x] 预热 helper，避免首次长截图等待 C# 编译
+- [x] 真机验证：临时 always-on-top Electron 窗口，标题 `Pixmint Scroll Driver Test`；`-5` 滚轮使 `scrollY` 从 0 到 600，`+5` 回到 100；cursor restore 返回 ok
 
 ## 3. 匹配与拼接纯逻辑
 
