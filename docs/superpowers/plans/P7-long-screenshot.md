@@ -119,12 +119,13 @@
 - [x] `--smoke-long-capture-ui` + Playwright：真实 HUD/预览窗口，700×3396，297,504 字节
 - [x] 单测：匹配、拼接、固定表头、最大高度、底部 1px 裁剪（`tests/long-capture.test.ts` 14 个用例）
 - [x] 覆盖层 E2E：`pnpm e2e:overlay`，E2E_OK，工具栏宽度 811px
-- [ ] E2E：`e2e-long-capture.cjs`
-  - 本地测试页：行号、固定表头、图片、懒加载
-  - 5 屏、10 屏、20k px
-  - 125% / 150% / 200% DPI
-  - 暂停、完成、取消
-  - 不可滚动窗口
+- [x] E2E：`e2e-long-capture.cjs`（`pnpm e2e:long-capture`）
+  - [x] 入口点击、HUD、暂停/继续/完成/取消
+  - [x] 预览缩放、复制、关闭后临时文件清理
+  - [ ] 本地测试页：行号、固定表头已由 smoke 覆盖；图片、懒加载未测
+  - [ ] 5 屏、10 屏、20k px
+  - [ ] 125% / 150% / 200% DPI
+  - [ ] 不可滚动窗口
 - [ ] 真实应用：
   - Chrome / Edge 长网页
   - 记事本长文档

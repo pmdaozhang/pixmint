@@ -31,6 +31,7 @@
 - `node_modules\.bin\electron.cmd . --smoke-long-capture`，确认 700×3396、行号连续、表头只出现一次、页面到底停止
 - `node_modules\.bin\electron.cmd . --smoke-long-capture-ui`，确认 HUD 和预览窗口正常
 - `pnpm e2e:overlay`，确认 `E2E_OK`，工具栏不溢出
+- `pnpm e2e:long-capture`，确认入口点击、HUD 控制、预览复制和临时文件清理通过
 - 对 smoke 输出做像素扫描：除表头外不应出现整行深色横线
 
 ### 真实应用与交互

@@ -2,7 +2,7 @@
 
 版本：v2 | 上次更新：2026-10-27
 
-> 2026-10-27 补充：文本长页 1px 接缝已由 `tests/long-capture.test.ts` 和 smoke 像素扫描覆盖；TC-005 的图片、代码块、深色页面仍未实测。
+> 2026-10-27 补充：文本长页 1px 接缝已由 `tests/long-capture.test.ts` 和 smoke 像素扫描覆盖；TC-007、TC-008、TC-009、TC-011、TC-020 已由 `e2e-long-capture.cjs` 覆盖；TC-005 的图片、代码块、深色页面和 TC-010 保存对话框仍未实测。
 
 ## 正常场景
 
