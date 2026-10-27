@@ -1,0 +1,91 @@
+{
+  "version": "0.5.1",
+  "date": "2026-10-27T14:00:00+08:00",
+  "commit": "6a8d846",
+  "level": "light",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119468160,
+    "sourceFiles": 148,
+    "sourceLines": 22342,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 145 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "scrollbar_fixture",
+        "status": "pass",
+        "command": "PIXMINT_LONG_FIXTURE_SCROLLBAR=1 electron . --smoke-long-capture",
+        "detail": "700x3396"
+      },
+      {
+        "name": "normal_smoke",
+        "status": "pass",
+        "command": "electron . --smoke-long-capture",
+        "detail": "700x3396"
+      },
+      {
+        "name": "e2e_long_capture",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture",
+        "detail": "entry, HUD, preview, copy, save, cancel, unscrollable"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.5.1.exe 119468160 bytes"
+      },
+      {
+        "name": "release",
+        "status": "pass",
+        "command": "node scripts/release-github.mjs",
+        "detail": "v0.5.1 published; exe, latest.yml and blockmap uploaded"
+      },
+      {
+        "name": "online_update",
+        "status": "pass",
+        "command": "node e2e-update-online.cjs",
+        "detail": "0.5.0 -> 0.5.1; differential 61 blocks / 1.2MB / 1%; installed 0.5.1"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.5.1 补丁修复滚动条污染匹配和首屏滚动过大。Release 与 0.5.0 → 0.5.1 差分在线更新均验证通过。实际报错应用需用户更新后复测；v0.5.0 的 VS Code/UAC/懒加载缺口继续由原报告跟踪。"
+}
