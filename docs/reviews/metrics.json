@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-27T05:21:13.931Z",
+  "generatedAt": "2026-10-27T05:34:52.382Z",
   "project": {
     "name": "snapglass",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "feat/stability-foundation",
-    "commit": "6a8d846",
-    "commitDate": "2026-10-27T05:21:08.000Z",
+    "commit": "f7e2516",
+    "commitDate": "2026-10-27T05:34:47.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
@@ -17,7 +17,7 @@
   },
   "source": {
     "files": 148,
-    "lines": 22342,
+    "lines": 22481,
     "testFiles": 23,
     "todoCount": 0,
     "largest": [
@@ -39,7 +39,7 @@
       },
       {
         "path": "src\\main\\long-capture.ts",
-        "lines": 656
+        "lines": 750
       }
     ]
   },
@@ -50,18 +50,18 @@
   "artifacts": {
     "currentVersion": [
       {
-        "path": "release\\Pixmint-Setup-0.5.1.exe",
-        "bytes": 119468160,
-        "modifiedAt": "2026-10-27T05:14:50.266Z"
+        "path": "release\\Pixmint-Setup-0.5.2.exe",
+        "bytes": 119468940,
+        "modifiedAt": "2026-10-27T05:31:18.240Z"
       }
     ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.5.1.exe",
-      "bytes": 119468160,
-      "modifiedAt": "2026-10-27T05:14:50.266Z"
+      "path": "release\\Pixmint-Setup-0.5.2.exe",
+      "bytes": 119468940,
+      "modifiedAt": "2026-10-27T05:31:18.240Z"
     },
-    "allCount": 9,
-    "allTotalBytes": 1025865899
+    "allCount": 10,
+    "allTotalBytes": 1145334839
   },
   "python": {
     "requirementLines": 0

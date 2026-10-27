@@ -1,0 +1,96 @@
+{
+  "version": "0.5.2",
+  "date": "2026-10-27T15:00:00+08:00",
+  "commit": "f7e2516",
+  "level": "light",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119468940,
+    "sourceFiles": 148,
+    "sourceLines": 22481,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 145 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "uia_big_wheel",
+        "status": "pass",
+        "command": "PIXMINT_LONG_FIXTURE_WHEEL_MULTIPLIER=13.8 electron . --smoke-long-capture",
+        "detail": "700x3396"
+      },
+      {
+        "name": "scrollbar_fixture",
+        "status": "pass",
+        "command": "PIXMINT_LONG_FIXTURE_SCROLLBAR=1 electron . --smoke-long-capture",
+        "detail": "700x3396"
+      },
+      {
+        "name": "normal_smoke",
+        "status": "pass",
+        "command": "electron . --smoke-long-capture",
+        "detail": "700x3396"
+      },
+      {
+        "name": "e2e_long_capture",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.5.2.exe 119468940 bytes"
+      },
+      {
+        "name": "release",
+        "status": "pass",
+        "command": "node scripts/release-github.mjs",
+        "detail": "v0.5.2 published; exe, latest.yml and blockmap uploaded"
+      },
+      {
+        "name": "online_update",
+        "status": "pass",
+        "command": "node e2e-update-online.cjs",
+        "detail": "0.5.1 -> 0.5.2; differential 51 blocks; installed 0.5.2"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.5.2 补丁增加 UIA 小步滚动，解决大滚轮无重叠。Release 与 0.5.1 → 0.5.2 差分在线更新均验证通过。实际报错应用需用户复测；如无 UIA ScrollPattern 仍需定向适配。"
+}
