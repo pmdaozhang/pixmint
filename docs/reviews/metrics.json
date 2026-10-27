@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T12:48:51.983Z",
+  "generatedAt": "2026-10-27T11:01:40.686Z",
   "project": {
     "name": "snapglass",
     "version": "0.4.1",
@@ -7,27 +7,31 @@
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
-    "branch": "feat/stability-foundation",
-    "commit": "1af0e22",
-    "commitDate": "2026-10-26T12:41:10.000Z",
+    "branch": "codex/window-long-capture",
+    "commit": "80fb03d",
+    "commitDate": "2026-10-27T11:01:32.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
     "deletions": null
   },
   "source": {
-    "files": 132,
-    "lines": 18715,
-    "testFiles": 21,
+    "files": 152,
+    "lines": 23814,
+    "testFiles": 23,
     "todoCount": 0,
     "largest": [
       {
+        "path": "src\\main\\long-capture.ts",
+        "lines": 1175
+      },
+      {
         "path": "src\\main\\index.ts",
-        "lines": 979
+        "lines": 1083
       },
       {
         "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
-        "lines": 833
+        "lines": 861
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
@@ -36,10 +40,6 @@
       {
         "path": "src\\main\\recording.ts",
         "lines": 752
-      },
-      {
-        "path": "src\\renderer\\src\\overlay\\Toolbar.tsx",
-        "lines": 631
       }
     ]
   },
@@ -60,8 +60,8 @@
       "bytes": 119455825,
       "modifiedAt": "2026-10-26T12:46:47.483Z"
     },
-    "allCount": 7,
-    "allTotalBytes": 786930570
+    "allCount": 11,
+    "allTotalBytes": 1264804470
   },
   "python": {
     "requirementLines": 0

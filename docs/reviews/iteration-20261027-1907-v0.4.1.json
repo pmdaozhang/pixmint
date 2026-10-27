@@ -1,0 +1,107 @@
+{
+  "version": "0.4.1",
+  "date": "2026-10-27T19:07:00+08:00",
+  "commit": "80fb03d",
+  "level": "full",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [
+    "窗口目标 sidecar 未遵循 id,command / id|payload 协议，已修复",
+    "GetCurrentThreadId 错声明在 user32.dll，已改为 kernel32.dll",
+    "选区向左或向右拖动时整体平移，已改为固定对边并按被拖边限幅"
+  ],
+  "yellow": [
+    {
+      "id": "Y1-real-apps",
+      "item": "微信、微信读书、PDF、IDE、地图等真实用户应用尚未逐一验收",
+      "dimension": "功能回归",
+      "owner": "Pixmint",
+      "deadline": "2026-11-10"
+    },
+    {
+      "id": "Y2-dpi-displays",
+      "item": "窗口长截图未覆盖多显示器与 125% / 150% / 200% DPI 组合",
+      "dimension": "兼容性",
+      "owner": "Pixmint",
+      "deadline": "2026-11-10"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119455825,
+    "sourceFiles": 152,
+    "sourceLines": 23814,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 147 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "demo",
+        "status": "pass",
+        "command": "node scripts/spike/verify-window-long-capture-demo.cjs",
+        "detail": "picker, selection, resize, auto scroll, pause, preview, error, light theme"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "node e2e-overlay.cjs",
+        "detail": "E2E_OK"
+      },
+      {
+        "name": "e2e_window_long",
+        "status": "pass",
+        "command": "pnpm e2e:window-long",
+        "detail": "real Edge window, icon-only entry, picker, reselect, 2 screens, 882x1280 preview"
+      },
+      {
+        "name": "real_user_apps",
+        "status": "not_run",
+        "reason": "尚未在微信、微信读书、PDF、IDE、地图等真实用户应用逐项复测"
+      },
+      {
+        "name": "dpi_multi_display",
+        "status": "not_run",
+        "reason": "当前 E2E 只覆盖单显示器 100% DPI，多显示器与 125% / 150% / 200% 组合未实测"
+      },
+      {
+        "name": "packaging",
+        "status": "skip",
+        "reason": "本次在 0.4.1 功能分支完成开发，未生成或安装新版本安装包"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P8 窗口长截图功能分支回顾。核心路径有真实 Edge 窗口 E2E 证据；未发布新安装包，版本号仍为 0.4.1。真实用户应用与 DPI/多显示器列为黄色项并在期限内复测。"
+}
