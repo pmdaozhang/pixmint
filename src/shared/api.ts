@@ -3,6 +3,7 @@ import type {
   OverlayCompletePayload,
   OverlayInit,
   OcrInit,
+  PinEditLayout,
   PinInit,
   Rect,
   RecorderBeginPayload,
@@ -13,6 +14,10 @@ import type {
   RecorderState,
   RecorderStatePatch,
   Settings,
+  DiagnosticsInfo,
+  LongCapturePreviewInfo,
+  LongCaptureProgress,
+  UpdateState,
   VideoDoneMeta
 } from './types'
 
@@ -26,7 +31,7 @@ export interface SnapglassApi {
     rendererReady(): void
     heartbeat(): void
     windowAt(x: number, y: number): Promise<Rect | null>
-    autoCopy(pngDataUrl: string): void
+                autoCopy(pngBytes: Uint8Array): void
     complete(payload: OverlayCompletePayload): void
     cancel(): void
   }
@@ -42,6 +47,8 @@ export interface SnapglassApi {
     dragMove(dx: number, dy: number): void
     dragEnd(): void
     contextMenu(): void
+                setEditMode(active: boolean): Promise<PinEditLayout | null>
+                commitEdit(imageBytes: Uint8Array): Promise<boolean>
   }
   settings: {
     get(): Promise<Settings>
@@ -89,5 +96,32 @@ export interface SnapglassApi {
   app: {
     platform: string
     version(): Promise<string>
+  }
+  diagnostics: {
+    info(): Promise<DiagnosticsInfo>
+    openLogFolder(): Promise<string>
+    openCrashFolder(): Promise<string>
+    flush(): Promise<void>
+    exportReport(): Promise<string | null>
+  }
+  longCapture: {
+    getState(): Promise<LongCaptureProgress>
+    pause(): void
+    resume(): void
+    finish(): void
+    cancel(): void
+    manual(): void
+    onProgress(callback: (progress: LongCaptureProgress) => void): () => void
+    previewInfo(): Promise<LongCapturePreviewInfo | null>
+    savePreview(): Promise<string | null>
+    copyPreview(): Promise<string>
+    closePreview(): void
+  }
+  updater: {
+    getState(): Promise<UpdateState>
+    check(): Promise<UpdateState>
+    download(): Promise<UpdateState>
+    install(): Promise<void>
+    onState(callback: (state: UpdateState) => void): () => void
   }
 }

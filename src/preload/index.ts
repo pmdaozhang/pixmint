@@ -10,6 +10,10 @@ import type {
   RecorderState,
   RecorderStatePatch,
   Settings,
+  DiagnosticsInfo,
+  LongCapturePreviewInfo,
+  LongCaptureProgress,
+  UpdateState,
   VideoDoneMeta
 } from '../shared/types'
 
@@ -39,7 +43,7 @@ const api: SnapglassApi = {
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),
-    autoCopy: (pngDataUrl: string) => ipcRenderer.send('overlay:auto-copy', pngDataUrl),
+    autoCopy: (pngBytes: Uint8Array) => ipcRenderer.send('overlay:auto-copy', pngBytes),
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')
   },
@@ -54,7 +58,9 @@ const api: SnapglassApi = {
     dragStart: () => ipcRenderer.send('pin:drag-start'),
     dragMove: (dx: number, dy: number) => ipcRenderer.send('pin:drag-move', dx, dy),
     dragEnd: () => ipcRenderer.send('pin:drag-end'),
-    contextMenu: () => ipcRenderer.send('pin:context-menu')
+    contextMenu: () => ipcRenderer.send('pin:context-menu'),
+    setEditMode: (active: boolean) => ipcRenderer.invoke('pin:set-edit-mode', active),
+    commitEdit: (imageBytes: Uint8Array) => ipcRenderer.invoke('pin:commit-edit', imageBytes)
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
@@ -118,6 +124,56 @@ const api: SnapglassApi = {
   app: {
     platform: process.platform,
     version: () => ipcRenderer.invoke('app:version')
+  },
+  diagnostics: {
+    info: () => ipcRenderer.invoke('diagnostics:info') as Promise<DiagnosticsInfo>,
+    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<string>,
+    openCrashFolder: () =>
+      ipcRenderer.invoke('diagnostics:open-crash-folder') as Promise<string>,
+    flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
+    exportReport: () =>
+      ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
+  },
+  longCapture: {
+    getState: () =>
+      ipcRenderer.invoke('long-capture:state') as Promise<LongCaptureProgress>,
+    pause: () => ipcRenderer.send('long-capture:pause'),
+    resume: () => ipcRenderer.send('long-capture:resume'),
+    finish: () => ipcRenderer.send('long-capture:finish'),
+    cancel: () => ipcRenderer.send('long-capture:cancel'),
+    manual: () => ipcRenderer.send('long-capture:manual'),
+    onProgress: (callback: (progress: LongCaptureProgress) => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        progress: LongCaptureProgress
+      ) => {
+        callback(progress)
+      }
+      ipcRenderer.on('long-capture:progress', listener)
+      return () => ipcRenderer.removeListener('long-capture:progress', listener)
+    },
+    previewInfo: () =>
+      ipcRenderer.invoke(
+        'long-capture:preview-info'
+      ) as Promise<LongCapturePreviewInfo | null>,
+    savePreview: () =>
+      ipcRenderer.invoke('long-capture:save-preview') as Promise<string | null>,
+    copyPreview: () =>
+      ipcRenderer.invoke('long-capture:copy-preview') as Promise<string>,
+    closePreview: () => ipcRenderer.send('long-capture:close-preview')
+  },
+  updater: {
+    getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,
+    check: () => ipcRenderer.invoke('updater:check') as Promise<UpdateState>,
+    download: () => ipcRenderer.invoke('updater:download') as Promise<UpdateState>,
+    install: () => ipcRenderer.invoke('updater:install') as Promise<void>,
+    onState: (callback: (state: UpdateState) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: UpdateState) => {
+        callback(state)
+      }
+      ipcRenderer.on('updater:state', listener)
+      return () => ipcRenderer.removeListener('updater:state', listener)
+    }
   }
 }
 

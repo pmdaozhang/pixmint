@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
-import type { Settings, ThemeSetting } from '@shared/types'
+import type { DiagnosticsInfo, Settings, ThemeSetting, UpdateState } from '@shared/types'
+import { describeUpdate } from '@shared/update'
 import { Icon } from '../components/Icon'
 import './settings.css'
 
@@ -51,8 +52,10 @@ function BrandMark(): JSX.Element {
 export function SettingsApp(): JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [version, setVersion] = useState('')
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsInfo | null>(null)
   const [toast, setToast] = useState('')
   const [translationKey, setTranslationKey] = useState('')
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
 
   const flash = (message: string): void => {
     setToast(message)
@@ -66,11 +69,33 @@ export function SettingsApp(): JSX.Element {
     ])
     setSettings(nextSettings)
     setVersion(nextVersion)
+    try {
+      setDiagnostics(await window.snapglass.diagnostics.info())
+    } catch (error) {
+      console.warn('DIAGNOSTICS_INFO_FAILED', error)
+    }
     applyTheme(nextSettings.theme)
   }
 
   useEffect(() => {
     void load()
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const unsubscribe = window.snapglass.updater.onState((state) => {
+      if (active) setUpdateState(state)
+    })
+    void window.snapglass.updater
+      .getState()
+      .then((state) => {
+        if (active) setUpdateState(state)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [])
 
   const update = async (patch: Partial<Settings>): Promise<void> => {
@@ -81,6 +106,13 @@ export function SettingsApp(): JSX.Element {
   }
 
   if (!settings) return <div className="settings-loading">正在加载设置…</div>
+
+  const updateView = describeUpdate(updateState, version)
+  const runUpdateAction = async (): Promise<void> => {
+    if (updateView.actionKind === 'check') await window.snapglass.updater.check()
+    else if (updateView.actionKind === 'download') await window.snapglass.updater.download()
+    else if (updateView.actionKind === 'install') await window.snapglass.updater.install()
+  }
 
   return (
     <div className="settings-root">
@@ -310,9 +342,141 @@ export function SettingsApp(): JSX.Element {
           </div>
         </section>
 
+        <section className="card">
+          <div className="card-title">
+            <Icon name="settings" size={16} />
+            关于与更新
+            {updateView.showBadge && <span className="update-chip">NEW</span>}
+          </div>
+          <div className="row update-row">
+            <div className="row-label">
+              <strong>
+                <span className={`version-dot ${updateView.tone}`} />
+                {updateView.title}
+              </strong>
+              <span
+                className={`update-desc ${updateView.tone}`}
+                aria-live="polite"
+              >
+                {updateView.description}
+              </span>
+            </div>
+            <div className="row-actions">
+              <button
+                className={updateView.actionVariant}
+                disabled={updateView.actionDisabled}
+                onClick={() => void runUpdateAction()}
+              >
+                {updateView.actionLabel}
+              </button>
+            </div>
+          </div>
+          {updateView.showProgress && (
+            <div className="progress-block">
+              <div
+                className="progress-track"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={updateView.progressPercent}
+              >
+                <div
+                  className={`progress-fill ${updateView.progressPercent >= 100 ? 'done' : ''}`}
+                  style={{ width: `${updateView.progressPercent}%` }}
+                />
+              </div>
+              <div className="progress-meta">
+                <span>{updateView.progressLabel}</span>
+                <span>{Math.round(updateView.progressPercent)}%</span>
+              </div>
+            </div>
+          )}
+          <div className={`update-note ${updateView.noteTone === 'error' ? 'err' : ''}`}>
+            <Icon name={updateView.noteTone === 'error' ? 'close' : 'check'} size={13} />
+            <span>{updateView.note}</span>
+          </div>
+        </section>
+
+        {diagnostics && (
+          <section className="card">
+            <div className="card-title">
+              <Icon name="folder" size={16} />
+              诊断
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>诊断日志</strong>
+                <span className="path-text">{diagnostics.logPath}</span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    const filePath = await window.snapglass.diagnostics.exportReport()
+                    if (filePath) flash('诊断报告已导出')
+                  }}
+                >
+                  导出报告
+                </button>
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.flush()
+                    await window.snapglass.diagnostics.openLogFolder()
+                    flash('已打开日志目录')
+                  }}
+                >
+                  打开目录
+                </button>
+              </div>
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>崩溃报告</strong>
+                <span>
+                  {diagnostics.crashReportCount} 份
+                  {diagnostics.latestCrashAt
+                    ? ` · 最近 ${new Date(diagnostics.latestCrashAt).toLocaleString()}`
+                    : ''}
+                </span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.openCrashFolder()
+                    flash('已打开崩溃报告目录')
+                  }}
+                >
+                  打开目录
+                </button>
+              </div>
+            </div>
+            <div className="row">
+              <div className="row-label">
+                <strong>兼容模式</strong>
+                <span>
+                  {diagnostics.safeMode ? '已启用（上次会话异常退出）' : '未启用'}
+                </span>
+              </div>
+              <div className="row-actions">
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await window.snapglass.diagnostics.flush()
+                    flash('诊断日志已写入')
+                  }}
+                >
+                  立即写入日志
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         <footer className="settings-footer">
           <span>Pixmint v{version} · {window.snapglass.app.platform}</span>
-          <span>P0 + P1</span>
+          <span>P0–P4</span>
         </footer>
       </div>
 

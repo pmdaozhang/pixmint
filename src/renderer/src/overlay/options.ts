@@ -19,7 +19,7 @@ export interface OverlayOptions {
 }
 
 export const DEFAULT_OPTIONS: OverlayOptions = {
-  tool: 'shape',
+  tool: 'move',
   shapeKind: 'rect',
   color: '#e64545',
   lineStyle: 'solid',

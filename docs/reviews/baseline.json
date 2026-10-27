@@ -1,0 +1,23 @@
+{
+  "version": "0.4.1",
+  "date": "2026-10-26",
+  "metrics": {
+    "installerBytes": 119455825,
+    "installerName": "Pixmint-Setup-0.4.1.exe",
+    "residentMemoryMB": null,
+    "coldStartMs": null,
+    "captureLatencyMs": null,
+    "runtimeDependencies": 6,
+    "devDependencies": 12,
+    "sourceFiles": 132,
+    "sourceLines": 18715,
+    "testFiles": 21
+  },
+  "budgets": {
+    "installerBytesMax": 143346990,
+    "residentMemoryMBMax": null,
+    "coldStartMsMax": null,
+    "captureLatencyMsMax": 500
+  },
+  "notes": "0.4.1 基线（2026-10-26）。内存、冷启动、截图延迟未实测，保持 null。安装包硬上限为当前体积 +20%（143,346,990 字节）；超过 +10%（约 131,401,408 字节）记黄色。覆盖层延迟沿用项目 AGENTS.md 的 p95 ≤ 500ms。更新下载速度、差分命中、代码签名未实测。"
+}

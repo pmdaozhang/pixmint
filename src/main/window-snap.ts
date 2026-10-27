@@ -1,8 +1,9 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Rect } from '../shared/types'
+import { logDiagnostic } from './diagnostics'
+import { SidecarClient } from './sidecar/client'
 
 const WINDOW_SNAP_SCRIPT = String.raw`
 param([uint32]$AppPid)
@@ -137,32 +138,39 @@ while ($true) {
 }
 `
 
-interface PendingQuery {
-  id: number
-  resolve: (rect: Rect | null) => void
-  timer: NodeJS.Timeout
+let scriptPath = ''
+
+function windowSnapScriptPath(): string {
+  if (scriptPath) return scriptPath
+  scriptPath = join(tmpdir(), `snapglass-window-snap-${process.pid}.ps1`)
+  writeFileSync(scriptPath, WINDOW_SNAP_SCRIPT, 'utf8')
+  return scriptPath
 }
 
-export class WindowSnapHelper {
-  private process: ChildProcessWithoutNullStreams | null = null
-  private buffer = ''
-  private pending: PendingQuery | null = null
-  private nextId = 1
-
-  constructor(private readonly appPid = process.pid) {}
-
-  prewarm(): void {
-    this.ensureStarted()
+function removeWindowSnapScript(): void {
+  if (!scriptPath) return
+  try {
+    if (existsSync(scriptPath)) unlinkSync(scriptPath)
+  } catch {
+    // 临时脚本清理失败不应影响退出
   }
+  scriptPath = ''
+}
 
-  ensureStarted(): void {
-    if (this.process) return
-    try {
-      const scriptPath = join(tmpdir(), 'snapglass-window-snap.ps1')
-      writeFileSync(scriptPath, WINDOW_SNAP_SCRIPT, 'utf8')
-      this.process = spawn(
-        'powershell.exe',
-        [
+/**
+ * 背景：窗口/控件吸附需要常驻 PowerShell + UI Automation，启动成本高。
+ * 设计意图：复用通用 SidecarClient，保持 300ms 最新请求优先的超时语义。
+ * 关键约束：返回非法坐标时按 null 处理，不能把坏矩形传给覆盖层。
+ */
+export class WindowSnapHelper {
+  private readonly client: SidecarClient
+
+  constructor(private readonly appPid = process.pid) {
+    this.client = new SidecarClient({
+      name: 'window-snap',
+      launch: () => ({
+        command: 'powershell.exe',
+        args: [
           '-Sta',
           '-NoLogo',
           '-NoProfile',
@@ -170,94 +178,51 @@ export class WindowSnapHelper {
           '-ExecutionPolicy',
           'Bypass',
           '-File',
-          scriptPath,
+          windowSnapScriptPath(),
           '-AppPid',
           String(this.appPid)
-        ],
-        { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
-      )
-      this.process.stdout.setEncoding('utf8')
-      this.process.stdout.on('data', (chunk: string) => this.onData(chunk))
-      this.process.stderr.on('data', () => {})
-      this.process.on('exit', () => {
-        this.process = null
-        this.resolvePending(null)
-      })
-    } catch {
-      this.process = null
-    }
-  }
-
-  query(x: number, y: number): Promise<Rect | null> {
-    this.ensureStarted()
-    if (!this.process?.stdin.writable) return Promise.resolve(null)
-    if (this.pending) {
-      clearTimeout(this.pending.timer)
-      this.pending.resolve(null)
-      this.pending = null
-    }
-    const id = this.nextId++
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        if (this.pending?.id === id) {
-          this.pending = null
-          this.restart()
-        }
-        resolve(null)
-      }, 300)
-      this.pending = { id, resolve, timer }
-      try {
-        this.process?.stdin.write(`${id},${Math.round(x)},${Math.round(y)}\n`)
-      } catch {
-        this.resolvePending(null)
-      }
+        ]
+      }),
+      defaultTimeoutMs: 300,
+      onLog: (message) => logDiagnostic('window-snap', message, 'warn')
     })
   }
 
-  dispose(): void {
-    this.resolvePending(null)
-    this.process?.kill()
-    this.process = null
+  prewarm(): void {
+    this.ensureStarted()
   }
 
-  private restart(): void {
-    this.process?.kill()
-    this.process = null
-    this.buffer = ''
+  ensureStarted(): void {
+    this.client.ensureStarted()
   }
 
-  private onData(chunk: string): void {
-    this.buffer += chunk
-    const lines = this.buffer.split(/\r?\n/)
-    this.buffer = lines.pop() ?? ''
-    for (const raw of lines) {
-      const line = raw.trim()
-      if (!line) continue
-      const separator = line.indexOf('|')
-      if (separator < 0) continue
-      const id = Number(line.slice(0, separator))
-      const payload = line.slice(separator + 1)
-      if (!this.pending || this.pending.id !== id) continue
-      if (payload === 'null') {
-        this.resolvePending(null)
-        continue
+  async query(x: number, y: number): Promise<Rect | null> {
+    const payload = await this.client.request(
+      `${Math.round(x)},${Math.round(y)}`,
+      300
+    )
+    if (!payload || payload === 'null') return null
+    try {
+      const start = payload.indexOf('{')
+      const end = payload.lastIndexOf('}')
+      if (start < 0 || end < start) return null
+      const rect = JSON.parse(payload.slice(start, end + 1)) as Rect
+      if (
+        !Number.isFinite(rect.x) ||
+        !Number.isFinite(rect.y) ||
+        !Number.isFinite(rect.width) ||
+        !Number.isFinite(rect.height)
+      ) {
+        return null
       }
-      try {
-        const start = payload.indexOf('{')
-        const end = payload.lastIndexOf('}')
-        if (start < 0 || end < start) continue
-        const rect = JSON.parse(payload.slice(start, end + 1)) as Rect
-        this.resolvePending(rect)
-      } catch {
-        this.resolvePending(null)
-      }
+      return rect
+    } catch {
+      return null
     }
   }
 
-  private resolvePending(rect: Rect | null): void {
-    if (!this.pending) return
-    clearTimeout(this.pending.timer)
-    this.pending.resolve(rect)
-    this.pending = null
+  dispose(): void {
+    this.client.dispose()
+    removeWindowSnapScript()
   }
 }

@@ -35,7 +35,7 @@ export function createOnboardingWindow(preloadPath: string): BrowserWindow {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   }
   onboardingWindow = new BrowserWindow(options)

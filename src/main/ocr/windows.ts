@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -8,12 +8,13 @@ import type { OcrResult } from '../../shared/types'
 const execFileAsync = promisify(execFile)
 
 const WINDOWS_OCR_SCRIPT = String.raw`
-param([string]$ImagePath)
+param([string]$ImagePath, [string]$LanguageTag = 'zh-Hans-CN')
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime] | Out-Null
+[Windows.Globalization.Language,Windows.Foundation,ContentType=WindowsRuntime] | Out-Null
 [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime] | Out-Null
 [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime] | Out-Null
 
@@ -34,46 +35,88 @@ $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($ImagePath)) 
 $stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
 $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
 $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
-$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+$engine = $null
+try {
+  $language = New-Object Windows.Globalization.Language -ArgumentList $LanguageTag
+  $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($language)
+} catch {
+  $engine = $null
+}
+if (-not $engine) {
+  $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+}
 if (-not $engine) { throw 'Windows OCR engine is not available. Install OCR language features first.' }
 $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
 $lines = @($result.Lines | ForEach-Object { $_.Text })
+$available = @([Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages | ForEach-Object { $_.LanguageTag })
 
 $json = [pscustomobject]@{
   text = $result.Text
   lines = $lines
+  language = $engine.RecognizerLanguage.LanguageTag
+  available = $available
 } | ConvertTo-Json -Compress -Depth 4
 $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
 [Convert]::ToBase64String($bytes)
 `
 
 function scriptPath(): string {
-  return join(tmpdir(), 'snapglass-windows-ocr.ps1')
+  return join(tmpdir(), `snapglass-windows-ocr-${process.pid}-${Date.now()}.ps1`)
 }
 
-export async function recognizeWindows(imagePath: string): Promise<OcrResult> {
+export async function recognizeWindows(
+  imagePath: string,
+  languageTag = 'zh-Hans-CN'
+): Promise<OcrResult> {
   const path = scriptPath()
   writeFileSync(path, WINDOWS_OCR_SCRIPT, 'utf8')
-  const { stdout } = await execFileAsync(
-    'powershell.exe',
-    ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path, '-ImagePath', imagePath],
-    { windowsHide: true, timeout: 60000, maxBuffer: 20 * 1024 * 1024 }
-  )
-  const encoded = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .pop()
-  if (!encoded) throw new Error('Windows OCR did not return data')
-  const decoded = Buffer.from(encoded, 'base64').toString('utf8')
-  const parsed = JSON.parse(decoded) as {
-    text?: string
-    lines?: string[] | string
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path,
+        '-ImagePath',
+        imagePath,
+        '-LanguageTag',
+        languageTag
+      ],
+      { windowsHide: true, timeout: 60000, maxBuffer: 20 * 1024 * 1024 }
+    )
+    const encoded = stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop()
+    if (!encoded) throw new Error('Windows OCR did not return data')
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8')
+    const parsed = JSON.parse(decoded) as {
+      text?: string
+      lines?: string[] | string
+      language?: string
+      available?: string[] | string
+    }
+    console.log(
+      'OCR_ENGINE',
+      parsed.language ?? 'unknown',
+      'AVAILABLE',
+      Array.isArray(parsed.available) ? parsed.available.join(',') : parsed.available ?? ''
+    )
+    const lines = Array.isArray(parsed.lines)
+      ? parsed.lines
+      : parsed.lines
+        ? [parsed.lines]
+        : []
+    return { text: parsed.text ?? '', lines }
+  } finally {
+    try {
+      unlinkSync(path)
+    } catch {
+      // 临时脚本清理失败不影响识别结果
+    }
   }
-  const lines = Array.isArray(parsed.lines)
-    ? parsed.lines
-    : parsed.lines
-      ? [parsed.lines]
-      : []
-  return { text: parsed.text ?? '', lines }
 }

@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
+import type { JSX } from 'react'
 import type {
   OverlayAction,
   OverlayInit,
-  Rect,
   RecorderMode,
   RecorderOptions,
-  Settings,
-  TextAnno,
-  Tool
+  Settings
 } from '@shared/types'
-import { dimPanelsFor, normalizeRect } from '@shared/geometry'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from './AnnotationCanvas'
+import { DimAround } from './DimAround'
 import { RecorderBar } from './RecorderBar'
 import { RecorderSession } from './RecorderSession'
+import { RESIZE_DIRS } from './selection-geometry'
 import { Toolbar } from './Toolbar'
-import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
+import { useOverlayImageSession } from './useOverlayImageSession'
+import { useOverlayKeyboard } from './useOverlayKeyboard'
+import { useOverlaySelection } from './useOverlaySelection'
+import { useWindowSnapQuery } from './useWindowSnapQuery'
 import './overlay.css'
 
-type Phase = 'selecting' | 'editing'
 type RecordPhase =
   | 'idle'
   | 'preparing'
@@ -27,10 +27,6 @@ type RecordPhase =
   | 'paused'
   | 'encoding'
   | 'result'
-type ResizeDir = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
-
-const MIN_SELECTION = 8
-const RESIZE_DIRS: ResizeDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   mode: 'gif',
   fps: 15,
@@ -38,40 +34,6 @@ const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   countdown: 3,
   mic: true,
   systemAudio: false
-}
-
-/**
- * 背景：框选、待机和录制阶段都需要把选区外压暗。
- * 设计意图：用四块实色矩形替代超大 box-shadow，避免大选区把合成器拖死。
- * 关键约束：只渲染宽高大于 0 的面板，避免创建不可见但参与布局的节点。
- */
-function DimAround({ rect, className }: { rect: Rect; className?: string }): JSX.Element {
-  const panels = dimPanelsFor(rect, {
-    x: 0,
-    y: 0,
-    width: window.innerWidth,
-    height: window.innerHeight
-  })
-  return (
-    <>
-      {(['top', 'left', 'right', 'bottom'] as const).map((key) => {
-        const panel = panels[key]
-        if (panel.width <= 0 || panel.height <= 0) return null
-        return (
-          <div
-            key={key}
-            className={`dim-panel${className ? ` ${className}` : ''}`}
-            style={{
-              left: panel.x,
-              top: panel.y,
-              width: panel.width,
-              height: panel.height
-            }}
-          />
-        )
-      })}
-    </>
-  )
 }
 
 function wait(ms: number): Promise<void> {
@@ -86,67 +48,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer))
 }
 
-function resizeSelectionRect(
-  start: Rect,
-  dir: ResizeDir,
-  dx: number,
-  dy: number,
-  maxWidth: number,
-  maxHeight: number
-): Rect {
-  let left = start.x
-  let top = start.y
-  let right = start.x + start.width
-  let bottom = start.y + start.height
-
-  if (dir.includes('w')) {
-    left = Math.min(Math.max(0, start.x + dx), right - MIN_SELECTION)
-  }
-  if (dir.includes('e')) {
-    right = Math.max(Math.min(maxWidth, start.x + start.width + dx), left + MIN_SELECTION)
-  }
-  if (dir.includes('n')) {
-    top = Math.min(Math.max(0, start.y + dy), bottom - MIN_SELECTION)
-  }
-  if (dir.includes('s')) {
-    bottom = Math.max(Math.min(maxHeight, start.y + start.height + dy), top + MIN_SELECTION)
-  }
-
-  return {
-    x: Math.round(left),
-    y: Math.round(top),
-    width: Math.round(right - left),
-    height: Math.round(bottom - top)
-  }
-}
-
-function clampWindowRect(rect: Rect, bounds: Rect): Rect | null {
-  const x = Math.max(0, rect.x - bounds.x)
-  const y = Math.max(0, rect.y - bounds.y)
-  const right = Math.min(bounds.width, rect.x + rect.width - bounds.x)
-  const bottom = Math.min(bounds.height, rect.y + rect.height - bounds.y)
-  if (right - x < MIN_SELECTION || bottom - y < MIN_SELECTION) return null
-  return {
-    x: Math.round(x),
-    y: Math.round(y),
-    width: Math.round(right - x),
-    height: Math.round(bottom - y)
-  }
-}
-
 export function OverlayApp(): JSX.Element {
-  const [init, setInit] = useState<OverlayInit | null>(null)
-  const [selection, setSelection] = useState<Rect | null>(null)
-  const [phase, setPhase] = useState<Phase>('selecting')
-  const [options, setOptions] = useState<OverlayOptions>(DEFAULT_OPTIONS)
-  const [submenuOpen, setSubmenuOpen] = useState(false)
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
-  const [preparing, setPreparing] = useState(false)
-  const [imageReady, setImageReady] = useState(false)
-  const [hoverRect, setHoverRect] = useState<Rect | null>(null)
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
   const [recorderMode, setRecorderMode] = useState<RecorderMode | null>(null)
@@ -156,9 +60,18 @@ export function OverlayApp(): JSX.Element {
   const [countdownNumber, setCountdownNumber] = useState(0)
   // 倒计时结束后先撤掉冻结截图，等合成器提交两帧再真正开录，避免首帧录进截图界面。
   const [captureClean, setCaptureClean] = useState(false)
-  const imageRef = useRef<HTMLImageElement | null>(null)
+  const {
+    init,
+    preparing,
+    imageReady,
+    canvasRef: imageCanvasRef,
+    load: loadSessionImage,
+    clear: clearSessionImage
+  } = useOverlayImageSession()
+  const { hoverRect, querySnap, cancelSnap } = useWindowSnapQuery(init)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const brushCursorRef = useRef<HTMLDivElement | null>(null)
+  const exportCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef<RecorderSession | null>(null)
   const recorderModeRef = useRef<RecorderMode | null>(null)
   const recordPhaseRef = useRef<RecordPhase>('idle')
@@ -166,31 +79,34 @@ export function OverlayApp(): JSX.Element {
   const pendingRecordModeRef = useRef<RecorderMode | null>(null)
   const recordCancelledRef = useRef(false)
   const autoCopiedRef = useRef(false)
-  const initTokenRef = useRef(0)
-  const selectionRef = useRef<Rect | null>(null)
-  const snapQueryIdRef = useRef(0)
-  const lastSnapAtRef = useRef(0)
-  const lastSnapPointRef = useRef<{ x: number; y: number } | null>(null)
-  const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
-  const snapBusyRef = useRef(false)
-  const dragRef = useRef<{
-    startX: number
-    startY: number
-    dragging: boolean
-    moved: boolean
-    hover: Rect | null
-  }>({
-    startX: 0,
-    startY: 0,
-    dragging: false,
-    moved: false,
-    hover: null
-  })
 
-  const updateSelection = useCallback((next: Rect | null) => {
-    selectionRef.current = next
-    setSelection(next)
-  }, [])
+  const {
+    selection,
+    phase,
+    options,
+    submenuOpen,
+    canUndo,
+    canRedo,
+    selectionDragging,
+    selectionRef,
+    resetSelection,
+    setOptions,
+    onSelectDown,
+    onSelectMove,
+    onSelectUp,
+    startResize,
+    onToolClick,
+    onTextInputStart,
+    onHistoryChange,
+    closeSubmenu,
+    isDragging
+  } = useOverlaySelection({
+    annotationRef,
+    brushCursorRef,
+    hoverRect,
+    querySnap,
+    cancelSnap
+  })
 
   const resetRecorderState = useCallback(() => {
     sessionRef.current?.dispose()
@@ -215,23 +131,11 @@ export function OverlayApp(): JSX.Element {
     recorderOptionsRef.current = recorderOptions
   }, [recorderOptions])
 
-  const applyInit = useCallback((data: OverlayInit) => {
-    const token = ++initTokenRef.current
-    setPreparing(true)
-    setImageReady(false)
-    updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+  const resetUiForInit = useCallback((data: OverlayInit) => {
+    resetSelection()
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = data.pendingRecorderMode ?? null
-    setPhase('selecting')
-    setOptions(DEFAULT_OPTIONS)
-    setSubmenuOpen(false)
-    setCanUndo(false)
-    setCanRedo(false)
     autoCopiedRef.current = false
     setToast('')
     setError('')
@@ -239,37 +143,20 @@ export function OverlayApp(): JSX.Element {
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
     document.documentElement.dataset.theme = theme
-    // 先把图片解码完再提交 init，保证覆盖层显示时第一帧就是新截图。
-    const image = new Image()
-    const commit = (): void => {
-      if (initTokenRef.current !== token) return
-      setInit(data)
-      setPreparing(false)
-      setImageReady(true)
-    }
-    image.onload = commit
-    image.onerror = commit
-    image.src = data.imageDataUrl
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, resetSelection])
 
-  const applyPrepare = useCallback((settings: Settings) => {
-    initTokenRef.current += 1
-    setPreparing(true)
-    setImageReady(false)
-    setInit(null)
-    updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+  const applyInit = useCallback(
+    (data: OverlayInit) => {
+      loadSessionImage(data, () => resetUiForInit(data))
+    },
+    [loadSessionImage, resetUiForInit]
+  )
+
+  const resetUiForPrepare = useCallback((settings: Settings) => {
+    resetSelection()
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = null
-    setPhase('selecting')
-    setOptions(DEFAULT_OPTIONS)
-    setSubmenuOpen(false)
-    setCanUndo(false)
-    setCanRedo(false)
     setToast('')
     setError('')
     autoCopiedRef.current = false
@@ -277,30 +164,28 @@ export function OverlayApp(): JSX.Element {
     const theme =
       settings.theme === 'system' ? (media ? 'dark' : 'light') : settings.theme
     document.documentElement.dataset.theme = theme
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, resetSelection])
 
-  const applyReset = useCallback(() => {
-    initTokenRef.current += 1
-    setPreparing(false)
-    setImageReady(false)
-    setInit(null)
-    updateSelection(null)
-    snapQueryIdRef.current += 1
-    lastSnapPointRef.current = null
-    lastPointerRef.current = null
-    snapBusyRef.current = false
-    setHoverRect(null)
+  const applyPrepare = useCallback(
+    (settings: Settings) => {
+      clearSessionImage(() => resetUiForPrepare(settings), true)
+    },
+    [clearSessionImage, resetUiForPrepare]
+  )
+
+  const resetUiForReset = useCallback(() => {
+    resetSelection()
+    cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = null
-    setPhase('selecting')
-    setOptions(DEFAULT_OPTIONS)
-    setSubmenuOpen(false)
-    setCanUndo(false)
-    setCanRedo(false)
     setToast('')
     setError('')
     autoCopiedRef.current = false
-  }, [resetRecorderState, updateSelection])
+  }, [cancelSnap, resetRecorderState, resetSelection])
+
+  const applyReset = useCallback(() => {
+    clearSessionImage(resetUiForReset, false)
+  }, [clearSessionImage, resetUiForReset])
 
   useEffect(() => {
     const off = window.snapglass.overlay.onInit(applyInit)
@@ -397,8 +282,8 @@ export function OverlayApp(): JSX.Element {
       mic: mode === 'video' ? true : previous.mic,
       systemAudio: mode === 'video' ? false : previous.systemAudio
     }))
-    setSubmenuOpen(false)
-  }, [])
+    closeSubmenu()
+  }, [closeSubmenu])
 
   const cancelRecording = useCallback(() => {
     recordCancelledRef.current = true
@@ -508,7 +393,6 @@ export function OverlayApp(): JSX.Element {
       }
       if (recordCancelledRef.current) return
       setCountdownNumber(0)
-      setCaptureClean(true)
       // 两帧等待让透明覆盖层先完成一次合成，再开始采集第一帧。
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
@@ -567,56 +451,25 @@ export function OverlayApp(): JSX.Element {
     })
   }, [cancelRecording, openRecorder, retryRecording])
 
-  const onHistoryChange = useCallback((undo: boolean, redo: boolean) => {
-    setCanUndo(undo)
-    setCanRedo(redo)
-  }, [])
-
-  const onToolClick = useCallback(
-    (tool: Tool) => {
-      if (options.tool === tool) {
-        setSubmenuOpen((open) => !open)
-        return
-      }
-      annotationRef.current?.cancelInteraction()
-      setOptions((previous) => ({ ...previous, tool }))
-      setSubmenuOpen(true)
-    },
-    [options.tool]
-  )
-
-  const onTextInputStart = useCallback((annotation?: TextAnno) => {
-    setOptions((previous) => ({
-      ...previous,
-      tool: 'text',
-      ...(annotation
-        ? {
-            textB: annotation.bold,
-            textI: annotation.italic,
-            textU: annotation.underline,
-            fontSize: annotation.fontSize,
-            fontFamily: annotation.fontFamily,
-            color: annotation.style.color
-          }
-        : {})
-    }))
-    setSubmenuOpen(true)
-  }, [])
-
-  const buildSelectionPng = useCallback(
-    (includeAnnotations: boolean): string | null => {
-      if (!init || !selection || !imageRef.current) return null
-      const image = imageRef.current
-      if (!image.complete) return null
+  const drawSelection = useCallback(
+    (includeAnnotations: boolean): HTMLCanvasElement | null => {
+      if (!init || !selection || !imageCanvasRef.current) return null
+      const image = imageCanvasRef.current
+      if (!image.width || !image.height) return null
       const scaleX = init.imageWidth / init.bounds.width
       const scaleY = init.imageHeight / init.bounds.height
       const outWidth = Math.max(1, Math.round(selection.width * scaleX))
       const outHeight = Math.max(1, Math.round(selection.height * scaleY))
-      const canvas = document.createElement('canvas')
-      canvas.width = outWidth
-      canvas.height = outHeight
+      let canvas = exportCanvasRef.current
+      if (!canvas) {
+        canvas = document.createElement('canvas')
+        exportCanvasRef.current = canvas
+      }
+      if (canvas.width !== outWidth) canvas.width = outWidth
+      if (canvas.height !== outHeight) canvas.height = outHeight
       const ctx = canvas.getContext('2d')
       if (!ctx) return null
+      ctx.clearRect(0, 0, outWidth, outHeight)
       ctx.drawImage(
         image,
         selection.x * scaleX,
@@ -632,71 +485,55 @@ export function OverlayApp(): JSX.Element {
         const annotationCanvas = annotationRef.current?.getCanvas()
         if (annotationCanvas) ctx.drawImage(annotationCanvas, 0, 0, outWidth, outHeight)
       }
-      return canvas.toDataURL('image/png')
+      return canvas
     },
     [init, selection]
   )
 
+  const buildSelectionBytes = useCallback(
+    async (includeAnnotations: boolean): Promise<Uint8Array | null> => {
+      const canvas = drawSelection(includeAnnotations)
+      if (!canvas) return null
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png')
+      })
+      if (!blob) return null
+      return new Uint8Array(await blob.arrayBuffer())
+    },
+    [drawSelection]
+  )
+
   const exportImage = useCallback(
-    (action: OverlayAction, autoTranslate = false) => {
+    async (action: OverlayAction, autoTranslate = false): Promise<void> => {
       if (!init || !selection) return
-      const pngDataUrl = buildSelectionPng(action !== 'ocr')
-      if (!pngDataUrl) return
+      const pngBytes = await buildSelectionBytes(action !== 'ocr')
+      if (!pngBytes) return
       window.snapglass.overlay.complete({
         action,
         displayId: init.displayId,
         selection,
-        pngDataUrl,
+        pngBytes,
         autoTranslate
       })
     },
-    [init, selection, buildSelectionPng]
+    [init, selection, buildSelectionBytes]
   )
 
   /**
    * 背景：大选区自动复制时，同步 toDataURL 会在渲染线程里编码整张 PNG。
-   * 设计意图：改用异步 toBlob + FileReader，把编码从交互关键路径上挪开，
-   * 避免框选刚结束就把全屏覆盖层卡住。
+   * 设计意图：改用异步 toBlob 并直接传字节，避免生成和保留大体积 data URL。
    * 关键约束：自动复制只做一次；失败只记录日志，不能阻断标注和录制。
    */
   const autoCopySelection = useCallback(async (): Promise<void> => {
-    if (!init || !selection || !imageRef.current) return
-    const image = imageRef.current
-    if (!image.complete) return
-    const scaleX = init.imageWidth / init.bounds.width
-    const scaleY = init.imageHeight / init.bounds.height
-    const outWidth = Math.max(1, Math.round(selection.width * scaleX))
-    const outHeight = Math.max(1, Math.round(selection.height * scaleY))
-    const canvas = document.createElement('canvas')
-    canvas.width = outWidth
-    canvas.height = outHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(
-      image,
-      selection.x * scaleX,
-      selection.y * scaleY,
-      selection.width * scaleX,
-      selection.height * scaleY,
-      0,
-      0,
-      outWidth,
-      outHeight
-    )
+    const canvas = drawSelection(false)
+    if (!canvas) return
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/png')
     })
     if (!blob) return
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result ?? ''))
-      reader.onerror = () => reject(reader.error ?? new Error('读取自动复制图片失败'))
-      reader.readAsDataURL(blob)
-    })
-    if (!dataUrl) return
-    window.snapglass.overlay.autoCopy(dataUrl)
+    window.snapglass.overlay.autoCopy(new Uint8Array(await blob.arrayBuffer()))
     showToast('截图已自动复制')
-  }, [init, selection, showToast])
+  }, [drawSelection, showToast])
 
   useEffect(() => {
     if (phase !== 'editing' || !selection || !init || autoCopiedRef.current) return
@@ -716,7 +553,17 @@ export function OverlayApp(): JSX.Element {
   }, [phase, selection, init, autoCopySelection])
 
   const onAction = useCallback(
-    (action: 'ocr' | 'translate' | 'gif' | 'video' | 'copy' | 'pin' | 'save' | 'close') => {
+    (action: 'ocr' | 'translate' | 'gif' | 'video' | 'long' | 'copy' | 'pin' | 'save' | 'close') => {
+      if (action === 'long') {
+        if (!init || !selection) return
+        window.snapglass.overlay.complete({
+          action: 'long',
+          displayId: init.displayId,
+          selection,
+          pngBytes: new Uint8Array(0)
+        })
+        return
+      }
       if (action === 'close') {
         window.snapglass.overlay.cancel()
         return
@@ -738,212 +585,29 @@ export function OverlayApp(): JSX.Element {
     [exportImage, openRecorder]
   )
 
+  useOverlayKeyboard({
+    phase,
+    selection,
+    exportImage,
+    cancelRecording,
+    setRecorderMode,
+    annotationRef,
+    recorderModeRef,
+    recordPhaseRef
+  })
+
+  const recorderModeActive = recorderMode !== null
+  const hideFrozenImage =
+    recorderModeActive &&
+    (captureClean ||
+      recordPhase === 'recording' ||
+      recordPhase === 'paused' ||
+      recordPhase === 'encoding')
+
   useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      const tag = (event.target as HTMLElement | null)?.tagName
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
-        if (event.key === 'Escape') event.stopPropagation()
-        return
-      }
-      if (recorderModeRef.current) {
-        if (event.key === 'Escape') {
-          event.preventDefault()
-          if (recordPhaseRef.current === 'idle') setRecorderMode(null)
-          else cancelRecording()
-        }
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        window.snapglass.overlay.cancel()
-        return
-      }
-      if (phase !== 'editing' || !selection) return
-      const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === 'c') {
-        event.preventDefault()
-        exportImage('copy')
-      } else if (mod && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        exportImage('save')
-      } else if (event.key === 'F3') {
-        event.preventDefault()
-        exportImage('pin')
-      } else if (mod && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) annotationRef.current?.redo()
-        else annotationRef.current?.undo()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [phase, selection, exportImage, cancelRecording])
-
-  const point = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
-  }
-
-  const updateBrushCursor = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    const cursor = brushCursorRef.current
-    if (!cursor) return
-    const target = event.target as HTMLElement | null
-    if (
-      phase !== 'editing' ||
-      options.tool !== 'mosaic' ||
-      options.mosaicMode !== 'brush' ||
-      target?.closest('.tooldock')
-    ) {
-      cursor.style.display = 'none'
-      return
-    }
-    const rect = event.currentTarget.getBoundingClientRect()
-    cursor.style.left = `${event.clientX - rect.left}px`
-    cursor.style.top = `${event.clientY - rect.top}px`
-    cursor.style.display = 'block'
-  }
-
-  const querySnap = (p: { x: number; y: number }): void => {
-    if (!init) return
-    lastPointerRef.current = p
-    if (snapBusyRef.current) return
-    const now = performance.now()
-    const lastPoint = lastSnapPointRef.current
-    if (lastPoint && Math.hypot(p.x - lastPoint.x, p.y - lastPoint.y) < 2) return
-    if (now - lastSnapAtRef.current < 30) return
-    lastSnapAtRef.current = now
-    lastSnapPointRef.current = p
-    const queryId = ++snapQueryIdRef.current
-    snapBusyRef.current = true
-    void window.snapglass.overlay
-      .windowAt(p.x + init.bounds.x, p.y + init.bounds.y)
-      .then((rect) => {
-        if (queryId !== snapQueryIdRef.current) return
-        setHoverRect(rect ? clampWindowRect(rect, init.bounds) : null)
-      })
-      .catch(() => {
-        if (queryId === snapQueryIdRef.current) setHoverRect(null)
-      })
-      .finally(() => {
-        snapBusyRef.current = false
-        const latest = lastPointerRef.current
-        if (latest && (Math.abs(latest.x - p.x) > 2 || Math.abs(latest.y - p.y) > 2)) {
-          querySnap(latest)
-        }
-      })
-  }
-
-  const onSelectDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (phase === 'editing' || event.button !== 0) return
-    const p = point(event)
-    dragRef.current = {
-      startX: p.x,
-      startY: p.y,
-      dragging: true,
-      moved: false,
-      hover: hoverRect
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    snapQueryIdRef.current += 1
-    snapBusyRef.current = false
-    lastPointerRef.current = null
-    setHoverRect(null)
-    updateSelection({ x: p.x, y: p.y, width: 0, height: 0 })
-  }
-
-  const onSelectMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    updateBrushCursor(event)
-    if (phase === 'editing') return
-    const p = point(event)
-    if (!dragRef.current.dragging) {
-      querySnap(p)
-      return
-    }
-    const drag = dragRef.current
-    if (!drag.moved && Math.hypot(p.x - drag.startX, p.y - drag.startY) > 4) {
-      drag.moved = true
-      setHoverRect(null)
-    }
-    const rect = normalizeRect(drag.startX, drag.startY, p.x, p.y)
-    updateSelection({
-      x: Math.max(0, Math.min(rect.x, window.innerWidth)),
-      y: Math.max(0, Math.min(rect.y, window.innerHeight)),
-      width: Math.min(rect.width, window.innerWidth - Math.max(0, rect.x)),
-      height: Math.min(rect.height, window.innerHeight - Math.max(0, rect.y))
-    })
-  }
-
-  const onSelectUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    const drag = dragRef.current
-    drag.dragging = false
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    } catch {
-      // ignore
-    }
-    if (!drag.moved && drag.hover) {
-      updateSelection(drag.hover)
-      drag.hover = null
-      setHoverRect(null)
-      setPhase('editing')
-      return
-    }
-    const current = selectionRef.current
-    if (!current) return
-    if (current.width < MIN_SELECTION || current.height < MIN_SELECTION) {
-      updateSelection(null)
-      return
-    }
-    setPhase('editing')
-  }
-
-  const startResize = (
-    event: ReactPointerEvent<HTMLSpanElement>,
-    dir: ResizeDir
-  ): void => {
-    if (phase !== 'editing' || event.button !== 0) return
-    const startRect = selectionRef.current
-    if (!startRect) return
-    event.preventDefault()
-    event.stopPropagation()
-
-    const startX = event.clientX
-    const startY = event.clientY
-    let totalShiftX = 0
-    let totalShiftY = 0
-
-    const onMove = (moveEvent: PointerEvent): void => {
-      const current = selectionRef.current
-      if (!current) return
-      const next = resizeSelectionRect(
-        startRect,
-        dir,
-        moveEvent.clientX - startX,
-        moveEvent.clientY - startY,
-        window.innerWidth,
-        window.innerHeight
-      )
-      const shiftX = next.x - current.x
-      const shiftY = next.y - current.y
-      if (shiftX || shiftY) {
-        annotationRef.current?.shift(shiftX, shiftY)
-        totalShiftX += shiftX
-        totalShiftY += shiftY
-      }
-      updateSelection(next)
-    }
-
-    const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      if (totalShiftX || totalShiftY) {
-        annotationRef.current?.shiftHistory(totalShiftX, totalShiftY)
-      }
-    }
-
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp, { once: true })
-  }
+    const canvas = imageCanvasRef.current
+    if (canvas) canvas.style.visibility = init && !hideFrozenImage ? 'visible' : 'hidden'
+  }, [init, hideFrozenImage, imageCanvasRef])
 
   if (error) return <div className="overlay-error">{error}</div>
   if (preparing && !init) {
@@ -972,14 +636,6 @@ export function OverlayApp(): JSX.Element {
         )
       )
     : 0
-  const recorderModeActive = recorderMode !== null
-  const hideFrozenImage =
-    recorderModeActive &&
-    (recordPhase === 'preparing' ||
-      captureClean ||
-      recordPhase === 'recording' ||
-      recordPhase === 'paused' ||
-      recordPhase === 'encoding')
   const showRecordingChrome = recorderModeActive && recordPhase !== 'result'
   const recorderLabel = recorderMode === 'gif' ? 'GIF' : '视频'
   const recBarLeft = selection
@@ -993,30 +649,21 @@ export function OverlayApp(): JSX.Element {
 
   return (
     <div
-      className={`overlay-root${recorderModeActive ? ' recording' : ''}`}
+      className={`overlay-root${phase === 'selecting' ? ' selecting' : ''}${
+        selectionDragging ? ' dragging-selection' : ''
+      }${
+        recorderModeActive ? ' recording' : ''
+      }`}
       onPointerDown={onSelectDown}
       onPointerMove={onSelectMove}
       onPointerUp={onSelectUp}
       onPointerLeave={() => {
         if (brushCursorRef.current) brushCursorRef.current.style.display = 'none'
-        if (phase === 'selecting' && !dragRef.current.dragging) {
-          snapQueryIdRef.current += 1
-          lastSnapPointRef.current = null
-          lastPointerRef.current = null
-          snapBusyRef.current = false
-          setHoverRect(null)
+        if (phase === 'selecting' && !isDragging()) {
+          cancelSnap()
         }
       }}
     >
-      {!hideFrozenImage && (
-        <img
-          ref={imageRef}
-          className="overlay-screen"
-          src={init.imageDataUrl}
-          alt=""
-          draggable={false}
-        />
-      )}
       {!recorderModeActive && !selection && !hoverRect && <div className="pre-dim" />}
       {!recorderModeActive && phase === 'selecting' && hoverRect && (
         <>
@@ -1069,16 +716,21 @@ export function OverlayApp(): JSX.Element {
               </div>
             </>
           )}
-          {showRecordingChrome && recordPhase !== 'preparing' && (
+          {showRecordingChrome && (
             <DimAround rect={selection} className="recording-dim" />
           )}
           {phase === 'editing' && !recorderModeActive && (
             <>
               <AnnotationCanvas
                 ref={annotationRef}
-                init={init}
+                imageWidth={init.imageWidth}
+                imageHeight={init.imageHeight}
+                bounds={init.bounds}
+                imageCanvasRef={imageCanvasRef}
                 selection={selection}
                 options={options}
+                selectionDragging={selectionDragging}
+                moveCursor="grab"
                 onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
               />
@@ -1166,7 +818,7 @@ export function OverlayApp(): JSX.Element {
         >
           <Toolbar
             options={options}
-            setOptions={(patch) => setOptions((previous) => ({ ...previous, ...patch }))}
+            setOptions={setOptions}
             submenuOpen={submenuOpen}
             onToolClick={onToolClick}
             onAction={onAction}

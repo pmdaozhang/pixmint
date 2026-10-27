@@ -13,10 +13,13 @@ export function OcrApp(): JSX.Element {
   const [error, setError] = useState('')
   const [settings, setSettings] = useState<Settings | null>(null)
   const [hasKey, setHasKey] = useState(false)
-  const [target, setTarget] = useState<'zh-CN' | 'en-US'>('zh-CN')
+  const [target, setTarget] = useState<'zh-CN' | 'en-US' | null>(null)
+  const [directionOpen, setDirectionOpen] = useState(false)
   const autoTranslatedRef = useRef(false)
+  const translateSeqRef = useRef(0)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const resultRef = useRef<HTMLDivElement | null>(null)
+  const directionRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     void window.snapglass.ocr.ready().then((data) => {
@@ -50,7 +53,9 @@ export function OcrApp(): JSX.Element {
     settings.translationProvider !== 'none' &&
     (settings.translationProvider === 'free' || hasKey)
 
-  const translate = async (): Promise<void> => {
+  const translate = async (explicitTarget?: 'zh-CN' | 'en-US'): Promise<void> => {
+    const nextTarget = explicitTarget ?? target
+    if (!nextTarget) return
     if (!settings || settings.translationProvider === 'none') {
       setError('请先在设置页选择翻译服务')
       return
@@ -59,25 +64,55 @@ export function OcrApp(): JSX.Element {
       setError('请先在设置页配置翻译 API Key')
       return
     }
+    const sequence = ++translateSeqRef.current
     setTranslating(true)
     setError('')
     try {
-      const result = await window.snapglass.translation.translate(text, target)
-      setTranslation(result)
+      const result = await window.snapglass.translation.translate(text, nextTarget)
+      if (sequence === translateSeqRef.current) setTranslation(result)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
+      if (sequence === translateSeqRef.current) {
+        setError(reason instanceof Error ? reason.message : String(reason))
+      }
     } finally {
-      setTranslating(false)
+      if (sequence === translateSeqRef.current) setTranslating(false)
     }
   }
 
   useEffect(() => {
     if (!init || init.mode !== 'translate' || !init.autoTranslate) return
-    if (autoTranslatedRef.current || !canTranslate) return
+    if (autoTranslatedRef.current || !canTranslate || !target) return
     autoTranslatedRef.current = true
-    void translate()
+    void translate(target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [init, canTranslate])
+
+  useEffect(() => {
+    if (!directionOpen) return
+    const onPointerDown = (event: PointerEvent): void => {
+      if (directionRef.current && !directionRef.current.contains(event.target as Node)) {
+        setDirectionOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setDirectionOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [directionOpen])
+
+  const chooseDirection = (next: 'zh-CN' | 'en-US'): void => {
+    setDirectionOpen(false)
+    setTarget(next)
+    setTranslation('')
+    setError('')
+    if (!canTranslate) return
+    void translate(next)
+  }
 
   useEffect(() => {
     if (!init) return
@@ -93,8 +128,18 @@ export function OcrApp(): JSX.Element {
       const resultHeight = Math.min(260, Math.max(70, resultRef.current?.scrollHeight ?? 100))
       const hint = canTranslate ? 0 : 50
       const errorHeight = error ? 40 : 0
+      const directionHeight = 40
       window.snapglass.ocr.resize(
-        28 + 16 + inputHeight + 10 + resultHeight + 10 + hint + errorHeight + 14
+        28 +
+          16 +
+          inputHeight +
+          10 +
+          directionHeight +
+          resultHeight +
+          10 +
+          hint +
+          errorHeight +
+          14
       )
     })
     return () => window.cancelAnimationFrame(frame)
@@ -155,6 +200,57 @@ export function OcrApp(): JSX.Element {
           readOnly
           spellCheck={false}
         />
+        <div className="translate-direction" ref={directionRef}>
+          <button
+            type="button"
+            className="direction-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={directionOpen}
+            onClick={() => setDirectionOpen((open) => !open)}
+          >
+            <span className={`direction-label${target ? '' : ' placeholder'}`}>
+              {target === 'en-US' ? 'CN→EN' : target === 'zh-CN' ? 'EN→CN' : '请选择'}
+            </span>
+            <svg
+              className="direction-chevron"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M7 10l5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          {directionOpen && (
+            <div className="direction-menu" role="listbox" aria-label="翻译方向">
+              <button
+                type="button"
+                role="option"
+                aria-selected={target === 'en-US'}
+                className={`direction-option${target === 'en-US' ? ' selected' : ''}`}
+                onClick={() => chooseDirection('en-US')}
+              >
+                CN→EN
+              </button>
+              <button
+                type="button"
+                role="option"
+                aria-selected={target === 'zh-CN'}
+                className={`direction-option${target === 'zh-CN' ? ' selected' : ''}`}
+                onClick={() => chooseDirection('zh-CN')}
+              >
+                EN→CN
+              </button>
+            </div>
+          )}
+        </div>
         <div className="translate-result" ref={resultRef}>
           {translation || (translating ? '翻译中…' : '译文会显示在这里')}
         </div>

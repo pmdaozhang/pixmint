@@ -225,20 +225,35 @@ async function testPrepareCancel(app) {
   const control = await waitForWindow(app, '.rec-control.preparing', 8000)
   await control.waitForSelector('.rec-control.preparing .cb', { timeout: 5000 })
   const frozenImageCount = await overlay.locator('.overlay-screen').count()
-  console.log('PREPARE_FROZEN_IMAGE', frozenImageCount)
-  if (frozenImageCount !== 0) {
-    throw new Error('frozen screenshot is still covering desktop while preparing')
+  const preparingFrameCount = await overlay.locator('.recording-frame').count()
+  const preparingDimCount = await overlay.locator('.recording-dim').count()
+  const frameOutline = await overlay
+    .locator('.recording-frame')
+    .evaluate((element) => getComputedStyle(element).outlineColor)
+  console.log(
+    'PREPARE_CHROME',
+    frozenImageCount,
+    preparingFrameCount,
+    preparingDimCount,
+    frameOutline
+  )
+  // 准备阶段保持冻结画面、红框和遮罩，避免开始录制时桌面闪一下。
+  if (frozenImageCount !== 1 || preparingFrameCount !== 1 || preparingDimCount !== 4) {
+    throw new Error('preparing state should keep frozen image, frame and dim mask')
+  }
+  if (frameOutline !== 'rgb(255, 69, 58)') {
+    throw new Error(`preparing frame should use full red outline, got ${frameOutline}`)
   }
   await control.locator('.rec-control.preparing .cb').click()
   await overlay.waitForSelector('.tooldock', { timeout: 5000 })
-  const preparingFrameCount = await overlay.locator('.recording-frame').count()
+  const cancelledFrameCount = await overlay.locator('.recording-frame').count()
   const restoredImageCount = await overlay.locator('.overlay-screen').count()
   console.log(
     'PREPARE_CANCEL_RESTORED',
-    preparingFrameCount === 0,
+    cancelledFrameCount === 0,
     restoredImageCount === 1
   )
-  if (preparingFrameCount !== 0 || restoredImageCount !== 1) {
+  if (cancelledFrameCount !== 0 || restoredImageCount !== 1) {
     throw new Error('cancel did not restore the annotation view')
   }
   await overlay.evaluate(() => window.__restoreGetUserMedia?.())

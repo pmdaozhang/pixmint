@@ -3,13 +3,18 @@ const path = require('node:path')
 
 const PROJECT = __dirname
 const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electron.exe')
+const PROFILE = path.join(PROJECT, '..', '_staging', 'e2e-translate-profile')
 
 ;(async () => {
   const app = await electron.launch({
     executablePath: ELECTRON,
     args: ['.', '--smoke-ocr-translate'],
     cwd: PROJECT,
-    env: { ...process.env }
+    env: {
+      ...process.env,
+      OCR_SMOKE_FIXTURE: 'tests/fixtures/ocr-ambiguous.png',
+      PIXMINT_USER_DATA_DIR: PROFILE
+    }
   })
   const window = await app.firstWindow()
   await window.waitForSelector('.ocr-root', { timeout: 15000 })
@@ -19,11 +24,13 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     return visible ? visible.getBounds() : null
   })
   console.log('TRANSLATE_WINDOW_BOUNDS', bounds)
-  if (!bounds || bounds.height > 340) throw new Error('translation window is not compact')
+  if (!bounds || bounds.height > 380 || bounds.height < 240) {
+    throw new Error('translation window is not compact')
+  }
 
   const original = await window.locator('#ocr-original').inputValue()
   console.log('TRANSLATE_WINDOW_TEXT', original)
-  if (!original.includes('你好世界')) throw new Error('translate window text missing')
+  if (!original.includes('中文ab')) throw new Error('translate window text missing')
   const footer = await window.locator('.ocr-compact-footer').count()
   console.log('TRANSLATE_WINDOW_FOOTER', footer)
   if (footer !== 0) throw new Error('translate window should not have footer actions')
@@ -43,6 +50,34 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     throw new Error('translate text should be selectable')
   }
 
+  const directionTrigger = window.locator('.direction-trigger')
+  const defaultDirection = await directionTrigger.innerText()
+  console.log('TRANSLATE_DIRECTION_DEFAULT', defaultDirection)
+  if (!defaultDirection.includes('请选择')) {
+    throw new Error('ambiguous text should start with 请选择')
+  }
+  await directionTrigger.click()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  const directionOptions = window.locator('.direction-option')
+  const directionCount = await directionOptions.count()
+  const directionLabels = await directionOptions.allInnerTexts()
+  const selectedCount = await window.locator('.direction-option.selected').count()
+  console.log(
+    'TRANSLATE_DIRECTION_OPTIONS',
+    directionCount,
+    JSON.stringify(directionLabels),
+    'SELECTED',
+    selectedCount
+  )
+  if (
+    directionCount !== 2 ||
+    !directionLabels.includes('CN→EN') ||
+    !directionLabels.includes('EN→CN') ||
+    selectedCount !== 0
+  ) {
+    throw new Error('translation direction menu is incomplete')
+  }
+
   await window.evaluate(async () => {
     await window.snapglass.settings.update({ translationProvider: 'free' })
     window.dispatchEvent(new Event('focus'))
@@ -51,6 +86,34 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   const hint = await window.locator('.ocr-hint').count()
   console.log('TRANSLATE_WINDOW_FREE_HINT', hint)
   if (hint !== 0) throw new Error('free provider should not show configuration hint')
+
+  await window.evaluate(async () => {
+    await window.snapglass.settings.update({ translationProvider: 'none' })
+    window.dispatchEvent(new Event('focus'))
+  })
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  const noProviderHint = await window.locator('.ocr-hint').count()
+  console.log('TRANSLATE_WINDOW_NONE_HINT', noProviderHint)
+  if (noProviderHint < 1) throw new Error('missing provider hint should be visible')
+
+  await directionOptions.filter({ hasText: 'CN→EN' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  const firstDirection = await directionTrigger.innerText()
+  console.log('TRANSLATE_DIRECTION_FIRST', firstDirection)
+  if (!firstDirection.includes('CN→EN')) {
+    throw new Error('selecting CN→EN failed')
+  }
+
+  await directionTrigger.click()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  await directionOptions.filter({ hasText: 'EN→CN' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 150))
+  const switchedDirection = await directionTrigger.innerText()
+  const menuClosed = (await window.locator('.direction-menu').count()) === 0
+  console.log('TRANSLATE_DIRECTION_SWITCH', switchedDirection, 'MENU_CLOSED', menuClosed)
+  if (!switchedDirection.includes('EN→CN') || !menuClosed) {
+    throw new Error('translation direction switch failed')
+  }
 
   await window.locator('.ocr-icon-btn').click()
   await new Promise((resolve) => setTimeout(resolve, 300))

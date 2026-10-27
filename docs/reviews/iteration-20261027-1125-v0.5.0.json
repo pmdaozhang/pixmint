@@ -1,0 +1,196 @@
+{
+  "version": "0.5.0",
+  "date": "2026-10-27T13:30:00+08:00",
+  "commit": "cdb9c1d",
+  "level": "full",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "P7-COVERAGE",
+      "item": "VS Code、UAC/受保护窗口、网络懒加载图片未验证；DPI/多显示器按用户要求不测",
+      "dimension": "testing",
+      "deadline": "2026-11-10",
+      "evidence": "docs/features/P7-long-screenshot.md#实测结果2026-10-27"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 119467169,
+    "sourceFiles": 148,
+    "sourceLines": 22095,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 144 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "detail": "E2E_OK, toolbar 811px"
+      },
+      {
+        "name": "smoke_long_capture",
+        "status": "pass",
+        "command": "node_modules/.bin/electron.cmd . --smoke-long-capture",
+        "detail": "700x3396, 297504 bytes, rows 1..160, no seam"
+      },
+      {
+        "name": "smoke_long_capture_ui",
+        "status": "pass",
+        "command": "node_modules/.bin/electron.cmd . --smoke-long-capture-ui",
+        "detail": "700x3396, 297504 bytes"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.5.0.exe 119467169 bytes"
+      },
+      {
+        "name": "artifact_manifest",
+        "status": "pass",
+        "command": "release/latest.yml and release/Pixmint-Setup-0.5.0.exe.blockmap",
+        "detail": "version 0.5.0, manifest and blockmap present"
+      },
+      {
+        "name": "packaged_version",
+        "status": "pass",
+        "command": "release/win-unpacked/Pixmint.exe",
+        "detail": "FileVersion 0.5.0"
+      },
+      {
+        "name": "e2e_long_capture",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture",
+        "detail": "entry click, HUD pause/resume/finish/cancel, preview zoom/copy, save path, temp cleanup, unscrollable error"
+      },
+      {
+        "name": "e2e_long_capture_edge",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture:edge",
+        "detail": "700x3235 real Edge page"
+      },
+      {
+        "name": "e2e_long_capture_notepad",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture:notepad",
+        "detail": "700x13908 real Notepad document"
+      },
+      {
+        "name": "smoke_20k",
+        "status": "pass",
+        "command": "PIXMINT_LONG_ROWS=1000 electron . --smoke-long-capture",
+        "detail": "700x21036, 1972846 bytes, encode 1110/1050/1034ms, RSS +185/196/205MB"
+      },
+      {
+        "name": "smoke_limit",
+        "status": "pass",
+        "command": "PIXMINT_LONG_MAX_HEIGHT=1200 electron . --smoke-long-capture",
+        "detail": "stopped at 1200px and kept result"
+      },
+      {
+        "name": "smoke_dark_media",
+        "status": "pass",
+        "command": "PIXMINT_LONG_ROWS=200 PIXMINT_LONG_FIXTURE_THEME=dark PIXMINT_LONG_FIXTURE_MEDIA=1 electron . --smoke-long-capture",
+        "detail": "700x5240, dark theme, static images and code blocks"
+      },
+      {
+        "name": "regression_ocr",
+        "status": "pass",
+        "command": "node e2e-ocr.cjs",
+        "detail": "OCR_E2E_OK"
+      },
+      {
+        "name": "regression_translation",
+        "status": "pass",
+        "command": "node e2e-ocr-translate.cjs",
+        "detail": "TRANSLATE_WINDOW_E2E_OK"
+      },
+      {
+        "name": "regression_recording",
+        "status": "pass",
+        "command": "pnpm e2e:recording",
+        "detail": "RECORDING_E2E_OK"
+      },
+      {
+        "name": "regression_pin",
+        "status": "pass",
+        "command": "pnpm e2e:pin",
+        "detail": "PIN_E2E_OK"
+      },
+      {
+        "name": "regression_settings",
+        "status": "pass",
+        "command": "node e2e-settings.cjs",
+        "detail": "SETTINGS_E2E_OK"
+      },
+      {
+        "name": "vscode",
+        "status": "not_run",
+        "reason": "现有 VS Code 会话/窗口抢占焦点，目标文件未稳定激活，已停止自动验证"
+      },
+      {
+        "name": "dpi_multimonitor",
+        "status": "not_run",
+        "reason": "用户明确本轮不测 DPI 和多显示器"
+      },
+      {
+        "name": "uac_protected",
+        "status": "not_run",
+        "reason": "未在 UAC/受保护窗口实测"
+      },
+      {
+        "name": "lazy_media",
+        "status": "not_run",
+        "reason": "网络懒加载图片和动态内容未测"
+      },
+      {
+        "name": "online_update",
+        "status": "pass",
+        "command": "node e2e-update-online.cjs",
+        "detail": "0.4.1 -> 0.5.0; download, SHA-512 verify, restart install; settings/secrets preserved; differential 404 fallback to full download"
+      },
+      {
+        "name": "github_release",
+        "status": "pass",
+        "command": "node scripts/release-github.mjs",
+        "detail": "v0.5.0 published; exe, latest.yml and blockmap uploaded"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P7 长截图核心链路、1px 接缝修复、专用 E2E、Edge/记事本真实应用、20k px 性能、保存/上限/不可滚动、深色图片代码块和既有功能回归均通过。GitHub Release v0.5.0 已发布，0.4.1 → 0.5.0 在线更新验证通过；旧版 blockmap 404 导致差分回退全量下载但安装成功。VS Code 因现有会话阻塞、UAC/受保护窗口和网络懒加载未验证；DPI/多显示器按用户要求不测，因此结论为 conditional。"
+}

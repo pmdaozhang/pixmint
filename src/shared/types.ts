@@ -12,8 +12,8 @@ export interface Rect {
 
 export type ThemeSetting = 'system' | 'dark' | 'light'
 export type Language = 'zh-CN' | 'en-US'
-export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr'
-export type Tool = 'shape' | 'arrow' | 'mosaic' | 'text' | 'seq'
+export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr' | 'long'
+export type Tool = 'move' | 'shape' | 'arrow' | 'mosaic' | 'text' | 'seq'
 export type ShapeKind = 'rect' | 'ellipse'
 export type LineStyle = 'solid' | 'thin' | 'sketch' | 'dotted'
 export type ArrowMode = 'single' | 'none' | 'double'
@@ -31,6 +31,7 @@ export type RecorderPhase =
   | 'result'
 
 export interface Settings {
+  schemaVersion?: number
   shortcut: string
   theme: ThemeSetting
   language: Language
@@ -41,6 +42,17 @@ export interface Settings {
   translationModel: string
   translationTarget: 'zh-CN' | 'en-US'
   hasTranslationKey?: boolean
+}
+
+export interface DiagnosticsInfo {
+  version: string
+  platform: string
+  logPath: string
+  crashReportsDir: string
+  crashReportCount: number
+  latestCrashFile: string | null
+  latestCrashAt: string | null
+  safeMode: boolean
 }
 
 export interface DisplayCapture {
@@ -61,7 +73,7 @@ export interface OverlayCompletePayload {
   action: OverlayAction
   displayId: number
   selection: Rect
-  pngDataUrl: string
+  pngBytes: Uint8Array
   autoTranslate?: boolean
 }
 
@@ -71,7 +83,6 @@ export interface OcrResult {
 }
 
 export interface OcrInit extends OcrResult {
-  imageDataUrl: string
   mode: 'ocr' | 'translate'
   autoTranslate: boolean
   settings: Settings
@@ -86,10 +97,18 @@ export interface DictionaryEntry {
 
 export interface PinInit {
   id: string
-  dataUrl: string
+  imageBytes: Uint8Array
   width: number
   height: number
   opacity: number
+}
+
+export interface PinEditLayout {
+  width: number
+  height: number
+  imageWidth: number
+  imageHeight: number
+  toolbarWidth: number
 }
 
 export interface AnnoStyle {
@@ -266,3 +285,63 @@ export type RecorderControlCommand =
   | { type: 'cancel' }
   | { type: 'pause' }
   | { type: 'resume' }
+
+export type UpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'verifying'
+  | 'downloaded'
+  | 'installing'
+  | 'error'
+  | 'disabled'
+
+export interface UpdateProgress {
+  percent: number
+  transferred: number
+  total: number
+}
+
+export interface UpdateState {
+  status: UpdatePhase
+  version?: string
+  releaseNotes?: string
+  progress?: UpdateProgress
+  error?: string
+  checkedAt?: string
+  sizeBytes?: number
+  reason?: 'no-release'
+}
+
+export type LongCapturePhase =
+  | 'idle'
+  | 'preparing'
+  | 'scrolling'
+  | 'capturing'
+  | 'matching'
+  | 'manual'
+  | 'paused'
+  | 'finished'
+  | 'error'
+  | 'cancelled'
+
+export interface LongCaptureProgress {
+  phase: LongCapturePhase
+  screens: number
+  height: number
+  message?: string
+  error?: string
+}
+
+export interface LongCaptureResult {
+  width: number
+  height: number
+  bytes: number
+  filePath: string
+}
+
+export interface LongCapturePreviewInfo extends LongCaptureResult {
+  mediaUrl: string
+}

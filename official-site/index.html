@@ -1,0 +1,2066 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint — 截图之后，顺手把事做完</title>
+    <meta
+      name="description"
+      content="Pixmint 是 Windows 上的截图、标注、钉图、OCR 翻译与选区录制工具。本地识别，F1 即取即用。"
+    />
+    <link rel="icon" href="assets/icon.png" />
+    <style>
+      :root {
+        --radius-sm: 8px;
+        --radius-md: 10px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+        --radius-2xl: 20px;
+        --radius-3xl: 24px;
+        --radius-full: 999px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
+          "Microsoft YaHei", "Segoe UI", sans-serif;
+        --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+      }
+
+      [data-theme="dark"] {
+        --page: #08090c;
+        --page-glow: rgba(58, 131, 247, 0.17);
+        --page-glow-2: rgba(102, 78, 170, 0.1);
+        --surface: #0f1116;
+        --surface-2: #141821;
+        --surface-3: #1a202b;
+        --text: #f7f9fd;
+        --text-2: #a7b0c0;
+        --text-3: #707b8d;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.15);
+        --accent: #3a83f7;
+        --accent-2: #7fb0ff;
+        --accent-soft: rgba(58, 131, 247, 0.14);
+        --nav-bg: rgba(8, 9, 12, 0.74);
+        --shadow: 0 30px 80px rgba(0, 0, 0, 0.44);
+        --grid: rgba(255, 255, 255, 0.055);
+        --stage-grid: rgba(255, 255, 255, 0.07);
+        --toast-bg: #1c2330;
+      }
+
+      [data-theme="light"] {
+        --page: #f3f6fa;
+        --page-glow: rgba(2, 133, 255, 0.12);
+        --page-glow-2: rgba(102, 78, 170, 0.07);
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --surface-3: #eef2f7;
+        --text: #0d1117;
+        --text-2: #536074;
+        --text-3: #8994a5;
+        --border: rgba(13, 17, 23, 0.08);
+        --border-strong: rgba(13, 17, 23, 0.16);
+        --accent: #0285ff;
+        --accent-2: #006edb;
+        --accent-soft: #e5f3ff;
+        --nav-bg: rgba(243, 246, 250, 0.8);
+        --shadow: 0 30px 80px rgba(13, 17, 23, 0.12);
+        --grid: rgba(13, 17, 23, 0.045);
+        --stage-grid: rgba(255, 255, 255, 0.05);
+        --toast-bg: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(900px 620px at 10% -8%, var(--page-glow), transparent 62%),
+          radial-gradient(760px 520px at 96% 8%, var(--page-glow-2), transparent 66%),
+          var(--page);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        transition:
+          background 0.25s ease,
+          color 0.25s ease;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background-image: radial-gradient(var(--grid) 1px, transparent 1px);
+        background-size: 26px 26px;
+        content: "";
+        pointer-events: none;
+        mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.62) 36%, transparent 78%);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      img,
+      svg {
+        display: block;
+      }
+
+      img {
+        max-width: 100%;
+      }
+
+      ::selection {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .container {
+        position: relative;
+        z-index: 1;
+        width: min(1180px, calc(100vw - 48px));
+        margin: 0 auto;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        border-bottom: 1px solid var(--border);
+        background: var(--nav-bg);
+        backdrop-filter: blur(20px) saturate(1.35);
+      }
+
+      .nav-inner {
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 660;
+        letter-spacing: -0.025em;
+      }
+
+      .brand-icon {
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+      }
+
+      .brand-badge {
+        margin-left: 5px;
+        padding: 3px 7px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        color: var(--text-3);
+        font: 600 8.5px/1 var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        color: var(--text-2);
+        font-size: 12.5px;
+      }
+
+      .nav-links a {
+        position: relative;
+        padding: 4px 0;
+        transition: color 0.15s ease;
+      }
+
+      .nav-links a::after {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -2px;
+        height: 1.5px;
+        border-radius: 2px;
+        background: var(--accent);
+        content: "";
+        opacity: 0;
+        transform: scaleX(0.5);
+        transition:
+          opacity 0.15s ease,
+          transform 0.15s ease;
+      }
+
+      .nav-links a:hover,
+      .nav-links a.active {
+        color: var(--text);
+      }
+
+      .nav-links a.active::after {
+        opacity: 1;
+        transform: scaleX(1);
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-btn {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-2);
+        color: var(--text-2);
+        transition:
+          color 0.15s ease,
+          border-color 0.15s ease,
+          background 0.15s ease;
+      }
+
+      .icon-btn:hover {
+        border-color: var(--border-strong);
+        background: var(--surface-3);
+        color: var(--text);
+      }
+
+      .theme-icon.sun,
+      [data-theme="dark"] .theme-icon.moon {
+        display: none;
+      }
+
+      [data-theme="dark"] .theme-icon.sun,
+      [data-theme="light"] .theme-icon.moon {
+        display: block;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 14px;
+        border-radius: var(--radius-md);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        white-space: nowrap;
+        transition:
+          transform 0.16s ease,
+          filter 0.16s ease,
+          border-color 0.16s ease,
+          background 0.16s ease,
+          color 0.16s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn-sm {
+        height: 32px;
+        padding: 0 12px;
+        font-size: 11.5px;
+      }
+
+      .btn-lg {
+        height: 44px;
+        padding: 0 18px;
+        border-radius: var(--radius-lg);
+        font-size: 13px;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 26%, transparent);
+      }
+
+      .btn-primary:hover {
+        filter: brightness(1.06);
+      }
+
+      .btn-ghost {
+        border: 1px solid var(--border-strong);
+        background: var(--surface-2);
+        color: var(--text-2);
+      }
+
+      .btn-ghost:hover {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+        background: var(--surface-3);
+        color: var(--text);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.02fr 0.98fr;
+        gap: 58px;
+        align-items: center;
+        padding: 88px 0 58px;
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 2;
+      }
+
+      .kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 20px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      .kicker-line {
+        width: 22px;
+        height: 1.5px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(44px, 5.4vw, 72px);
+        font-weight: 680;
+        letter-spacing: -0.06em;
+        line-height: 0.98;
+      }
+
+      .hero h1 .accent {
+        color: var(--accent-2);
+      }
+
+      .hero-lede {
+        max-width: 520px;
+        margin: 22px 0 0;
+        color: var(--text-2);
+        font-size: 14px;
+        line-height: 1.8;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 30px;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin-top: 22px;
+        color: var(--text-3);
+        font-size: 10.5px;
+      }
+
+      .hero-meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .hero-visual {
+        position: relative;
+        min-height: 520px;
+      }
+
+      .hero-glow {
+        position: absolute;
+        inset: 8% -10% -8% 6%;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 55% 50%,
+          color-mix(in srgb, var(--accent) 24%, transparent),
+          transparent 64%
+        );
+        filter: blur(28px);
+        opacity: 0.8;
+      }
+
+      .stage {
+        position: relative;
+        height: 500px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-3xl);
+        background:
+          radial-gradient(400px 240px at 82% -10%, rgba(58, 131, 247, 0.15), transparent 66%),
+          linear-gradient(150deg, #151a24, #0a0d13 72%);
+        box-shadow: var(--shadow);
+        transform: rotate(-0.55deg);
+      }
+
+      .stage::before {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(var(--stage-grid) 1px, transparent 1px);
+        background-size: 22px 22px;
+        content: "";
+        opacity: 0.7;
+        mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.6) 72%, transparent 100%);
+      }
+
+      .stage-window {
+        position: absolute;
+        inset: 34px 26px 64px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-xl);
+        background: #0a0c11;
+      }
+
+      .stage-bar {
+        height: 30px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        color: #6d7888;
+        font: 9px var(--mono);
+      }
+
+      .stage-bar i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #39414e;
+      }
+
+      .stage-bar span {
+        margin-left: 8px;
+      }
+
+      .stage-body {
+        display: grid;
+        grid-template-columns: 27% 1fr;
+        height: calc(100% - 30px);
+      }
+
+      .faux-side {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 15px 12px;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .faux-avatar {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #3a83f7, #7a5cff);
+        box-shadow: 0 0 0 3px rgba(58, 131, 247, 0.1);
+      }
+
+      .faux-nav {
+        width: 100%;
+        height: 7px;
+        border-radius: 4px;
+        background: #1b212c;
+      }
+
+      .faux-nav.short {
+        width: 68%;
+      }
+
+      .faux-nav.active {
+        background: linear-gradient(90deg, rgba(58, 131, 247, 0.5), rgba(58, 131, 247, 0.12));
+      }
+
+      .faux-main {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 21px;
+      }
+
+      .faux-title {
+        width: 53%;
+        height: 12px;
+        border-radius: 5px;
+        background: #252c38;
+      }
+
+      .faux-sub {
+        width: 71%;
+        height: 7px;
+        border-radius: 4px;
+        background: #1b212c;
+      }
+
+      .faux-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 11px;
+        margin-top: 5px;
+      }
+
+      .faux-card {
+        position: relative;
+        height: 88px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.065);
+        border-radius: 10px;
+        background: linear-gradient(145deg, #171d27, #0e1219);
+      }
+
+      .faux-card::before {
+        position: absolute;
+        inset: 12px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, rgba(58, 131, 247, 0.2), transparent 60%);
+        content: "";
+      }
+
+      .faux-card::after {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        height: 5px;
+        border-radius: 3px;
+        background: #232b37;
+        content: "";
+      }
+
+      .selection {
+        position: absolute;
+        top: 24%;
+        left: 10%;
+        z-index: 3;
+        width: 62%;
+        height: 46%;
+        border: 1.5px solid var(--accent);
+        border-radius: 2px;
+        background: rgba(58, 131, 247, 0.04);
+        box-shadow: 0 0 0 9999px rgba(4, 6, 10, 0.52);
+      }
+
+      .selection-size {
+        position: absolute;
+        top: -24px;
+        left: 0;
+        padding: 3px 7px;
+        border-radius: 5px;
+        background: var(--accent);
+        color: #fff;
+        font: 9px var(--mono);
+        white-space: nowrap;
+      }
+
+      .handle {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border: 1.5px solid var(--accent);
+        border-radius: 2px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      }
+
+      .handle.nw {
+        top: -5px;
+        left: -5px;
+      }
+      .handle.n {
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .handle.ne {
+        top: -5px;
+        right: -5px;
+      }
+      .handle.e {
+        top: 50%;
+        right: -5px;
+        transform: translateY(-50%);
+      }
+      .handle.se {
+        right: -5px;
+        bottom: -5px;
+      }
+      .handle.s {
+        bottom: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .handle.sw {
+        bottom: -5px;
+        left: -5px;
+      }
+      .handle.w {
+        top: 50%;
+        left: -5px;
+        transform: translateY(-50%);
+      }
+
+      .hero-toolbar {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-lg);
+        background: rgba(25, 30, 40, 0.94);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(16px);
+        transform: translateX(-50%);
+      }
+
+      .tool {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: #9aa4b4;
+        transition:
+          color 0.14s ease,
+          background 0.14s ease;
+      }
+
+      .tool:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+      }
+
+      .tool.active {
+        background: rgba(58, 131, 247, 0.18);
+        color: #7fb0ff;
+      }
+
+      .tool.primary {
+        width: 34px;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .tool-sep {
+        width: 1px;
+        height: 18px;
+        margin: 0 3px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .f1-key {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9px;
+        background: rgba(18, 22, 30, 0.82);
+        backdrop-filter: blur(12px);
+      }
+
+      .f1-key b {
+        padding: 2px 5px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
+        font: 700 10px var(--mono);
+      }
+
+      .f1-key small {
+        color: #8b95a6;
+        font-size: 9px;
+      }
+
+      .hero-ocr {
+        position: absolute;
+        right: -18px;
+        bottom: -18px;
+        z-index: 6;
+        width: 330px;
+        padding: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        background: #0d0d0d;
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+        transform: rotate(1.2deg);
+        animation: float 8s ease-in-out infinite;
+      }
+
+      .hero-ocr img {
+        width: 100%;
+        border-radius: 9px;
+      }
+
+      .hero-ocr-label {
+        position: absolute;
+        top: -12px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        border: 1px solid rgba(58, 131, 247, 0.35);
+        border-radius: var(--radius-full);
+        background: #101d30;
+        color: #8fbaff;
+        font: 600 9px var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .small-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin-top: 18px;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .strip-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 18px;
+        border-right: 1px solid var(--border);
+        color: var(--text-2);
+        font-size: 11.5px;
+      }
+
+      .strip-item:last-child {
+        border-right: 0;
+      }
+
+      .strip-icon {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--accent);
+      }
+
+      .section {
+        padding-top: 100px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 36px;
+        margin-bottom: 34px;
+      }
+
+      .eyebrow {
+        margin-bottom: 14px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(28px, 3.2vw, 42px);
+        font-weight: 660;
+        letter-spacing: -0.045em;
+        line-height: 1.08;
+      }
+
+      .section-head p {
+        max-width: 435px;
+        margin: 0 0 3px;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.75;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .feature {
+        position: relative;
+        min-height: 186px;
+        overflow: hidden;
+        padding: 22px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(160deg, var(--surface-2), var(--surface));
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .feature::after {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          260px 130px at 100% 0%,
+          var(--accent-soft),
+          transparent 72%
+        );
+        content: "";
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+
+      .feature:hover {
+        border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+        transform: translateY(-2px);
+      }
+
+      .feature:hover::after {
+        opacity: 1;
+      }
+
+      .feature-icon {
+        position: relative;
+        z-index: 1;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .feature h3 {
+        position: relative;
+        z-index: 1;
+        margin: 18px 0 8px;
+        font-size: 15px;
+        font-weight: 620;
+        letter-spacing: -0.015em;
+      }
+
+      .feature p {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .feature-num {
+        position: absolute;
+        top: 22px;
+        right: 22px;
+        z-index: 1;
+        color: var(--text-3);
+        font: 9px var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--border);
+        gap: 1px;
+      }
+
+      .step {
+        min-height: 192px;
+        padding: 28px 26px;
+        background: var(--surface);
+      }
+
+      .step-num {
+        color: var(--accent);
+        font: 600 10px var(--mono);
+        letter-spacing: 0.12em;
+      }
+
+      .step h3 {
+        margin: 20px 0 8px;
+        font-size: 16px;
+        font-weight: 620;
+        letter-spacing: -0.015em;
+      }
+
+      .step p {
+        max-width: 250px;
+        margin: 0;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .step-line {
+        width: 54px;
+        height: 1px;
+        margin-top: 26px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 0.92fr 1.08fr;
+        gap: 56px;
+        align-items: center;
+        padding-top: 110px;
+      }
+
+      .split h2 {
+        max-width: 480px;
+      }
+
+      .split p {
+        max-width: 470px;
+        margin: 18px 0 0;
+        color: var(--text-2);
+        font-size: 13px;
+        line-height: 1.8;
+      }
+
+      .check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+        margin-top: 24px;
+      }
+
+      .check-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .check-mark {
+        width: 18px;
+        height: 18px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+        border-radius: 5px;
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .ocr-visual {
+        position: relative;
+      }
+
+      .ocr-tabs {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .ocr-tab {
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-3);
+        font-size: 10.5px;
+        transition:
+          color 0.15s ease,
+          background 0.15s ease,
+          border-color 0.15s ease;
+      }
+
+      .ocr-tab:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+
+      .ocr-tab.active {
+        border-color: var(--border-strong);
+        background: var(--surface-3);
+        color: var(--text);
+      }
+
+      .ocr-frame {
+        position: relative;
+        padding: 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-2xl);
+        background: #0d0d0d;
+        box-shadow: var(--shadow);
+      }
+
+      .ocr-frame img {
+        width: 100%;
+        border-radius: var(--radius-lg);
+      }
+
+      .ocr-shot {
+        display: none;
+      }
+
+      .ocr-shot.visible {
+        display: block;
+        animation: shot-in 0.24s ease both;
+      }
+
+      .ocr-badge {
+        position: absolute;
+        top: 24px;
+        left: -14px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 9px;
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+        border-radius: var(--radius-full);
+        background: var(--surface-3);
+        color: var(--accent-2);
+        font: 600 9px var(--mono);
+        letter-spacing: 0.06em;
+        box-shadow: var(--shadow);
+      }
+
+      .ocr-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 11px;
+        color: var(--text-3);
+        font-size: 10px;
+      }
+
+      .privacy {
+        display: grid;
+        grid-template-columns: 1fr 1.18fr;
+        gap: 48px;
+        align-items: center;
+        margin-top: 110px;
+        padding: 40px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-3xl);
+        background:
+          radial-gradient(700px 320px at 100% 0%, var(--accent-soft), transparent 64%),
+          var(--surface);
+      }
+
+      .privacy h2 {
+        max-width: 420px;
+      }
+
+      .privacy p {
+        max-width: 430px;
+        margin: 16px 0 0;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.8;
+      }
+
+      .privacy-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 22px;
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        color: var(--text-3);
+        font: 600 9px var(--mono);
+        letter-spacing: 0.06em;
+      }
+
+      .privacy-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--border);
+        gap: 1px;
+      }
+
+      .privacy-item {
+        padding: 20px 16px;
+        background: var(--surface-2);
+      }
+
+      .privacy-item svg {
+        margin-bottom: 14px;
+        color: var(--accent);
+      }
+
+      .privacy-item h3 {
+        margin: 0 0 6px;
+        font-size: 12.5px;
+        font-weight: 620;
+      }
+
+      .privacy-item p {
+        margin: 0;
+        color: var(--text-3);
+        font-size: 10.5px;
+        line-height: 1.6;
+      }
+
+      .download {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 32px;
+        margin-top: 100px;
+        padding: 38px 40px;
+        border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+        border-radius: var(--radius-3xl);
+        background:
+          radial-gradient(760px 320px at 10% 0%, var(--accent-soft), transparent 62%),
+          var(--surface);
+      }
+
+      .download-left {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .download-icon {
+        width: 64px;
+        height: 64px;
+        flex: none;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+      }
+
+      .download h2 {
+        font-size: clamp(26px, 3vw, 38px);
+      }
+
+      .download p {
+        margin: 10px 0 0;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+
+      .download-actions {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
+      .download-note {
+        color: var(--text-3);
+        font-size: 9.5px;
+      }
+
+      .footer {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 28px;
+        margin-top: 58px;
+        padding: 28px 0 38px;
+        border-top: 1px solid var(--border);
+        color: var(--text-3);
+        font-size: 10.5px;
+      }
+
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .footer-brand img {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+      }
+
+      .footer-brand strong {
+        display: block;
+        color: var(--text-2);
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+
+      .footer-brand span {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-3);
+        font-size: 9.5px;
+      }
+
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+      }
+
+      .footer-links a:hover {
+        color: var(--text);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        z-index: 80;
+        padding: 10px 14px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--toast-bg);
+        box-shadow: var(--shadow);
+        color: var(--text);
+        font-size: 11px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, 10px);
+        transition:
+          opacity 0.18s ease,
+          transform 0.18s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      .icon {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .icon-sm {
+        width: 15px;
+        height: 15px;
+      }
+
+      .icon-lg {
+        width: 22px;
+        height: 22px;
+      }
+
+      body.reveal-ready .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition:
+          opacity 0.7s ease,
+          transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      body.reveal-ready .reveal.visible {
+        opacity: 1;
+        transform: none;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: rotate(1.2deg) translateY(0);
+        }
+        50% {
+          transform: rotate(0.6deg) translateY(-7px);
+        }
+      }
+
+      @keyframes shot-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 1024px) {
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 38px;
+          padding-top: 64px;
+        }
+
+        .hero-visual {
+          width: min(640px, 100%);
+          min-height: 500px;
+        }
+
+        .nav-links {
+          gap: 18px;
+        }
+
+        .features {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .split {
+          grid-template-columns: 1fr;
+          gap: 36px;
+        }
+
+        .privacy {
+          grid-template-columns: 1fr;
+          gap: 30px;
+        }
+
+        .download {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .download-actions {
+          align-items: flex-start;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .container {
+          width: calc(100vw - 32px);
+        }
+
+        .nav-inner {
+          height: 62px;
+        }
+
+        .brand-badge,
+        .nav-links {
+          display: none;
+        }
+
+        .hero {
+          padding-top: 48px;
+        }
+
+        .hero h1 {
+          font-size: clamp(40px, 11vw, 58px);
+        }
+
+        .hero-visual {
+          min-height: 420px;
+        }
+
+        .stage {
+          height: 400px;
+        }
+
+        .stage-window {
+          inset: 26px 18px 52px;
+        }
+
+        .faux-side {
+          display: none;
+        }
+
+        .stage-body {
+          grid-template-columns: 1fr;
+        }
+
+        .selection {
+          left: 8%;
+          width: 72%;
+          height: 48%;
+        }
+
+        .hero-toolbar {
+          bottom: 12px;
+          transform: translateX(-50%) scale(0.9);
+        }
+
+        .hero-ocr {
+          right: -8px;
+          bottom: -12px;
+          width: 248px;
+        }
+
+        .f1-key {
+          top: 10px;
+          left: 10px;
+        }
+
+        .strip {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .strip-item:nth-child(2) {
+          border-right: 0;
+        }
+
+        .strip-item:nth-child(n + 3) {
+          border-top: 1px solid var(--border);
+        }
+
+        .section {
+          padding-top: 72px;
+        }
+
+        .section-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 14px;
+          margin-bottom: 24px;
+        }
+
+        .features,
+        .workflow,
+        .privacy-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feature {
+          min-height: 164px;
+        }
+
+        .step {
+          min-height: 160px;
+        }
+
+        .privacy,
+        .download {
+          padding: 26px 20px;
+          border-radius: var(--radius-2xl);
+        }
+
+        .download-left {
+          align-items: flex-start;
+        }
+
+        .download-icon {
+          width: 52px;
+          height: 52px;
+        }
+
+        .footer {
+          flex-direction: column;
+          gap: 16px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        body.reveal-ready .reveal,
+        body.reveal-ready .reveal.visible {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+
+        .hero-ocr {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="i-move" viewBox="0 0 24 24">
+        <path d="M12 3v5M12 16v5M3 12h5M16 12h5" />
+        <circle cx="12" cy="12" r="2.2" />
+      </symbol>
+      <symbol id="i-shape" viewBox="0 0 24 24">
+        <rect x="3.5" y="5.5" width="12.5" height="10" rx="1.5" />
+        <ellipse cx="14.5" cy="14" rx="6" ry="4.8" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M5 19 18 6M18 6h-6M18 6v6" />
+      </symbol>
+      <symbol id="i-mosaic" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="4.2" height="4.2" rx="1" />
+        <rect x="10" y="4" width="4.2" height="4.2" rx="1" />
+        <rect x="16" y="4" width="4.2" height="4.2" rx="1" />
+        <rect x="4" y="10" width="4.2" height="4.2" rx="1" />
+        <rect x="10" y="10" width="4.2" height="4.2" rx="1" />
+        <rect x="16" y="10" width="4.2" height="4.2" rx="1" />
+        <rect x="4" y="16" width="4.2" height="4.2" rx="1" />
+        <rect x="10" y="16" width="4.2" height="4.2" rx="1" />
+        <rect x="16" y="16" width="4.2" height="4.2" rx="1" />
+      </symbol>
+      <symbol id="i-text" viewBox="0 0 24 24">
+        <path d="M5 6h14M12 6v13M9 19h6" />
+      </symbol>
+      <symbol id="i-seq" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" />
+        <text x="12" y="15.5" text-anchor="middle" font-size="9" fill="currentColor" stroke="none">1</text>
+      </symbol>
+      <symbol id="i-ocr" viewBox="0 0 24 24">
+        <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+        <path d="M8 9.5h8M8 13h5" />
+      </symbol>
+      <symbol id="i-translate" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3c3.5 3.5 3.5 15 0 18M12 3c-3.5 3.5-3.5 15 0 18" />
+      </symbol>
+      <symbol id="i-gif" viewBox="0 0 24 24">
+        <rect x="2.5" y="5" width="19" height="14" rx="3" />
+        <text x="12" y="12.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="7" font-weight="800" fill="currentColor" stroke="none">GIF</text>
+      </symbol>
+      <symbol id="i-video" viewBox="0 0 24 24">
+        <rect x="3" y="6" width="13" height="12" rx="2.5" />
+        <path d="M16 10.5 21 8v8l-5-2.5z" />
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M9 4h6l-1 7 3 3H7l3-3-1-7zM12 14v6" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15H4V4h11v1" />
+      </symbol>
+      <symbol id="i-save" viewBox="0 0 24 24">
+        <path d="M5 4h11l3 3v13H5z" />
+        <path d="M8 4v5h7V4M8 20v-6h8v6" />
+      </symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2z" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="M5 13l4 4 10-10" />
+      </symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24">
+        <rect x="3" y="7" width="18" height="10" rx="2" />
+        <path d="M7 10h.01M10 10h.01M13 10h.01M16 10h.01M7 13h10" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 3l7 3v5c0 4.5-2.8 8.3-7 10-4.2-1.7-7-5.5-7-10V6z" />
+        <path d="M8.5 12.5l2.2 2.2 4.8-4.8" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3.5" />
+        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2z" />
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24">
+        <path d="M5 12h13M13 7l5 5-5 5" />
+      </symbol>
+      <symbol id="i-crop" viewBox="0 0 24 24">
+        <path d="M6 3v15h15M3 6h15v15" />
+      </symbol>
+    </svg>
+
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="#top">
+          <img
+            class="brand-icon"
+            src="assets/icon.png"
+            alt="Pixmint"
+          />
+          <span>Pixmint</span>
+          <span class="brand-badge">Windows</span>
+        </a>
+        <nav class="nav-links" aria-label="主导航">
+          <a href="#features">功能</a>
+          <a href="#workflow">工作流</a>
+          <a href="#ocr">OCR &amp; 翻译</a>
+          <a href="#download">下载</a>
+        </nav>
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题">
+            <span class="theme-icon sun">
+              <svg class="icon"><use href="#i-sun"></use></svg>
+            </span>
+            <span class="theme-icon moon">
+              <svg class="icon"><use href="#i-moon"></use></svg>
+            </span>
+          </button>
+          <a class="btn btn-sm btn-primary" href="#download">下载</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="container hero">
+        <div class="hero-copy reveal">
+          <div class="kicker">
+            <span class="kicker-line"></span>
+            Pixmint · Windows 截图工具
+          </div>
+          <h1>截图之后，<br /><span class="accent">顺手把事做完。</span></h1>
+          <p class="hero-lede">
+            Pixmint 把截图、标注、钉图、OCR 翻译和选区录制放进一个安静的工具。<br />
+            按 F1 开始，剩下的留在本机。
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg js-download" type="button">
+              下载 Windows 版
+              <svg class="icon icon-sm"><use href="#i-download"></use></svg>
+            </button>
+            <a class="btn btn-ghost btn-lg" href="#features">
+              看看功能
+              <svg class="icon icon-sm"><use href="#i-arrow-right"></use></svg>
+            </a>
+          </div>
+          <div class="hero-meta">
+            <span><i class="status-dot"></i> 本地 OCR</span>
+            <span>F1 即取</span>
+            <span>无需登录</span>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal">
+          <div class="hero-glow"></div>
+          <div class="stage">
+            <div class="stage-window">
+              <div class="stage-bar">
+                <i></i><i></i><i></i>
+                <span>notes / today</span>
+              </div>
+              <div class="stage-body">
+                <div class="faux-side">
+                  <div class="faux-avatar"></div>
+                  <div class="faux-nav active"></div>
+                  <div class="faux-nav short"></div>
+                  <div class="faux-nav"></div>
+                  <div class="faux-nav short"></div>
+                  <div class="faux-nav"></div>
+                </div>
+                <div class="faux-main">
+                  <div class="faux-title"></div>
+                  <div class="faux-sub"></div>
+                  <div class="faux-sub"></div>
+                  <div class="faux-grid">
+                    <div class="faux-card"></div>
+                    <div class="faux-card"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="selection">
+              <span class="selection-size">800 × 420</span>
+              <span class="handle nw"></span>
+              <span class="handle n"></span>
+              <span class="handle ne"></span>
+              <span class="handle e"></span>
+              <span class="handle se"></span>
+              <span class="handle s"></span>
+              <span class="handle sw"></span>
+              <span class="handle w"></span>
+            </div>
+
+            <div class="f1-key"><b>F1</b><small>截图</small></div>
+
+            <div class="hero-toolbar" aria-hidden="true">
+              <span class="tool active"><svg class="icon icon-sm"><use href="#i-move"></use></svg></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-shape"></use></svg></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-arrow"></use></svg></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-mosaic"></use></svg></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-text"></use></svg></span>
+              <span class="tool-sep"></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-ocr"></use></svg></span>
+              <span class="tool"><svg class="icon icon-sm"><use href="#i-pin"></use></svg></span>
+              <span class="tool primary"><svg class="icon icon-sm"><use href="#i-copy"></use></svg></span>
+            </div>
+
+          </div>
+          <div class="hero-ocr">
+            <span class="hero-ocr-label"><i class="small-dot"></i> OCR / 翻译</span>
+            <img
+              src="assets/ocr-clear.png"
+              alt="Pixmint OCR 翻译窗口"
+            />
+          </div>
+        </div>
+      </section>
+
+      <div class="container strip reveal" aria-label="产品能力">
+        <div class="strip-item">
+          <span class="strip-icon"><svg class="icon icon-sm"><use href="#i-keyboard"></use></svg></span>
+          F1 即取，不用找入口
+        </div>
+        <div class="strip-item">
+          <span class="strip-icon"><svg class="icon icon-sm"><use href="#i-ocr"></use></svg></span>
+          PaddleOCR 本地离线
+        </div>
+        <div class="strip-item">
+          <span class="strip-icon"><svg class="icon icon-sm"><use href="#i-pin"></use></svg></span>
+          钉图置顶，随手对照
+        </div>
+        <div class="strip-item">
+          <span class="strip-icon"><svg class="icon icon-sm"><use href="#i-gif"></use></svg></span>
+          GIF / 视频选区录制
+        </div>
+      </div>
+
+      <section class="container section" id="features">
+        <div class="section-head reveal">
+          <div>
+            <div class="eyebrow">Features / 01</div>
+            <h2>不是更多按钮，<br />是更少切换。</h2>
+          </div>
+          <p>
+            截完就能标注、识别、翻译或钉住。Pixmint 不要求你改变工作流，只把中间那几步变短。
+          </p>
+        </div>
+        <div class="features">
+          <article class="feature reveal">
+            <span class="feature-num">01</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-shape"></use></svg></span>
+            <h3>截图与标注</h3>
+            <p>框选后直接标注。矩形、箭头、马赛克、文字、序号，选中即可改。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature-num">02</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+            <h3>钉图</h3>
+            <p>把截图钉在最上层。拖动、缩放、透明度、鼠标穿透，一直留在手边。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature-num">03</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-ocr"></use></svg></span>
+            <h3>本地 OCR</h3>
+            <p>PP-OCRv5 本地模型，中英混排、路径、版本号和 IP 都能读；Windows OCR 兜底。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature-num">04</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-translate"></use></svg></span>
+            <h3>翻译</h3>
+            <p>自动判断方向；语言不明确时默认“请选择”，CN→EN / EN→CN 切换即译。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature-num">05</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-video"></use></svg></span>
+            <h3>GIF / 视频</h3>
+            <p>选区录制、倒计时、系统音或麦克风；预览满意再保存。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature-num">06</span>
+            <span class="feature-icon"><svg class="icon"><use href="#i-settings"></use></svg></span>
+            <h3>安静常驻</h3>
+            <p>托盘运行、快捷键可改、设置与诊断齐备；本地优先，不需要账号。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="container section" id="workflow">
+        <div class="section-head reveal">
+          <div>
+            <div class="eyebrow">Workflow / 02</div>
+            <h2>从截到用，<br />只要三步。</h2>
+          </div>
+          <p>按下 F1 之后，所有动作都在同一块选区旁边完成。没有多余的窗口，也没有来回粘贴。</p>
+        </div>
+        <div class="workflow reveal">
+          <div class="step">
+            <div class="step-num">01</div>
+            <h3>按下 F1</h3>
+            <p>框出你需要的区域，或直接吸附窗口。</p>
+            <div class="step-line"></div>
+          </div>
+          <div class="step">
+            <div class="step-num">02</div>
+            <h3>就地处理</h3>
+            <p>标注、识别、翻译、钉图；不用切到另一个应用。</p>
+            <div class="step-line"></div>
+          </div>
+          <div class="step">
+            <div class="step-num">03</div>
+            <h3>继续手头的事</h3>
+            <p>复制、保存或录制，结果留在该在的地方。</p>
+            <div class="step-line"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="container split" id="ocr">
+        <div class="reveal">
+          <div class="eyebrow">OCR / Translate / 03</div>
+          <h2>看得懂中英混排，<br />也看得懂代码。</h2>
+          <p>
+            本地 PaddleOCR 处理小字、混排路径与版本号；语言明确时自动选方向，不明确时把选择权交给你。
+          </p>
+          <div class="check-list">
+            <div class="check-item">
+              <span class="check-mark"><svg class="icon icon-sm"><use href="#i-check"></use></svg></span>
+              PP-OCRv5 本地离线，模型随包分发
+            </div>
+            <div class="check-item">
+              <span class="check-mark"><svg class="icon icon-sm"><use href="#i-check"></use></svg></span>
+              中英混排、路径、版本号、IP 地址
+            </div>
+            <div class="check-item">
+              <span class="check-mark"><svg class="icon icon-sm"><use href="#i-check"></use></svg></span>
+              CN→EN / EN→CN 方向下拉，切换即译
+            </div>
+            <div class="check-item">
+              <span class="check-mark"><svg class="icon icon-sm"><use href="#i-check"></use></svg></span>
+              语言不明确时默认“请选择”，不替你猜
+            </div>
+          </div>
+        </div>
+        <div class="ocr-visual reveal">
+          <div class="ocr-tabs" role="tablist" aria-label="OCR 示例">
+            <button class="ocr-tab active" type="button" data-tab="clear" role="tab" aria-selected="true">
+              语言明确
+            </button>
+            <button class="ocr-tab" type="button" data-tab="ambiguous" role="tab" aria-selected="false">
+              语言不明确
+            </button>
+          </div>
+          <div class="ocr-frame">
+            <span class="ocr-badge"><i class="small-dot"></i> Local · PP-OCRv5</span>
+            <img
+              class="ocr-shot visible"
+              data-shot="clear"
+              src="assets/ocr-clear-open.png"
+              alt="语言明确时自动选中 EN→CN"
+            />
+            <img
+              class="ocr-shot"
+              data-shot="ambiguous"
+              src="assets/ocr-ambiguous-open.png"
+              alt="语言不明确时默认请选择"
+            />
+          </div>
+          <div class="ocr-caption">
+            <span id="ocrCaption">语言明确：自动选中 EN→CN</span>
+            <span>本地模型 · 不上传截图</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="container privacy reveal">
+        <div>
+          <div class="eyebrow">Local first / 04</div>
+          <h2>你的截图，<br />不必先离开电脑。</h2>
+          <p>
+            OCR、标注、钉图和录制默认在本机完成。只有你主动翻译时，才会按配置调用翻译服务。
+          </p>
+          <span class="privacy-badge">
+            <svg class="icon icon-sm"><use href="#i-shield"></use></svg>
+            Local by default
+          </span>
+        </div>
+        <div class="privacy-grid">
+          <div class="privacy-item">
+            <svg class="icon icon-lg"><use href="#i-ocr"></use></svg>
+            <h3>本地 OCR</h3>
+            <p>模型内置，识别不上传截图。</p>
+          </div>
+          <div class="privacy-item">
+            <svg class="icon icon-lg"><use href="#i-translate"></use></svg>
+            <h3>翻译按需</h3>
+            <p>免费接口、OpenAI 兼容或 DeepL，自己选。</p>
+          </div>
+          <div class="privacy-item">
+            <svg class="icon icon-lg"><use href="#i-shield"></use></svg>
+            <h3>无账号</h3>
+            <p>没有云端图库，也没有登录墙。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="container download reveal" id="download">
+        <div class="download-left">
+          <img
+            class="download-icon"
+            src="assets/icon.png"
+            alt="Pixmint 图标"
+          />
+          <div>
+            <div class="eyebrow">Download / 05</div>
+            <h2>把 Pixmint 放到任务栏。</h2>
+            <p>Windows 10/11 · v0.3.10 · 约 114MB。安装包内置 OCR 模型，装好就能离线识别。</p>
+          </div>
+        </div>
+        <div class="download-actions">
+          <button class="btn btn-primary btn-lg js-download" type="button">
+            下载 Windows 版
+            <svg class="icon icon-sm"><use href="#i-download"></use></svg>
+          </button>
+          <span class="download-note">本地安装 · 无需账号 · 安装包已内置 OCR 模型</span>
+        </div>
+      </section>
+
+      <footer class="footer container">
+        <div class="footer-brand">
+          <img src="assets/icon.png" alt="" />
+          <div>
+            <strong>Pixmint</strong>
+            <span>截图、标注、识别、录制。安静地留在任务栏。</span>
+          </div>
+        </div>
+        <div class="footer-links">
+          <a href="#features">功能</a>
+          <a href="#workflow">工作流</a>
+          <a href="#ocr">OCR &amp; 翻译</a>
+          <a href="#download">下载</a>
+          <a href="#top">回到顶部</a>
+        </div>
+        <span>© 2026 Pixmint · Windows 10/11</span>
+      </footer>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const root = document.documentElement
+      const themeToggle = document.getElementById('themeToggle')
+      const toast = document.getElementById('toast')
+      const savedTheme = localStorage.getItem('pixmint-site-theme')
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        root.dataset.theme = savedTheme
+      }
+
+      themeToggle.addEventListener('click', () => {
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'
+        localStorage.setItem('pixmint-site-theme', root.dataset.theme)
+      })
+
+      let toastTimer = null
+      function showToast(message) {
+        toast.textContent = message
+        toast.classList.add('show')
+        window.clearTimeout(toastTimer)
+        toastTimer = window.setTimeout(() => toast.classList.remove('show'), 4200)
+      }
+
+      document.querySelectorAll('.js-download').forEach((button) => {
+        button.addEventListener('click', () => {
+          showToast('演示页：安装包在桌面 · Pixmint Setup 0.3.10-20261026.exe')
+        })
+      })
+
+      const shots = Array.from(document.querySelectorAll('.ocr-shot'))
+      const tabs = Array.from(document.querySelectorAll('.ocr-tab'))
+      const caption = document.getElementById('ocrCaption')
+      const captions = {
+        clear: '语言明确：自动选中 EN→CN',
+        ambiguous: '语言不明确：默认请选择'
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const key = tab.dataset.tab
+          tabs.forEach((item) => {
+            const active = item === tab
+            item.classList.toggle('active', active)
+            item.setAttribute('aria-selected', String(active))
+          })
+          shots.forEach((shot) => {
+            shot.classList.toggle('visible', shot.dataset.shot === key)
+          })
+          caption.textContent = captions[key]
+        })
+      })
+
+      document.body.classList.add('reveal-ready')
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return
+            entry.target.classList.add('visible')
+            revealObserver.unobserve(entry.target)
+          })
+        },
+        { threshold: 0.12 }
+      )
+      document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element))
+
+      const navLinks = Array.from(document.querySelectorAll('.nav-links a[href^="#"]'))
+      const sectionIds = ['features', 'workflow', 'ocr', 'download']
+      function updateNav() {
+        let current = ''
+        for (const id of sectionIds) {
+          const section = document.getElementById(id)
+          if (section && section.getBoundingClientRect().top <= 150) current = id
+        }
+        navLinks.forEach((link) => {
+          link.classList.toggle('active', link.getAttribute('href') === '#' + current)
+        })
+      }
+      window.addEventListener('scroll', updateNav, { passive: true })
+      updateNav()
+    </script>
+  </body>
+</html>

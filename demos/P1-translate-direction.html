@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · OCR 翻译方向选择</title>
+    <style>
+      :root {
+        --radius-md: 8px;
+        --radius-lg: 10px;
+        --radius-xl: 12px;
+        --radius-2xl: 16px;
+        --radius-full: 9999px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Segoe UI", sans-serif;
+        --mono: "SF Mono", Consolas, monospace;
+      }
+
+      [data-theme="dark"] {
+        --page: #08090c;
+        --page-glow: rgba(58, 131, 247, 0.14);
+        --bg: #0d0d0d;
+        --bg-2: #181818;
+        --bg-3: #212121;
+        --text: #ffffff;
+        --text-2: #afafaf;
+        --text-3: #767676;
+        --border: #ffffff1a;
+        --border-strong: #ffffff26;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        --pop-bg: #1c1c1c;
+        --accent: #3a83f7;
+        --accent-soft: #12233a;
+        --selected-bg: #303030;
+        --selected-text: #ffffff;
+      }
+
+      [data-theme="light"] {
+        --page: #eef1f5;
+        --page-glow: rgba(2, 133, 255, 0.12);
+        --bg: #f9f9f9;
+        --bg-2: #ffffff;
+        --bg-3: #ededed;
+        --text: #0d0d0d;
+        --text-2: #5d5d5d;
+        --text-3: #8f8f8f;
+        --border: #0000001a;
+        --border-strong: #00000026;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        --pop-bg: #ffffff;
+        --accent: #0285ff;
+        --accent-soft: #e5f3ff;
+        --selected-bg: #ededed;
+        --selected-text: #0d0d0d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        padding: 36px 18px 48px;
+        display: flex;
+        justify-content: center;
+        background:
+          radial-gradient(720px 440px at 50% -8%, var(--page-glow), transparent 62%),
+          radial-gradient(640px 380px at 84% 22%, color-mix(in srgb, var(--text) 5%, transparent), transparent 65%),
+          var(--page);
+        color: var(--text);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        border: 0;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .demo-shell {
+        width: min(760px, 100%);
+      }
+
+      .demo-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        margin: 0 auto 20px;
+      }
+
+      .demo-kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 10px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .demo-kicker::before {
+        content: "";
+        width: 20px;
+        height: 1.5px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .demo-head h1 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 660;
+        letter-spacing: -0.035em;
+      }
+
+      .demo-head p {
+        max-width: 540px;
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.65;
+        text-wrap: balance;
+      }
+
+      .demo-actions {
+        display: flex;
+        flex: none;
+        gap: 6px;
+      }
+
+      .ghost-btn {
+        height: 30px;
+        padding: 0 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--bg-2) 86%, transparent);
+        color: var(--text-2);
+        font-size: 11px;
+        transition:
+          color 0.15s,
+          border-color 0.15s,
+          background 0.15s;
+      }
+
+      .ghost-btn:hover {
+        color: var(--text);
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+        background: var(--bg-2);
+      }
+
+      .mock {
+        position: relative;
+        width: min(620px, 100%);
+        margin: 0 auto;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background:
+          radial-gradient(460px 240px at 88% -16%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 68%),
+          var(--bg);
+        box-shadow:
+          var(--shadow),
+          0 1px 0 rgba(255, 255, 255, 0.045) inset;
+        overflow: visible;
+      }
+
+      .dragbar {
+        position: relative;
+        height: 34px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 8px;
+      }
+
+      .dragbar::before {
+        content: "";
+        width: 36px;
+        height: 4px;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+      }
+
+      .close-btn {
+        position: absolute;
+        top: 7px;
+        right: 9px;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: var(--text-3);
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+
+      .close-btn:hover {
+        color: #fff;
+        background: rgba(255, 69, 58, 0.85);
+      }
+
+      .mock-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 4px 16px 16px;
+      }
+
+      .field-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0 2px 6px;
+        color: var(--text-3);
+        font-size: 9.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .source-box,
+      .result-box {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-2);
+        color: var(--text);
+      }
+
+      .source-box {
+        height: 112px;
+        resize: none;
+        padding: 12px 14px;
+        outline: none;
+        user-select: text;
+        font: 13px/1.7 var(--font);
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+        scrollbar-gutter: stable;
+      }
+
+      .source-box::-webkit-scrollbar {
+        display: block;
+        width: 6px;
+      }
+
+      .source-box::-webkit-scrollbar-thumb {
+        border-radius: 99px;
+        background: var(--border-strong);
+      }
+
+      .source-box::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .result-box {
+        position: relative;
+        min-height: 136px;
+        overflow: hidden;
+        padding: 12px 14px;
+        background: var(--bg-3);
+      }
+
+      .result-empty {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-3);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .result-empty[hidden],
+      .result-box.done .result-empty {
+        display: none;
+      }
+
+      .result-empty svg {
+        flex: none;
+        color: color-mix(in srgb, var(--accent) 72%, var(--text-3));
+      }
+
+      .result-loading {
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        padding-top: 2px;
+      }
+
+      .result-box.loading .result-empty {
+        display: none;
+      }
+
+      .result-box.loading .result-loading {
+        display: flex;
+      }
+
+      .skeleton-line {
+        height: 10px;
+        border-radius: 6px;
+        background: linear-gradient(
+          90deg,
+          var(--bg-2) 0%,
+          color-mix(in srgb, var(--text) 9%, var(--bg-2)) 48%,
+          var(--bg-2) 100%
+        );
+        background-size: 220% 100%;
+        animation: shimmer 1.15s linear infinite;
+      }
+
+      .skeleton-line:nth-child(1) {
+        width: 78%;
+      }
+
+      .skeleton-line:nth-child(2) {
+        width: 94%;
+        animation-delay: 0.08s;
+      }
+
+      .skeleton-line:nth-child(3) {
+        width: 56%;
+        animation-delay: 0.16s;
+      }
+
+      .result-loading-caption {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+        color: var(--text-3);
+        font-size: 10.5px;
+      }
+
+      .pulse-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+
+      .result-text {
+        display: none;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        user-select: text;
+      }
+
+      .result-box.done .result-text {
+        display: block;
+        animation: fade-up 0.28s ease both;
+      }
+
+      .direction-row {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        padding: 0;
+      }
+
+      .direction-trigger {
+        position: relative;
+        z-index: 2;
+        width: 146px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+        box-shadow:
+          0 6px 18px rgba(0, 0, 0, 0.14),
+          0 1px 0 rgba(255, 255, 255, 0.045) inset;
+        color: var(--text-2);
+        text-align: left;
+        transition:
+          border-color 0.16s,
+          box-shadow 0.16s,
+          background 0.16s;
+      }
+
+      .direction-trigger:hover {
+        border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+        background: var(--bg-2);
+      }
+
+      .direction-trigger[aria-expanded="true"] {
+        border-color: var(--accent);
+        background: var(--bg-2);
+        box-shadow:
+          0 0 0 3px var(--accent-soft),
+          0 12px 28px rgba(0, 0, 0, 0.22);
+      }
+
+      .trigger-text {
+        overflow: hidden;
+        font-size: 11px;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .trigger-text.selected {
+        color: var(--text);
+        font: 600 11px/1 var(--mono);
+        letter-spacing: 0.04em;
+      }
+
+      .trigger-text.placeholder {
+        color: var(--text-3);
+        font: 500 11px/1 var(--font);
+        letter-spacing: 0;
+      }
+
+      .chevron {
+        flex: none;
+        color: var(--text-3);
+        transition: transform 0.18s ease;
+      }
+
+      .direction-trigger[aria-expanded="true"] .chevron {
+        transform: rotate(180deg);
+      }
+
+      .direction-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 50%;
+        z-index: 20;
+        width: 156px;
+        padding: 4px;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--pop-bg);
+        box-shadow:
+          0 24px 64px rgba(0, 0, 0, 0.44),
+          0 1px 0 rgba(255, 255, 255, 0.055) inset;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(-6px) scale(0.985);
+        transform-origin: 50% 0;
+        transition:
+          opacity 0.16s ease,
+          transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .direction-menu.open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(-50%) translateY(0) scale(1);
+      }
+
+      .menu-option {
+        width: 100%;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        color: var(--text-2);
+        font: 600 11px/1 var(--mono);
+        letter-spacing: 0.04em;
+        transition:
+          color 0.14s,
+          background 0.14s;
+      }
+
+      .menu-option + .menu-option {
+        margin-top: 1px;
+      }
+
+      .menu-option:hover {
+        color: var(--text);
+        background: color-mix(in srgb, var(--text) 6%, transparent);
+      }
+
+      .menu-option.selected {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 11%, transparent);
+      }
+
+      .demo-foot {
+        width: min(620px, 100%);
+        margin: 14px auto 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        color: var(--text-3);
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .demo-foot b {
+        color: var(--text-2);
+        font-weight: 560;
+      }
+
+      .demo-foot .key {
+        padding: 2px 5px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg-2);
+        color: var(--text-2);
+        font: 9px var(--mono);
+      }
+
+      @keyframes shimmer {
+        from {
+          background-position: 120% 0;
+        }
+        to {
+          background-position: -120% 0;
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.45;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.12);
+        }
+      }
+
+      @keyframes fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 560px) {
+        body {
+          padding-top: 22px;
+        }
+
+        .demo-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .demo-actions {
+          align-self: flex-end;
+        }
+
+        .demo-foot {
+          flex-direction: column;
+          gap: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="demo-shell">
+      <header class="demo-head">
+        <div>
+          <div class="demo-kicker">Pixmint · OCR translate</div>
+          <h1>翻译方向选择</h1>
+          <p>
+            中英混排无法判断主语言时默认“请选择”；语言明确时自动选中对应方向。
+          </p>
+        </div>
+        <div class="demo-actions">
+          <button class="ghost-btn" id="themeBtn" type="button">浅色预览</button>
+          <button class="ghost-btn" id="resetBtn" type="button">重置</button>
+        </div>
+      </header>
+
+      <section class="mock" aria-label="OCR 翻译窗口样式稿">
+        <div class="dragbar">
+          <button class="close-btn" type="button" title="关闭" aria-label="关闭">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mock-body">
+          <div class="field">
+            <div class="field-label">
+              <span>原文</span>
+            </div>
+            <textarea class="source-box" readonly spellcheck="false">截图识别完成。Git commit: 9c70fbb，branch: feat/stability-foundation。
+网络代理：127.0.0.1:7892。
+校验：SHA256 与源文件一致。
+安装包：Pixmint Setup 0.3.7-20261025.exe。
+大小：95427331 字节。
+版本：0.3.7。</textarea>
+          </div>
+
+          <div class="direction-row">
+            <button
+              class="direction-trigger"
+              id="trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="menu"
+            >
+              <span class="trigger-text placeholder" id="triggerText">请选择</span>
+              <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+
+            <div class="direction-menu" id="menu" role="listbox" aria-label="翻译方向">
+              <button class="menu-option" type="button" role="option" aria-selected="false" data-direction="zh-en">CN→EN</button>
+              <button class="menu-option" type="button" role="option" aria-selected="false" data-direction="en-zh">EN→CN</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span>译文</span>
+            </div>
+            <div class="result-box" id="resultBox">
+              <div class="result-empty" id="resultEmpty">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3l1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35L12 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+                  <path d="M18.2 14.2l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1Z" fill="currentColor" opacity=".72" />
+                </svg>
+                译文会显示在这里
+              </div>
+              <div class="result-loading" id="resultLoading">
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line"></div>
+                <div class="result-loading-caption">
+                  <span class="pulse-dot"></span>
+                  正在翻译…
+                </div>
+              </div>
+              <div class="result-text" id="resultText"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="demo-foot">
+        <span><b>语言不明确：</b>请选择 · 语言明确：自动选中对应方向</span>
+        <span><span class="key">Esc</span> 关闭菜单 · 点击空白处也可关闭</span>
+      </footer>
+    </main>
+
+    <script>
+      const trigger = document.getElementById('trigger')
+      const triggerText = document.getElementById('triggerText')
+      const menu = document.getElementById('menu')
+      const resultBox = document.getElementById('resultBox')
+      const resultEmpty = document.getElementById('resultEmpty')
+      const resultText = document.getElementById('resultText')
+      const options = Array.from(document.querySelectorAll('.menu-option'))
+
+      const LABELS = { 'zh-en': 'CN→EN', 'en-zh': 'EN→CN' }
+      const RESULTS = {
+        'zh-en':
+          'Screenshot recognition complete. Git commit: 9c70fbb, branch: feat/stability-foundation.\nNetwork proxy: 127.0.0.1:7892.',
+        'en-zh':
+          '截图识别完成。Git 提交：9c70fbb，分支：feat/stability-foundation。\n网络代理：127.0.0.1:7892。'
+      }
+
+      let timer = null
+
+      function setMenu(open) {
+        menu.classList.toggle('open', open)
+        trigger.setAttribute('aria-expanded', String(open))
+      }
+
+      function reset() {
+        window.clearTimeout(timer)
+        setMenu(false)
+        triggerText.textContent = '请选择'
+        triggerText.classList.remove('selected')
+        triggerText.classList.add('placeholder')
+        options.forEach((option) => {
+          option.classList.remove('selected')
+          option.setAttribute('aria-selected', 'false')
+        })
+        resultBox.classList.remove('loading', 'done')
+        resultText.textContent = ''
+        resultEmpty.hidden = false
+      }
+
+      function selectDirection(direction, instant = false) {
+        const label = LABELS[direction]
+        setMenu(false)
+        options.forEach((option) => {
+          const active = option.dataset.direction === direction
+          option.classList.toggle('selected', active)
+          option.setAttribute('aria-selected', String(active))
+        })
+        triggerText.textContent = label
+        triggerText.classList.remove('placeholder')
+        triggerText.classList.add('selected')
+        resultBox.classList.remove('done')
+        resultBox.classList.add('loading')
+        resultEmpty.hidden = true
+        resultText.textContent = ''
+
+        window.clearTimeout(timer)
+        timer = window.setTimeout(
+          () => {
+            resultBox.classList.remove('loading')
+            resultBox.classList.add('done')
+            resultText.textContent = RESULTS[direction]
+          },
+          instant ? 0 : 900
+        )
+      }
+
+      trigger.addEventListener('click', () => {
+        setMenu(!menu.classList.contains('open'))
+      })
+
+      options.forEach((option) => {
+        option.addEventListener('click', () => selectDirection(option.dataset.direction))
+      })
+
+      document.addEventListener('pointerdown', (event) => {
+        if (!menu.contains(event.target) && !trigger.contains(event.target)) {
+          setMenu(false)
+        }
+      })
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setMenu(false)
+      })
+
+      document.getElementById('resetBtn').addEventListener('click', reset)
+
+      const themeBtn = document.getElementById('themeBtn')
+      themeBtn.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+        document.documentElement.dataset.theme = next
+        themeBtn.textContent = next === 'dark' ? '浅色预览' : '深色预览'
+      })
+
+      const params = new URLSearchParams(location.search)
+      const state = params.get('state')
+      const themeParam = params.get('theme')
+      if (themeParam === 'light' || themeParam === 'dark') {
+        document.documentElement.dataset.theme = themeParam
+        themeBtn.textContent = themeParam === 'dark' ? '浅色预览' : '深色预览'
+      }
+      if (state === 'open') {
+        window.setTimeout(() => setMenu(true), 120)
+      } else if (state === 'zh-en' || state === 'en-zh') {
+        selectDirection(state, true)
+      } else {
+        reset()
+      }
+    </script>
+  </body>
+</html>
