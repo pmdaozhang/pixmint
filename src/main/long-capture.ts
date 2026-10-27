@@ -35,6 +35,7 @@ const START_WHEEL_DELTA = START_NOTCHES * 120
 const MIN_WHEEL_DELTA = 60
 const MAX_WHEEL_DELTA = MAX_NOTCHES * 120
 const MATCH_EDGE_MARGIN = 24
+const MAX_UIA_STEPS = 40
 const NO_MATCH_LIMIT = 3
 
 export interface LongCaptureStartOptions {
@@ -294,6 +295,8 @@ export class LongCaptureManager {
       let headerHeight = 0
       let wheelDelta = START_WHEEL_DELTA
       let pixelsPerWheelUnit = 0
+      let scrollMode: 'wheel' | 'uia' = 'wheel'
+      let pixelsPerUiaStep = 0
       let screens = 1
       let noMatchCount = 0
       let limitReached = false
@@ -306,27 +309,53 @@ export class LongCaptureManager {
         const currentHeight = stitcher?.currentHeight ?? first.height
         const scrollHeight = Math.max(1, previous.height - headerHeight)
         const targetOffset = Math.round(scrollHeight * 0.7)
-        if (pixelsPerWheelUnit > 0) {
-          wheelDelta = clamp(
-            Math.round(targetOffset / pixelsPerWheelUnit),
-            MIN_WHEEL_DELTA,
-            MAX_WHEEL_DELTA
-          )
-        }
-
         this.setProgress({
           phase: 'scrolling',
           screens,
           height: currentHeight,
           message: `正在滚动第 ${screens + 1} 屏`
         })
-        const scroll = await this.driver.scrollDelta(
-          target,
-          centerX,
-          centerY,
-          -wheelDelta
-        )
-        if (!scroll.ok) throw new Error(mapScrollError(scroll.error))
+        let appliedScrollSteps = 0
+        let scrolled = false
+        if (scrollMode === 'uia') {
+          const steps =
+            pixelsPerUiaStep > 0
+              ? clamp(
+                  Math.round(targetOffset / pixelsPerUiaStep),
+                  1,
+                  MAX_UIA_STEPS
+                )
+              : 1
+          const uia = await this.driver.scrollUia(
+            target,
+            centerX,
+            centerY,
+            steps
+          )
+          if (uia.ok) {
+            appliedScrollSteps = steps
+            scrolled = true
+          } else {
+            scrollMode = 'wheel'
+          }
+        }
+        if (!scrolled) {
+          if (pixelsPerWheelUnit > 0) {
+            wheelDelta = clamp(
+              Math.round(targetOffset / pixelsPerWheelUnit),
+              MIN_WHEEL_DELTA,
+              MAX_WHEEL_DELTA
+            )
+          }
+          const scroll = await this.driver.scrollDelta(
+            target,
+            centerX,
+            centerY,
+            -wheelDelta
+          )
+          if (!scroll.ok) throw new Error(mapScrollError(scroll.error))
+          appliedScrollSteps = wheelDelta
+        }
 
         await delay(SETTLE_MS)
         const still = await this.driver.findTarget(centerX, centerY)
@@ -393,74 +422,135 @@ export class LongCaptureManager {
                 '滚动幅度过大且无法回到起点，请框选更高的区域后重试'
               )
             }
-            wheelDelta = Math.max(MIN_WHEEL_DELTA, Math.round(wheelDelta / 2))
-            const half = await this.driver.scrollDelta(
+            // 优先用 UI Automation 的小步滚动；它不依赖滚轮 delta 的累积规则。
+            const uia = await this.driver.scrollUia(
               target,
               centerX,
               centerY,
-              -wheelDelta
+              1
             )
-            if (!half.ok) throw new Error(mapScrollError(half.error))
-            await delay(SETTLE_MS)
-            const retry = await this.captureStableFrame(captureRect, physical)
-            if (!retry) throw new Error('截取长截图帧失败')
-            const retryMatchFrame = cropFrameHorizontal(retry, MATCH_EDGE_MARGIN)
-            const retryMatch = findOverlap(
-              previousMatch,
-              retryMatchFrame,
-              undefined,
-              Math.round(scrollHeight * 0.35),
-              true
-            )
-            if (!retryMatch) {
-              const halfMoved = !framesAreSimilar(previousMatch, retryMatchFrame, {
-                stepX: 4,
-                stepY: 2
-              })
-              if (halfMoved) {
+            let uiaMoved = false
+            if (uia.ok) {
+              await delay(SETTLE_MS)
+              const uiaFrame = await this.captureStableFrame(captureRect, physical)
+              if (uiaFrame) {
+                const uiaMatchFrame = cropFrameHorizontal(
+                  uiaFrame,
+                  MATCH_EDGE_MARGIN
+                )
+                uiaMoved = !framesAreSimilar(previousMatch, uiaMatchFrame, {
+                  stepX: 4,
+                  stepY: 2
+                })
+                const uiaMatch = findOverlap(
+                  previousMatch,
+                  uiaMatchFrame,
+                  undefined,
+                  Math.round(scrollHeight * 0.08),
+                  true
+                )
+                if (uiaMatch) {
+                  scrollMode = 'uia'
+                  pixelsPerUiaStep = uiaMatch.offset
+                  appliedScrollSteps = 1
+                  next = uiaFrame
+                  nextMatch = uiaMatchFrame
+                  match = uiaMatch
+                  logDiagnostic(
+                    'long-capture',
+                    `first match retry uia offset=${uiaMatch.offset}`
+                  )
+                }
+              }
+            }
+            if (!match) {
+              if (uiaMoved) {
                 throw new Error(
                   '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
                 )
               }
-              // 部分 Chromium 应用不会单独响应半格滚轮；用 Down 键做小步滚动兜底。
-              const keys = await this.driver.scrollKeys(
+              wheelDelta = Math.max(
+                MIN_WHEEL_DELTA,
+                Math.round(wheelDelta / 2)
+              )
+              const half = await this.driver.scrollDelta(
                 target,
                 centerX,
                 centerY,
-                0x28
+                -wheelDelta
               )
-              if (!keys.ok) throw new Error(mapScrollError(keys.error))
+              if (!half.ok) throw new Error(mapScrollError(half.error))
               await delay(SETTLE_MS)
-              const keyFrame = await this.captureStableFrame(captureRect, physical)
-              if (!keyFrame) throw new Error('截取长截图帧失败')
-              const keyMatchFrame = cropFrameHorizontal(keyFrame, MATCH_EDGE_MARGIN)
-              const keyMatch = findOverlap(
+              const retry = await this.captureStableFrame(captureRect, physical)
+              if (!retry) throw new Error('截取长截图帧失败')
+              const retryMatchFrame = cropFrameHorizontal(
+                retry,
+                MATCH_EDGE_MARGIN
+              )
+              const retryMatch = findOverlap(
                 previousMatch,
-                keyMatchFrame,
+                retryMatchFrame,
                 undefined,
-                Math.round(scrollHeight * 0.3),
+                Math.round(scrollHeight * 0.35),
                 true
               )
-              if (!keyMatch) {
-                throw new Error(
-                  '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
+              if (!retryMatch) {
+                const halfMoved = !framesAreSimilar(
+                  previousMatch,
+                  retryMatchFrame,
+                  { stepX: 4, stepY: 2 }
+                )
+                if (halfMoved) {
+                  throw new Error(
+                    '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
+                  )
+                }
+                const keys = await this.driver.scrollKeys(
+                  target,
+                  centerX,
+                  centerY,
+                  0x28
+                )
+                if (!keys.ok) throw new Error(mapScrollError(keys.error))
+                await delay(SETTLE_MS)
+                const keyFrame = await this.captureStableFrame(
+                  captureRect,
+                  physical
+                )
+                if (!keyFrame) throw new Error('截取长截图帧失败')
+                const keyMatchFrame = cropFrameHorizontal(
+                  keyFrame,
+                  MATCH_EDGE_MARGIN
+                )
+                const keyMatch = findOverlap(
+                  previousMatch,
+                  keyMatchFrame,
+                  undefined,
+                  Math.round(scrollHeight * 0.3),
+                  true
+                )
+                if (!keyMatch) {
+                  throw new Error(
+                    '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
+                  )
+                }
+                next = keyFrame
+                nextMatch = keyMatchFrame
+                match = keyMatch
+                logDiagnostic(
+                  'long-capture',
+                  `first match retry keyscroll offset=${keyMatch.offset}`
+                )
+              } else {
+                next = retry
+                nextMatch = retryMatchFrame
+                match = retryMatch
+                appliedScrollSteps = wheelDelta
+                logDiagnostic(
+                  'long-capture',
+                  `first match retry wheelDelta=${wheelDelta} offset=${retryMatch.offset}`
                 )
               }
-              next = keyFrame
-              nextMatch = keyMatchFrame
-              match = keyMatch
-              logDiagnostic(
-                'long-capture',
-                `first match retry keyscroll offset=${keyMatch.offset}`
-              )
-            } else {
-              next = retry
-              nextMatch = retryMatchFrame
-              match = retryMatch
-              logDiagnostic(
-                'long-capture',
-                `first match retry wheelDelta=${wheelDelta} offset=${retryMatch.offset}`
-              )
             }
           }
           if (!match && noMatchCount >= NO_MATCH_LIMIT) {
@@ -489,7 +579,11 @@ export class LongCaptureManager {
         }
         if (appended.truncated) limitReached = true
 
-        pixelsPerWheelUnit = match.offset / Math.max(1, wheelDelta)
+        if (scrollMode === 'uia') {
+          pixelsPerUiaStep = match.offset / Math.max(1, appliedScrollSteps)
+        } else {
+          pixelsPerWheelUnit = match.offset / Math.max(1, appliedScrollSteps)
+        }
         previous = next
         previousMatch = nextMatch
         screens += 1

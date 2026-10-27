@@ -10,10 +10,11 @@ param([uint32]$AppPid)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-Add-Type -ReferencedAssemblies Microsoft.CSharp @"
+Add-Type -ReferencedAssemblies Microsoft.CSharp,UIAutomationClient,UIAutomationTypes,WindowsBase @"
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Windows.Automation;
 public class PixmintScrollHelper {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
@@ -127,6 +128,34 @@ public class PixmintScrollHelper {
     return "ok";
   }
 
+  public static string UiaScroll(long hwnd, int x, int y, int steps) {
+    IntPtr h = new IntPtr(hwnd);
+    if (!IsWindow(h)) return "error:window";
+    if (!SetCursorPos(x, y)) return "error:cursor";
+    try {
+      AutomationElement element = AutomationElement.FromPoint(new System.Windows.Point(x, y));
+      if (element == null) return "error:uia-element";
+      for (int depth = 0; depth < 8 && element != null; depth++) {
+        object patternObject;
+        if (element.TryGetCurrentPattern(ScrollPattern.Pattern, out patternObject)) {
+          ScrollPattern pattern = (ScrollPattern)patternObject;
+          if (pattern.Current.VerticallyScrollable) {
+            int count = Math.Max(1, steps);
+            for (int i = 0; i < count; i++) {
+              pattern.Scroll(ScrollAmount.NoAmount, ScrollAmount.SmallIncrement);
+              System.Threading.Thread.Sleep(30);
+            }
+            return "ok";
+          }
+        }
+        element = TreeWalker.ControlViewWalker.GetParent(element);
+      }
+      return "error:uia-pattern";
+    } catch {
+      return "error:uia";
+    }
+  }
+
   static string SendWheel(long hwnd, int x, int y, int delta) {
     IntPtr h = new IntPtr(hwnd);
     if (!IsWindow(h)) return "error:window";
@@ -203,6 +232,9 @@ while ($true) {
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'keyscroll') {
       $result = [PixmintScrollHelper]::KeyScroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5], 8)
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'uiascroll') {
+      $result = [PixmintScrollHelper]::UiaScroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5])
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'restore') {
       $result = [PixmintScrollHelper]::Restore([int]$parts[2], [int]$parts[3])
@@ -324,6 +356,19 @@ export class ScrollDriver {
     const payload = await this.client.request(
       `keyscroll,${target.hwnd},${Math.round(x)},${Math.round(y)},${Math.round(keyCode)}`,
       2000
+    )
+    return parseScrollResult(payload)
+  }
+
+  async scrollUia(
+    target: ScrollTarget,
+    x: number,
+    y: number,
+    steps: number
+  ): Promise<ScrollResult> {
+    const payload = await this.client.request(
+      `uiascroll,${target.hwnd},${Math.round(x)},${Math.round(y)},${Math.max(1, Math.round(steps))}`,
+      3000
     )
     return parseScrollResult(payload)
   }
