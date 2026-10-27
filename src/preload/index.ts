@@ -11,6 +11,8 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
+  LongCapturePreviewInfo,
+  LongCaptureProgress,
   UpdateState,
   VideoDoneMeta
 } from '../shared/types'
@@ -131,6 +133,33 @@ const api: SnapglassApi = {
     flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
     exportReport: () =>
       ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
+  },
+  longCapture: {
+    getState: () =>
+      ipcRenderer.invoke('long-capture:state') as Promise<LongCaptureProgress>,
+    pause: () => ipcRenderer.send('long-capture:pause'),
+    resume: () => ipcRenderer.send('long-capture:resume'),
+    finish: () => ipcRenderer.send('long-capture:finish'),
+    cancel: () => ipcRenderer.send('long-capture:cancel'),
+    onProgress: (callback: (progress: LongCaptureProgress) => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        progress: LongCaptureProgress
+      ) => {
+        callback(progress)
+      }
+      ipcRenderer.on('long-capture:progress', listener)
+      return () => ipcRenderer.removeListener('long-capture:progress', listener)
+    },
+    previewInfo: () =>
+      ipcRenderer.invoke(
+        'long-capture:preview-info'
+      ) as Promise<LongCapturePreviewInfo | null>,
+    savePreview: () =>
+      ipcRenderer.invoke('long-capture:save-preview') as Promise<string | null>,
+    copyPreview: () =>
+      ipcRenderer.invoke('long-capture:copy-preview') as Promise<string>,
+    closePreview: () => ipcRenderer.send('long-capture:close-preview')
   },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,

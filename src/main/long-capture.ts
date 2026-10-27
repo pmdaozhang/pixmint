@@ -1,7 +1,8 @@
-import { app, screen } from 'electron'
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
+import { app, clipboard, dialog, nativeImage, screen } from 'electron'
+import { copyFileSync, existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
+  LongCapturePreviewInfo,
   LongCaptureProgress,
   LongCaptureResult,
   Rect
@@ -10,6 +11,7 @@ import {
   framesAreSimilar,
   LongCaptureStitcher,
   matchVerticalOverlap,
+  trimCaptureEdgeRow,
   type FrameImage
 } from '../shared/long-capture'
 import { encodePng, frameFromDataUrl } from './long-capture/image'
@@ -17,6 +19,7 @@ import { ScrollDriver } from './long-capture/scroll-driver'
 import type { ScrollTarget } from '../shared/scroll-target'
 import { fastCapture } from './fast-capture'
 import { logDiagnostic } from './diagnostics'
+import { notify } from './image-utils'
 
 const MAX_HEIGHT = 30_000
 const MAX_PIXELS = 30_000_000
@@ -88,6 +91,7 @@ export class LongCaptureManager {
   }
   private result: LongCaptureResult | null = null
   private resultFilePath = ''
+  private savedFilePath = ''
   private progressListener?: (progress: LongCaptureProgress) => void
 
   constructor(driver?: ScrollDriver) {
@@ -100,6 +104,64 @@ export class LongCaptureManager {
 
   getResult(): LongCaptureResult | null {
     return this.result ? { ...this.result } : null
+  }
+
+  getPreviewInfo(): LongCapturePreviewInfo | null {
+    if (!this.result || !this.resultFilePath) return null
+    return {
+      ...this.result,
+      filePath: this.resultFilePath,
+      mediaUrl: `snapglass-media://local?path=${encodeURIComponent(this.resultFilePath)}`
+    }
+  }
+
+  isAllowedFile(filePath: string): boolean {
+    return filePath === this.resultFilePath || filePath === this.savedFilePath
+  }
+
+  async saveResult(): Promise<string | null> {
+    if (!this.result || !this.resultFilePath) return null
+    const result = await dialog.showSaveDialog({
+      title: '保存长截图',
+      defaultPath: join(
+        app.getPath('pictures'),
+        `Pixmint-long-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
+      ),
+      filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    if (result.filePath !== this.resultFilePath) {
+      copyFileSync(this.resultFilePath, result.filePath)
+    }
+    this.savedFilePath = result.filePath
+    notify(`已保存：${result.filePath}`)
+    return result.filePath
+  }
+
+  copyResult(): string {
+    if (!this.resultFilePath) throw new Error('没有可复制的长截图')
+    const image = nativeImage.createFromPath(this.resultFilePath)
+    if (image.isEmpty()) throw new Error('无法读取长截图')
+    clipboard.writeImage(image)
+    return '已复制长截图到剪贴板'
+  }
+
+  deleteResult(): void {
+    if (this.resultFilePath) {
+      try {
+        if (
+          this.resultFilePath !== this.savedFilePath &&
+          existsSync(this.resultFilePath)
+        ) {
+          unlinkSync(this.resultFilePath)
+        }
+      } catch {
+        // 临时文件清理失败不应阻断关闭流程
+      }
+    }
+    this.resultFilePath = ''
+    this.savedFilePath = ''
+    this.result = null
   }
 
   pause(): void {
@@ -138,6 +200,7 @@ export class LongCaptureManager {
 
   dispose(): void {
     this.cancel()
+    this.deleteResult()
     this.driver.dispose()
   }
 
@@ -187,7 +250,7 @@ export class LongCaptureManager {
 
       const firstDataUrl = await captureRect(physical)
       if (!firstDataUrl) throw new Error('无法截取长截图选区')
-      const first = frameFromDataUrl(firstDataUrl)
+      const first = trimCaptureEdgeRow(frameFromDataUrl(firstDataUrl))
 
       let previous: FrameImage = first
       let stitcher: LongCaptureStitcher | null = null
@@ -415,7 +478,7 @@ export class LongCaptureManager {
     for (let attempt = 0; attempt < STABLE_ATTEMPTS; attempt += 1) {
       const dataUrl = await captureRect(rect)
       if (!dataUrl) return null
-      const frame = frameFromDataUrl(dataUrl)
+      const frame = trimCaptureEdgeRow(frameFromDataUrl(dataUrl))
       if (
         previous &&
         framesAreSimilar(previous, frame, { stepX: 4, stepY: 2 })

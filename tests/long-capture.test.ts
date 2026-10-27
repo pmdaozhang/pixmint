@@ -3,6 +3,7 @@ import {
   LongCaptureStitcher,
   detectStableHeader,
   matchVerticalOverlap,
+  trimCaptureEdgeRow,
   type FrameImage
 } from '../src/shared/long-capture'
 
@@ -76,6 +77,31 @@ function rowBytes(frame: FrameImage, row: number): Uint8Array {
   const start = row * frame.width * 4
   return frame.data.subarray(start, start + frame.width * 4)
 }
+
+describe('trimCaptureEdgeRow', () => {
+  it('always trims exactly one bottom row', () => {
+    const page = createPage(400)
+    const frame = frameAt(page, 0)
+
+    const trimmed = trimCaptureEdgeRow(frame)
+
+    expect(trimmed.height).toBe(frame.height - 1)
+    expect(
+      Buffer.from(trimmed.data).equals(
+        Buffer.from(frame.data.subarray(0, trimmed.data.length))
+      )
+    ).toBe(true)
+  })
+
+  it('leaves a single-row frame unchanged', () => {
+    const page = createPage(400)
+    const frame = frameAt(page, 0, 1, 0)
+
+    const trimmed = trimCaptureEdgeRow(frame)
+
+    expect(trimmed).toBe(frame)
+  })
+})
 
 describe('detectStableHeader', () => {
   it('finds the fixed header height', () => {

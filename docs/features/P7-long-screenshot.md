@@ -1,6 +1,6 @@
 # 功能：长截图
 
-编号：P7 | 状态：设计中（方案已确认） | 版本：v2
+编号：P7 | 状态：已实现（Windows，核心链路与 UI 已接通；发布级验收待补，目标 0.5.0） | 版本：v4
 
 ## 需求描述
 
@@ -127,20 +127,35 @@
 
 ## 验收标准
 
-- [ ] 覆盖层工具栏出现“长截图”入口，点击后进入长截图流程。
-- [ ] 5 屏测试页输出高度大于视口，行号 1..N 不缺失、不重复。
-- [ ] 固定表头只出现一次。
+- [x] 覆盖层工具栏出现“长截图”入口（覆盖层 E2E 工具栏渲染通过）。
+- [ ] 从覆盖层点击入口到 HUD/预览的真实 E2E（代码已接，尚未自动化点击）。
+- [x] 5 屏测试页输出高度大于视口，行号 1..160 不缺失、不重复。
+- [x] 固定表头只出现一次。
+- [x] 文本长页拼接处无 1px 接缝（像素扫描除表头外无深色横线）。
 - [ ] 图片、代码块、深浅色页面拼接处无明显错位。
-- [ ] 进度 HUD 显示已截屏数和高度，暂停/继续/完成/取消可用。
-- [ ] 取消不产生结果文件；完成或达到上限时保留已截部分。
+- [x] 进度 HUD 显示已截屏数和高度（真实 HUD 窗口已渲染，进度更新未截帧）。
+- [ ] 暂停/继续/完成/取消按钮点击 E2E 未做。
+- [x] 取消/完成/上限的清理与保留逻辑已实现；按钮点击未 E2E。
 - [ ] 125% / 150% / 200% DPI 下偏移和拼接正确。
 - [ ] 多显示器、跨屏选区、窗口移动时有明确结果或错误提示。
 - [ ] 目标窗口不可滚动、失焦、UAC/受保护、滚动无变化时停止并提示。
 - [ ] 最大高度/像素上限触发时停止，提示“已截取到上限”。
-- [ ] 预览窗口可缩放/滚动，保存和复制结果正确。
-- [ ] 临时文件在关闭预览、取消和退出后清理。
-- [ ] 现有截图、标注、OCR、翻译、GIF/视频录制回归通过。
-- [ ] 无新增设置 schema 变更，无新增未评估运行时依赖。
+- [x] 预览窗口可缩放/滚动（真实预览窗口已渲染）。
+- [ ] 保存和复制按钮的点击 E2E 未做。
+- [x] 临时文件在关闭预览、取消和退出后清理（代码路径）。
+- [x] 截图/覆盖层回归通过；OCR/翻译/GIF/视频未在本轮重跑。
+- [x] 无新增设置 schema 变更，无新增未评估运行时依赖。
+
+## 实测结果（2026-10-27）
+
+- 后端 smoke：700×3396，297,504 字节，行号 1..160 连续，固定表头只出现一次，offset 100/300/62，页面到底后停止。
+- 接缝检查：像素扫描 700×3396 结果，除表头 13–20 行外无深色横线；修复前 534/634/934… 接缝行已消失。
+- 真实 UI smoke：`--smoke-long-capture-ui` 经 controller 打开 HUD 和预览窗口，结果 700×3396、297,504 字节。
+- 覆盖层 E2E：E2E_OK，工具栏宽度 811px。
+- 单测：23 个文件、144 个用例通过；`tests/long-capture.test.ts` 14 个用例。
+- `pnpm typecheck`、`pnpm build` 通过。
+- 修复说明：GDI 截屏会把选区底部 1px 窗口边缘带进帧；所有帧统一裁掉最后 1 个物理像素行，保证首帧/后续帧尺寸一致。代价是结果比选区少 1px，肉眼不可见。
+- 未实测：覆盖层按钮点击到 HUD/预览的真实端到端、保存/复制对话框、125%/150%/200% DPI、多显示器、UAC/受保护窗口、最大高度提示、图片/代码块/深色页面拼接、OCR/录制回归。
 
 ## 风险
 
@@ -156,20 +171,27 @@
 ## 关联文件
 
 - `src/main/long-capture.ts`
+- `src/main/long-capture-controller.ts`
 - `src/main/long-capture/scroll-driver.ts`
-- `src/main/windows/long-capture-overlay.ts`
+- `src/main/long-capture/image.ts`
+- `src/main/windows/long-capture-hud.ts`
 - `src/main/windows/long-capture-preview.ts`
 - `src/main/index.ts`
 - `src/preload/index.ts`
 - `src/shared/api.ts`
 - `src/shared/types.ts`
 - `src/shared/long-capture.ts`
+- `src/shared/scroll-target.ts`
 - `src/renderer/src/overlay/Toolbar.tsx`
 - `src/renderer/src/overlay/OverlayApp.tsx`
+- `src/renderer/src/long-capture/LongCaptureHudApp.tsx`
 - `src/renderer/src/long-capture/LongCapturePreviewApp.tsx`
+- `src/renderer/src/long-capture/long-capture-hud.css`
+- `src/renderer/src/long-capture/long-capture-preview.css`
 - `src/renderer/src/components/Icon.tsx`
+- `src/renderer/src/App.tsx`
 - `tests/long-capture.test.ts`
-- `e2e-long-capture.cjs`
+- `scripts/long-capture-fixture.cjs`
 - `demos/P7-long-screenshot.html`
 - `docs/test-cases/P7-long-screenshot.md`
 - `docs/superpowers/plans/P7-long-screenshot.md`
@@ -180,3 +202,5 @@
 |---|---|---|---|
 | 2026-10-27 | v1 | 首版需求：Windows 自动滚动拼接、固定表头、进度与预览 | 长截图功能立项 |
 | 2026-10-27 | v2 | 确认不做 CDP、从当前位置截取、30M/30,000px 上限、v1 不做 OCR/钉图；记录 0ab0553 基线与 0.5.0 目标版本 | 方案确认 |
+| 2026-10-27 | v3 | 完成核心链路、HUD、预览和工具栏接入；记录 backend/UI smoke 结果与未验收项 | 实现阶段完成 |
+| 2026-10-27 | v4 | 修复拼接缝 1px 深色横线；补齐单测、构建、UI smoke 与覆盖层 E2E 证据 | 发布前验收 |

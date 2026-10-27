@@ -553,7 +553,17 @@ export function OverlayApp(): JSX.Element {
   }, [phase, selection, init, autoCopySelection])
 
   const onAction = useCallback(
-    (action: 'ocr' | 'translate' | 'gif' | 'video' | 'copy' | 'pin' | 'save' | 'close') => {
+    (action: 'ocr' | 'translate' | 'gif' | 'video' | 'long' | 'copy' | 'pin' | 'save' | 'close') => {
+      if (action === 'long') {
+        if (!init || !selection) return
+        window.snapglass.overlay.complete({
+          action: 'long',
+          displayId: init.displayId,
+          selection,
+          pngBytes: new Uint8Array(0)
+        })
+        return
+      }
       if (action === 'close') {
         window.snapglass.overlay.cancel()
         return

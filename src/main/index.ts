@@ -64,6 +64,7 @@ import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 import { disposeUpdater, initUpdater } from './updater'
 import { longCaptureManager } from './long-capture'
+import { LongCaptureController } from './long-capture-controller'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -121,6 +122,7 @@ const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const isLongCaptureSmoke = process.argv.includes('--smoke-long-capture')
+const isLongCaptureUiSmoke = process.argv.includes('--smoke-long-capture-ui')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
@@ -135,6 +137,7 @@ let overlayManager: OverlayManager
 let pinManager: PinManager
 let ocrManager: OcrManager
 let recorderManager: RecorderManager
+let longCaptureController: LongCaptureController
 let windowSnap: WindowSnapHelper
 let platformServices: PlatformServices
 let tray: Tray | null = null
@@ -241,6 +244,10 @@ async function handleOverlayComplete(
   payload: OverlayCompletePayload,
   capture: DisplayCapture
 ): Promise<void> {
+  if (payload.action === 'long') {
+    void longCaptureController.start(payload)
+    return
+  }
   const image = imageFromBytes(payload.pngBytes)
   if (image.isEmpty()) return
   addBreadcrumb('action', payload.action, {
@@ -368,6 +375,16 @@ function registerIpc(): void {
   ipcMain.on('recorder:preview-retry', () => recorderManager.previewRetry())
   ipcMain.on('recorder:preview-close', () => recorderManager.previewClose())
   ipcMain.on('recorder:preview-open-folder', () => recorderManager.previewOpenFolder())
+
+  ipcMain.handle('long-capture:state', () => longCaptureManager.getProgress())
+  ipcMain.on('long-capture:pause', () => longCaptureController.pause())
+  ipcMain.on('long-capture:resume', () => longCaptureController.resume())
+  ipcMain.on('long-capture:finish', () => longCaptureController.finish())
+  ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
+  ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
+  ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
+  ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
+  ipcMain.on('long-capture:close-preview', () => longCaptureController.closePreview())
 
   ipcMain.handle('pin:ready', (event) => pinManager.initFor(event.sender.id))
   ipcMain.on('pin:close', (event) => pinManager.close(event.sender.id))
@@ -505,6 +522,7 @@ function initServices(): void {
     hideRecordingOverlay: (id) => overlayManager.hideRecordingOverlay(id),
     hideOverlay: () => overlayManager.hideAll()
   })
+  longCaptureController = new LongCaptureController(preloadPath, longCaptureManager)
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
     if (!isTrustedAppUrl(contents.getURL())) {
       callback(false)
@@ -520,7 +538,11 @@ function initServices(): void {
   protocol.handle('snapglass-media', (request) => {
     const url = new URL(request.url)
     const filePath = decodeURIComponent(url.searchParams.get('path') ?? '')
-    if (!filePath || !recorderManager.isAllowedFile(filePath)) {
+    if (
+      !filePath ||
+      (!recorderManager.isAllowedFile(filePath) &&
+        !longCaptureManager.isAllowedFile(filePath))
+    ) {
       return new Response('Not found', { status: 404 })
     }
     return net.fetch(pathToFileURL(filePath).toString())
@@ -896,6 +918,63 @@ async function runLongCaptureSmoke(): Promise<void> {
   }
 }
 
+async function runLongCaptureSmokeUi(): Promise<void> {
+  if (app.isPackaged) {
+    console.error('LONG_CAPTURE_UI_SMOKE_PACKAGED_UNSUPPORTED')
+    app.exit(1)
+    return
+  }
+  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
+  const electronPath = join(
+    app.getAppPath(),
+    'node_modules',
+    'electron',
+    'dist',
+    'electron.exe'
+  )
+  const fixture = spawn(electronPath, [fixturePath], { stdio: 'ignore' })
+  const reportPath = join(
+    app.getAppPath(),
+    'test-results',
+    'long-capture-ui-smoke.json'
+  )
+  const writeReport = (value: unknown): void => {
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true })
+      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
+    } catch {
+      // smoke 报告失败不应改变测试结果
+    }
+  }
+  writeReport({ ok: false, stage: 'started' })
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 2200))
+    const display = screen.getPrimaryDisplay()
+    const selection = { x: 100, y: 138, width: 700, height: 535 }
+    await longCaptureController.start({
+      action: 'long',
+      displayId: display.id,
+      selection,
+      pngBytes: new Uint8Array(0)
+    })
+    const result = longCaptureManager.getResult()
+    writeReport({ ok: Boolean(result), result })
+    // 给 Playwright 留出截取 HUD/预览的时间。
+    await new Promise((resolve) => setTimeout(resolve, 8000))
+    app.exit(result ? 0 : 1)
+  } catch (error) {
+    writeReport({
+      ok: false,
+      stage: 'exception',
+      error: error instanceof Error ? error.message : String(error)
+    })
+    console.error('LONG_CAPTURE_UI_SMOKE_ERROR', error)
+    app.exit(1)
+  } finally {
+    fixture.kill()
+  }
+}
+
 if (
   !isSmokeTest &&
   !isCaptureSmoke &&
@@ -906,6 +985,7 @@ if (
   !isPrepareSmoke &&
   !isFastCaptureSmoke &&
   !isLongCaptureSmoke &&
+  !isLongCaptureUiSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
   !isCaptureOnce &&
@@ -926,6 +1006,7 @@ if (
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
       !isLongCaptureSmoke &&
+      !isLongCaptureUiSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
       !isCaptureOnce &&
@@ -948,6 +1029,11 @@ if (
     }
     if (isLongCaptureSmoke) {
       void runLongCaptureSmoke()
+      return
+    }
+    if (isLongCaptureUiSmoke) {
+      initServices()
+      void runLongCaptureSmokeUi()
       return
     }
     initServices()
@@ -1054,6 +1140,7 @@ if (
     addBreadcrumb('app', 'before-quit')
     statusToast.hide()
     disposeUpdater()
+    longCaptureController?.dispose()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()

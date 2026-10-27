@@ -1,0 +1,184 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font);
+}
+
+body {
+  padding: 8px;
+}
+
+.hud-shell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.hud-card {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-2) 96%, transparent);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+.hud-card[data-tone="error"] {
+  border-color: color-mix(in srgb, #ff453a 48%, var(--border));
+}
+
+.hud-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hud-icon {
+  display: flex;
+  color: var(--accent);
+}
+
+.hud-head strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hud-pill {
+  margin-left: auto;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.hud-card[data-tone="paused"] .hud-pill {
+  background: var(--bg-3);
+  color: var(--text-2);
+}
+
+.hud-card[data-tone="error"] .hud-pill {
+  background: #2a1213;
+  color: #ff453a;
+}
+
+.hud-meta {
+  margin-top: 6px;
+  color: var(--text-2);
+  font: 10px/1.35 var(--mono);
+}
+
+.hud-message {
+  margin-top: 3px;
+  min-height: 28px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.hud-card[data-tone="error"] .hud-message {
+  color: #ff6961;
+}
+
+.hud-track {
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--bg-3);
+}
+
+.hud-fill {
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: hud-slide 1.1s ease-in-out infinite alternate;
+}
+
+.hud-card[data-tone="paused"] .hud-fill {
+  animation-play-state: paused;
+}
+
+.hud-card[data-tone="error"] .hud-fill {
+  width: 100%;
+  background: #ff453a;
+  animation: none;
+}
+
+[data-theme="light"] .hud-card[data-tone="error"] .hud-pill {
+  background: #fdecec;
+  color: #d70015;
+}
+
+[data-theme="light"] .hud-card[data-tone="error"] .hud-message {
+  color: #d70015;
+}
+
+[data-theme="light"] .hud-card[data-tone="error"] .hud-fill {
+  background: #d70015;
+}
+
+@keyframes hud-slide {
+  from {
+    transform: translateX(-20%);
+  }
+  to {
+    transform: translateX(180%);
+  }
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.hud-btn {
+  height: 27px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 10.5px;
+}
+
+.hud-btn:hover {
+  border-color: var(--border-strong);
+}
+
+.hud-btn.primary {
+  margin-left: auto;
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.hud-btn.primary + .hud-btn {
+  margin-left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-fill {
+    animation: none;
+  }
+}

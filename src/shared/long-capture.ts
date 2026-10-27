@@ -177,6 +177,24 @@ export function framesAreSimilar(
 }
 
 /**
+ * 背景：选区贴住窗口内容底边时，GDI 截屏会把 1px 窗口边缘带进帧，
+ * 导致每个拼接缝多出一条深色横线。
+ * 设计意图：所有帧统一裁掉最后 1 个物理像素行，保证首帧和后续帧尺寸一致。
+ * 不做像素猜测，避免某一帧被裁、另一帧没裁后无法匹配。
+ * 关键约束：输入是 BGRA 物理像素；最终结果比选区少 1px，肉眼不可见。
+ */
+export function trimCaptureEdgeRow(frame: FrameImage): FrameImage {
+  assertFrame(frame)
+  if (frame.height <= 1) return frame
+  const rowBytes = frame.width * BYTES_PER_PIXEL
+  return {
+    width: frame.width,
+    height: frame.height - 1,
+    data: frame.data.slice(0, (frame.height - 1) * rowBytes)
+  }
+}
+
+/**
  * 对候选偏移验证完整重叠区，而不是只看底部条带。
  * 重复纹理可能在局部条带上碰巧高分，但完整重叠区会把它淘汰。
  */

@@ -21,6 +21,33 @@
 - 本地回归可用 `PIXMINT_UPDATE_URL=http://127.0.0.1:<port>/` 指向 generic 测试源；测试源需同时提供 `latest.yml`、安装包和 `.blockmap`。
 - 已知风险：Windows 安装包未签名会触发 SmartScreen；GitHub 国内下载速度未实测；差分下载命中未实测。
 
+## 长截图（P7）
+
+### 自动化
+
+- `pnpm typecheck`
+- `pnpm test`，确认 `tests/long-capture.test.ts` 覆盖匹配、拼接、固定表头、最大高度和底部 1px 裁剪
+- `pnpm build`
+- `node_modules\.bin\electron.cmd . --smoke-long-capture`，确认 700×3396、行号连续、表头只出现一次、页面到底停止
+- `node_modules\.bin\electron.cmd . --smoke-long-capture-ui`，确认 HUD 和预览窗口正常
+- `pnpm e2e:overlay`，确认 `E2E_OK`，工具栏不溢出
+- 对 smoke 输出做像素扫描：除表头外不应出现整行深色横线
+
+### 真实应用与交互
+
+- 在 Chrome/Edge 长网页、记事本长文档、VS Code 长文件、设置页长列表各执行一次
+- 覆盖层点击“长截图”到 HUD/预览，不依赖 smoke 入口
+- 暂停 2 秒后继续、进行中完成、进行中取消、Esc 取消
+- 预览中缩放、滚动、保存 PNG、复制到剪贴板、关闭后清理临时文件
+- 125% / 150% / 200% DPI，各重复一次 5 屏测试页
+- 多显示器、跨屏选区、目标窗口移动
+- 不可滚动窗口、失焦窗口、UAC/受保护窗口，确认有中文错误且不生成黑图
+- 30,000px / 30M 像素上限，确认停止并保留已截部分
+
+### 已知取舍
+
+- 为避开选区底部 1px 窗口边缘，所有采集帧统一裁掉最后 1 个物理像素行；最终长图比选区少 1px，肉眼不可见。
+
 ## 交互桌面门禁（发布前必跑）
 
 必须在普通 Windows 交互桌面运行，GitHub 托管 runner 不能替代。

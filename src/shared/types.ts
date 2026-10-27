@@ -12,7 +12,7 @@ export interface Rect {
 
 export type ThemeSetting = 'system' | 'dark' | 'light'
 export type Language = 'zh-CN' | 'en-US'
-export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr'
+export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr' | 'long'
 export type Tool = 'move' | 'shape' | 'arrow' | 'mosaic' | 'text' | 'seq'
 export type ShapeKind = 'rect' | 'ellipse'
 export type LineStyle = 'solid' | 'thin' | 'sketch' | 'dotted'
@@ -339,4 +339,8 @@ export interface LongCaptureResult {
   height: number
   bytes: number
   filePath: string
+}
+
+export interface LongCapturePreviewInfo extends LongCaptureResult {
+  mediaUrl: string
 }

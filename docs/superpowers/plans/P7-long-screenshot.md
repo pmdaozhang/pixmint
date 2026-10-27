@@ -16,19 +16,23 @@
 
 ## 1. 类型、IPC 与状态机
 
-- [ ] `OverlayAction` 增加 `'long'`
-- [ ] `Toolbar` 的 `onAction` 类型增加 `'long'`
-- [ ] 新增 `LongCaptureState`、`LongCaptureProgress`、`LongCaptureResult`
-- [ ] 新增 `window.snapglass.longCapture` API：
-  - `start()`
+- [x] `OverlayAction` 增加 `'long'`
+- [x] `Toolbar` 的 `onAction` 类型增加 `'long'`
+- [x] 新增 `LongCapturePhase`、`LongCaptureProgress`、`LongCaptureResult`、`LongCapturePreviewInfo`
+- [x] 新增 `window.snapglass.longCapture` API：
+  - `getState()`
   - `pause()`
   - `resume()`
   - `finish()`
   - `cancel()`
-  - `getState()`
-  - `openResult()`
-- [ ] 主进程 IPC：`long-capture:start/pause/resume/finish/cancel/get-state`
-- [ ] 状态：`preparing`、`scrolling`、`capturing`、`matching`、`paused`、`finished`、`error`、`cancelled`
+  - `onProgress()`
+  - `previewInfo()`
+  - `savePreview()`
+  - `copyPreview()`
+  - `closePreview()`
+- [x] 启动入口复用 `overlay.complete({ action: 'long' })`，不新增独立 start IPC
+- [x] 主进程 IPC：`long-capture:state/pause/resume/finish/cancel/progress/preview-info/save-preview/copy-preview/close-preview`
+- [x] 状态：`idle`、`preparing`、`scrolling`、`capturing`、`matching`、`paused`、`finished`、`error`、`cancelled`
 
 ## 2. Windows 滚动驱动
 
@@ -39,7 +43,7 @@
   - `scroll,hwnd,x,y,notches`：置前、移动指针、`SendInput` 滚轮
   - `restore,x,y`：恢复用户鼠标位置
 - [x] 滚动前强制置前：`SetForegroundWindow` + `AttachThreadInput` + `SwitchToThisWindow` 兜底
-- [ ] 滚动后校验窗口句柄未变化（交给主进程会话实现）
+- [x] 滚动后校验窗口句柄未变化（主进程会话实现）
 - [x] helper 返回明确错误：`error:window` / `error:foreground` / `error:cursor` / `error:sendinput`
 - [ ] 真实 UAC/受保护窗口实测
 - [x] 预热 helper，避免首次长截图等待 C# 编译
@@ -53,24 +57,26 @@
 - [x] 底部条带 SAD 匹配 + 期望偏移惩罚
 - [x] 整帧近似相同检测，避免“没滚动也拼出偏移”
 - [x] 完整重叠区二次验证，淘汰重复纹理的局部误匹配
+- [x] 采集帧统一裁掉底部 1px 窗口边缘（`trimCaptureEdgeRow`），保证首帧/后续帧尺寸一致
 - [x] 固定表头检测：
   - 比较前三帧顶部若干行
   - 完全一致时标记固定区域
   - 后续帧跳过固定区域
 - [x] 最大像素/高度校验
 - [x] `tests/long-capture.test.ts`：
-  - 已知偏移
-  - 小噪声
-  - 固定表头
+  - [x] 已知偏移
+  - [x] 小噪声
+  - [x] 固定表头
   - [ ] 固定底栏（v1 边界场景，尚未实现）
-  - 低置信度
-  - 最大高度
+  - [x] 低置信度
+  - [x] 最大高度
+  - [x] 采集帧底部 1px 裁剪（尺寸一致、单行帧不越界）
 
 ## 4. 主进程长截图会话
 
 - [x] 新增 `src/main/long-capture.ts`
 - [x] 输入：`display`、选区；首帧由管理器从屏幕重新采集，保证和后续帧一致
-- [ ] 隐藏覆盖层并显示不覆盖选区的进度 HUD（UI 阶段接入）
+- [x] 隐藏覆盖层并显示不覆盖选区的进度 HUD
 - [x] 循环：滚动 → 等待稳定帧 → `fastCapture.capture(physicalRect)` → 匹配 → 追加
 - [x] 自适应滚动步长（1 格起步，按实测像素/格调整）
 - [x] 连续无变化/低置信度/失焦/上限时停止
@@ -79,36 +85,40 @@
 - [x] 诊断日志：滚动次数、偏移、置信度、帧数、输出尺寸
 - [x] 退出/取消时恢复鼠标位置，取消时清理临时文件
 - [x] smoke：`--smoke-long-capture` + 独立 always-on-top fixture 窗口
-- [x] smoke 实测：700×3397，行号 1..160 连续，固定表头只出现一次，offset 100/300/62，页面到底后停止
+- [x] smoke 实测：700×3396，行号 1..160 连续，固定表头只出现一次，offset 100/300/62，页面到底后停止
+- [x] 接缝像素扫描：除表头 13–20 行外无深色横线
 
 ## 5. 覆盖层与进度 HUD
 
-- [ ] `Icon.tsx` 增加 `long` 图标
-- [ ] `Toolbar.tsx` 增加“长截图”图标按钮
-- [ ] `OverlayApp.tsx` 的 `onAction` 处理 `'long'`
-- [ ] 长截图首帧不包含标注和覆盖层
-- [ ] 进度 HUD 不覆盖选区，不抢焦点
-- [ ] 支持暂停/继续/完成/取消
-- [ ] Esc 取消
-- [ ] 860px 最小窗口宽度下工具栏不溢出
+- [x] `Icon.tsx` 增加 `long` 图标
+- [x] `Toolbar.tsx` 增加“长截图”图标按钮
+- [x] `OverlayApp.tsx` 的 `onAction` 处理 `'long'`
+- [x] 长截图首帧不包含标注和覆盖层（manager 在覆盖层隐藏后重新采集）
+- [x] 进度 HUD 不覆盖选区，不抢焦点（showInactive + 角落避让）
+- [x] 支持暂停/继续/完成/取消
+- [x] Esc 取消
+- [x] 覆盖层 E2E 通过，工具栏宽度 811px；1920 视口不溢出，860px 极窄视口未单独实测
 
 ## 6. 预览窗口
 
-- [ ] 新增 `src/main/windows/long-capture-preview.ts`
-- [ ] 新增 `src/renderer/src/long-capture/LongCapturePreviewApp.tsx`
-- [ ] 预览支持缩放、拖动、滚动
-- [ ] 保存 PNG
-- [ ] 复制到剪贴板
-- [ ] 关闭时清理临时文件
-- [ ] 长图超过预览上限时使用分块加载或降采样预览
-- [ ] `snapglass-media` 协议允许长图临时文件
+- [x] 新增 `src/main/windows/long-capture-preview.ts`
+- [x] 新增 `src/renderer/src/long-capture/LongCapturePreviewApp.tsx`
+- [x] 预览支持缩放、滚动
+- [ ] 拖动平移（当前用滚动条/滚轮）
+- [x] 保存 PNG（代码路径已接入，未自动化点击对话框）
+- [x] 复制到剪贴板（代码路径已接入，未自动化点击）
+- [x] 关闭时清理临时文件
+- [ ] 超长图分块/降采样预览（当前直接 img 渲染）
+- [x] `snapglass-media` 协议允许长图临时文件
 
 ## 7. 测试与验证
 
-- [ ] `pnpm typecheck`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
-- [ ] 单测：匹配、拼接、固定表头、最大高度
+- [x] `pnpm typecheck`
+- [x] `pnpm test`
+- [x] `pnpm build`
+- [x] `--smoke-long-capture-ui` + Playwright：真实 HUD/预览窗口，700×3396，297,504 字节
+- [x] 单测：匹配、拼接、固定表头、最大高度、底部 1px 裁剪（`tests/long-capture.test.ts` 14 个用例）
+- [x] 覆盖层 E2E：`pnpm e2e:overlay`，E2E_OK，工具栏宽度 811px
 - [ ] E2E：`e2e-long-capture.cjs`
   - 本地测试页：行号、固定表头、图片、懒加载
   - 5 屏、10 屏、20k px
@@ -124,12 +134,15 @@
 
 ## 8. 文档与门禁
 
-- [ ] 更新 `docs/CHANGELOG.md`
-- [ ] 更新 `docs/ROADMAP.md`
-- [ ] 更新 `docs/RELEASE_CHECKLIST.md`
-- [ ] 更新 `docs/regression-map.md`
+- [x] 更新 `docs/CHANGELOG.md`
+- [x] 更新 `docs/ROADMAP.md`
+- [x] 更新 `docs/RELEASE_CHECKLIST.md`
+- [x] 更新 `docs/regression-map.md`
+- [x] 更新 `docs/test-cases/P7-long-screenshot.md`（记录 1px 接缝覆盖范围）
 - [ ] 生成 `docs/reviews/iteration-YYYYMMDD-HHmm-v0.5.0.md/.json`
 - [ ] 运行 `node ../scripts/review/release-gate.mjs --project .`
+
+> 门禁前置：`package.json` 当前仍是 0.4.1，且尚无 0.5.0 安装包。生成 v0.5.0 回顾前需确认是否升版本并打包；否则报告版本会与项目版本不一致。
 
 ## 9. 发布
 
@@ -143,13 +156,17 @@
 **新增**
 
 - `src/main/long-capture.ts`
+- `src/main/long-capture-controller.ts`
 - `src/main/long-capture/scroll-driver.ts`
-- `src/main/windows/long-capture-overlay.ts`
+- `src/main/windows/long-capture-hud.ts`
 - `src/main/windows/long-capture-preview.ts`
+- `src/renderer/src/long-capture/LongCaptureHudApp.tsx`
 - `src/renderer/src/long-capture/LongCapturePreviewApp.tsx`
+- `src/renderer/src/long-capture/long-capture-hud.css`
+- `src/renderer/src/long-capture/long-capture-preview.css`
 - `src/shared/long-capture.ts`
 - `tests/long-capture.test.ts`
-- `e2e-long-capture.cjs`
+- `scripts/long-capture-fixture.cjs`
 - `demos/P7-long-screenshot.html`
 - `docs/features/P7-long-screenshot.md`
 - `docs/test-cases/P7-long-screenshot.md`
@@ -164,6 +181,7 @@
 - `src/renderer/src/overlay/Toolbar.tsx`
 - `src/renderer/src/overlay/OverlayApp.tsx`
 - `src/renderer/src/components/Icon.tsx`
+- `src/renderer/src/App.tsx`
 - `src/main/windows/overlay.ts`
 - `docs/CHANGELOG.md`
 - `docs/ROADMAP.md`

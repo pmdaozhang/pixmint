@@ -15,6 +15,8 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
+  LongCapturePreviewInfo,
+  LongCaptureProgress,
   UpdateState,
   VideoDoneMeta
 } from './types'
@@ -101,6 +103,18 @@ export interface SnapglassApi {
     openCrashFolder(): Promise<string>
     flush(): Promise<void>
     exportReport(): Promise<string | null>
+  }
+  longCapture: {
+    getState(): Promise<LongCaptureProgress>
+    pause(): void
+    resume(): void
+    finish(): void
+    cancel(): void
+    onProgress(callback: (progress: LongCaptureProgress) => void): () => void
+    previewInfo(): Promise<LongCapturePreviewInfo | null>
+    savePreview(): Promise<string | null>
+    copyPreview(): Promise<string>
+    closePreview(): void
   }
   updater: {
     getState(): Promise<UpdateState>
