@@ -158,7 +158,7 @@
 - [x] 0.5.1 GitHub Release 与在线更新（差分 61 块 / 约 1.2MB / 1%）
 - [x] 0.5.2 GitHub Release 与在线更新（差分 51 块）
 - [x] 0.6.0 手动滚动模式（自动失败后一键切换；smoke 700×2934）
-- [ ] 0.6.0 GitHub Release 与在线更新
+- [x] 0.6.0 GitHub Release 与在线更新（差分 54 块）
 
 ## 文件清单
 

@@ -15,6 +15,8 @@
 - 长截图 E2E：自动模式、手动入口、取消清理、不可滚动窗口通过。
 - 普通/滚动条/UIA 大滚轮 smoke 回归通过。
 - `pnpm typecheck`、`pnpm test`（145 项）、`pnpm build` 通过。
+- GitHub Release `v0.6.0` 已发布，安装包、`latest.yml`、`.blockmap` 已上传。
+- 0.5.2 → 0.6.0 在线更新通过；差分下载命中 54 个块，安装后 `FileVersion=0.6.0`。
 
 ### 未实测
 
