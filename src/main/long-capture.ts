@@ -8,9 +8,11 @@ import type {
   Rect
 } from '../shared/types'
 import {
+  cropFrameHorizontal,
   framesAreSimilar,
   LongCaptureStitcher,
   matchVerticalOverlap,
+  type OverlapMatch,
   trimCaptureEdgeRow,
   type FrameImage
 } from '../shared/long-capture'
@@ -29,6 +31,10 @@ const STABLE_DELAY_MS = 70
 const STABLE_ATTEMPTS = 6
 const START_NOTCHES = 1
 const MAX_NOTCHES = 12
+const START_WHEEL_DELTA = START_NOTCHES * 120
+const MIN_WHEEL_DELTA = 60
+const MAX_WHEEL_DELTA = MAX_NOTCHES * 120
+const MATCH_EDGE_MARGIN = 24
 const NO_MATCH_LIMIT = 3
 
 export interface LongCaptureStartOptions {
@@ -68,6 +74,31 @@ function mapScrollError(error?: string): string {
     default:
       return '滚动目标窗口失败'
   }
+}
+
+/**
+ * 首屏滚动可能被应用放大（例如一次滚轮滚半页），默认 22% 重叠下限会直接判失败。
+ * 首屏允许一次更宽松的 5% 重叠重试；后续帧仍用默认阈值，避免误匹配。
+ */
+function findOverlap(
+  previous: FrameImage,
+  next: FrameImage,
+  headerHeight: number | undefined,
+  expectedOffset: number | undefined,
+  allowLoose: boolean
+): OverlapMatch | null {
+  const primary = matchVerticalOverlap(previous, next, {
+    headerHeight,
+    expectedOffset
+  })
+  if (primary || !allowLoose) return primary
+  return matchVerticalOverlap(previous, next, {
+    headerHeight,
+    expectedOffset,
+    minOverlapRatio: 0.05,
+    confidenceThreshold: 0.72,
+    verificationThreshold: 0.78
+  })
 }
 
 /**
@@ -258,10 +289,11 @@ export class LongCaptureManager {
       const first = trimCaptureEdgeRow(frameFromDataUrl(firstDataUrl))
 
       let previous: FrameImage = first
+      let previousMatch = cropFrameHorizontal(first, MATCH_EDGE_MARGIN)
       let stitcher: LongCaptureStitcher | null = null
       let headerHeight = 0
-      let notches = START_NOTCHES
-      let pixelsPerNotch = 0
+      let wheelDelta = START_WHEEL_DELTA
+      let pixelsPerWheelUnit = 0
       let screens = 1
       let noMatchCount = 0
       let limitReached = false
@@ -274,11 +306,11 @@ export class LongCaptureManager {
         const currentHeight = stitcher?.currentHeight ?? first.height
         const scrollHeight = Math.max(1, previous.height - headerHeight)
         const targetOffset = Math.round(scrollHeight * 0.7)
-        if (pixelsPerNotch > 0) {
-          notches = clamp(
-            Math.round(targetOffset / pixelsPerNotch),
-            1,
-            MAX_NOTCHES
+        if (pixelsPerWheelUnit > 0) {
+          wheelDelta = clamp(
+            Math.round(targetOffset / pixelsPerWheelUnit),
+            MIN_WHEEL_DELTA,
+            MAX_WHEEL_DELTA
           )
         }
 
@@ -288,7 +320,12 @@ export class LongCaptureManager {
           height: currentHeight,
           message: `正在滚动第 ${screens + 1} 屏`
         })
-        const scroll = await this.driver.scroll(target, centerX, centerY, -notches)
+        const scroll = await this.driver.scrollDelta(
+          target,
+          centerX,
+          centerY,
+          -wheelDelta
+        )
         if (!scroll.ok) throw new Error(mapScrollError(scroll.error))
 
         await delay(SETTLE_MS)
@@ -304,8 +341,9 @@ export class LongCaptureManager {
           height: currentHeight,
           message: '正在截取下一屏'
         })
-        const next = await this.captureStableFrame(captureRect, physical)
+        let next = await this.captureStableFrame(captureRect, physical)
         if (!next) throw new Error('截取长截图帧失败')
+        let nextMatch = cropFrameHorizontal(next, MATCH_EDGE_MARGIN)
 
         this.setProgress({
           phase: 'matching',
@@ -313,24 +351,119 @@ export class LongCaptureManager {
           height: currentHeight,
           message: '正在匹配重叠区域'
         })
-        const match = matchVerticalOverlap(previous, next, {
-          headerHeight: stitcher ? headerHeight : undefined,
-          expectedOffset: pixelsPerNotch > 0 ? targetOffset : undefined
-        })
+        let match = findOverlap(
+          previousMatch,
+          nextMatch,
+          stitcher ? headerHeight : undefined,
+          pixelsPerWheelUnit > 0 ? targetOffset : undefined,
+          !stitcher
+        )
 
         if (!match) {
           noMatchCount += 1
-          const unchanged = framesAreSimilar(previous, next, {
+          const unchanged = framesAreSimilar(previousMatch, nextMatch, {
             stepX: 4,
             stepY: 2
           })
           if (unchanged) {
-            notches = Math.min(MAX_NOTCHES, notches + 1)
+            wheelDelta = Math.min(MAX_WHEEL_DELTA, wheelDelta + 60)
           } else if (stitcher) {
             overlapLost = true
             break
+          } else if (noMatchCount === 1) {
+            // 首屏一次滚轮滚过选区大部分高度时，回滚到起点并用半格滚轮重试。
+            const back = await this.driver.scrollDelta(
+              target,
+              centerX,
+              centerY,
+              wheelDelta
+            )
+            if (!back.ok) throw new Error(mapScrollError(back.error))
+            await delay(SETTLE_MS)
+            const backFrame = await this.captureStableFrame(captureRect, physical)
+            if (
+              !backFrame ||
+              !framesAreSimilar(
+                previousMatch,
+                cropFrameHorizontal(backFrame, MATCH_EDGE_MARGIN),
+                { stepX: 4, stepY: 2 }
+              )
+            ) {
+              throw new Error(
+                '滚动幅度过大且无法回到起点，请框选更高的区域后重试'
+              )
+            }
+            wheelDelta = Math.max(MIN_WHEEL_DELTA, Math.round(wheelDelta / 2))
+            const half = await this.driver.scrollDelta(
+              target,
+              centerX,
+              centerY,
+              -wheelDelta
+            )
+            if (!half.ok) throw new Error(mapScrollError(half.error))
+            await delay(SETTLE_MS)
+            const retry = await this.captureStableFrame(captureRect, physical)
+            if (!retry) throw new Error('截取长截图帧失败')
+            const retryMatchFrame = cropFrameHorizontal(retry, MATCH_EDGE_MARGIN)
+            const retryMatch = findOverlap(
+              previousMatch,
+              retryMatchFrame,
+              undefined,
+              Math.round(scrollHeight * 0.35),
+              true
+            )
+            if (!retryMatch) {
+              const halfMoved = !framesAreSimilar(previousMatch, retryMatchFrame, {
+                stepX: 4,
+                stepY: 2
+              })
+              if (halfMoved) {
+                throw new Error(
+                  '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
+                )
+              }
+              // 部分 Chromium 应用不会单独响应半格滚轮；用 Down 键做小步滚动兜底。
+              const keys = await this.driver.scrollKeys(
+                target,
+                centerX,
+                centerY,
+                0x28
+              )
+              if (!keys.ok) throw new Error(mapScrollError(keys.error))
+              await delay(SETTLE_MS)
+              const keyFrame = await this.captureStableFrame(captureRect, physical)
+              if (!keyFrame) throw new Error('截取长截图帧失败')
+              const keyMatchFrame = cropFrameHorizontal(keyFrame, MATCH_EDGE_MARGIN)
+              const keyMatch = findOverlap(
+                previousMatch,
+                keyMatchFrame,
+                undefined,
+                Math.round(scrollHeight * 0.3),
+                true
+              )
+              if (!keyMatch) {
+                throw new Error(
+                  '滚动幅度过大，无法找到重叠区域；请框选更高的区域或关闭单页滚动后重试'
+                )
+              }
+              next = keyFrame
+              nextMatch = keyMatchFrame
+              match = keyMatch
+              logDiagnostic(
+                'long-capture',
+                `first match retry keyscroll offset=${keyMatch.offset}`
+              )
+            } else {
+              next = retry
+              nextMatch = retryMatchFrame
+              match = retryMatch
+              logDiagnostic(
+                'long-capture',
+                `first match retry wheelDelta=${wheelDelta} offset=${retryMatch.offset}`
+              )
+            }
           }
-          if (noMatchCount >= NO_MATCH_LIMIT) {
+          if (!match && noMatchCount >= NO_MATCH_LIMIT) {
             if (stitcher) {
               overlapLost = true
               break
@@ -341,7 +474,7 @@ export class LongCaptureManager {
                 : '无法找到重叠区域，可能滚动过快'
             )
           }
-          continue
+          if (!match) continue
         }
 
         if (!stitcher) {
@@ -356,8 +489,9 @@ export class LongCaptureManager {
         }
         if (appended.truncated) limitReached = true
 
-        pixelsPerNotch = match.offset / Math.max(1, notches)
+        pixelsPerWheelUnit = match.offset / Math.max(1, wheelDelta)
         previous = next
+        previousMatch = nextMatch
         screens += 1
         noMatchCount = 0
 

@@ -195,6 +195,34 @@ export function trimCaptureEdgeRow(frame: FrameImage): FrameImage {
 }
 
 /**
+ * 匹配时裁掉左右边缘，避免随滚动移动的滚动条/固定装饰条污染整行哈希。
+ * 只影响匹配输入，最终拼接仍使用完整帧。
+ */
+export function cropFrameHorizontal(
+  frame: FrameImage,
+  margin: number
+): FrameImage {
+  assertFrame(frame)
+  if (!Number.isInteger(margin) || margin < 0) {
+    throw new Error('匹配边距无效')
+  }
+  if (margin === 0) return frame
+  const width = frame.width - margin * 2
+  if (width <= 0) throw new Error('匹配边距超过帧宽度')
+  const sourceRowBytes = frame.width * BYTES_PER_PIXEL
+  const targetRowBytes = width * BYTES_PER_PIXEL
+  const data = new Uint8Array(width * frame.height * BYTES_PER_PIXEL)
+  for (let y = 0; y < frame.height; y += 1) {
+    const sourceStart = y * sourceRowBytes + margin * BYTES_PER_PIXEL
+    data.set(
+      frame.data.subarray(sourceStart, sourceStart + targetRowBytes),
+      y * targetRowBytes
+    )
+  }
+  return { width, height: frame.height, data }
+}
+
+/**
  * 对候选偏移验证完整重叠区，而不是只看底部条带。
  * 重复纹理可能在局部条带上碰巧高分，但完整重叠区会把它淘汰。
  */

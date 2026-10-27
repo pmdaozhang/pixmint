@@ -58,6 +58,7 @@
 - [x] 整帧近似相同检测，避免“没滚动也拼出偏移”
 - [x] 完整重叠区二次验证，淘汰重复纹理的局部误匹配
 - [x] 采集帧统一裁掉底部 1px 窗口边缘（`trimCaptureEdgeRow`），保证首帧/后续帧尺寸一致
+- [x] 匹配时裁掉左右 24px（`cropFrameHorizontal`），避免移动滚动条污染整行哈希
 - [x] 固定表头检测：
   - 比较前三帧顶部若干行
   - 完全一致时标记固定区域
@@ -80,6 +81,7 @@
 - [x] 循环：滚动 → 等待稳定帧 → `fastCapture.capture(physicalRect)` → 匹配 → 追加
 - [x] 自适应滚动步长（1 格起步，按实测像素/格调整）
 - [x] 连续无变化/低置信度/失焦/上限时停止
+- [x] 首屏滚动过大时回滚并尝试半格/键盘小步重试，失败时给出可操作提示
 - [x] 暂停/继续/取消/完成
 - [x] 临时 PNG 写入 `app.getPath('temp')`
 - [x] 诊断日志：滚动次数、偏移、置信度、帧数、输出尺寸
@@ -119,6 +121,7 @@
 - [x] `--smoke-long-capture-ui` + Playwright：真实 HUD/预览窗口，700×3396，297,504 字节
 - [x] 单测：匹配、拼接、固定表头、最大高度、底部 1px 裁剪（`tests/long-capture.test.ts` 14 个用例）
 - [x] 覆盖层 E2E：`pnpm e2e:overlay`，E2E_OK，工具栏宽度 811px
+- [x] 带移动滚动条的 fixture：700×3396，完整拼接
 - [x] E2E：`e2e-long-capture.cjs`（`pnpm e2e:long-capture`）
   - [x] 入口点击、HUD、暂停/继续/完成/取消
   - [x] 预览缩放、复制、关闭后临时文件清理
@@ -152,6 +155,7 @@
 - [x] 验证 `latest.yml`、`.blockmap`（版本 0.5.0，文件名一致）
 - [x] GitHub Release `v0.5.0`（https://github.com/pmdaozhang/pixmint/releases/tag/v0.5.0）
 - [x] 0.4.1 → 0.5.0 应用内更新（差分因旧版 blockmap 404 回退全量，安装成功）
+- [ ] 0.5.1 GitHub Release 与在线更新
 
 ## 文件清单
 

@@ -8,6 +8,10 @@ app.whenReady().then(() => {
   const dark = process.env.PIXMINT_LONG_FIXTURE_THEME === 'dark'
   const withMedia = process.env.PIXMINT_LONG_FIXTURE_MEDIA === '1'
   const unscrollable = process.env.PIXMINT_LONG_FIXTURE_UNSCROLLABLE === '1'
+  const fakeScrollbar = process.env.PIXMINT_LONG_FIXTURE_SCROLLBAR === '1'
+  const wheelMultiplier = Number(
+    process.env.PIXMINT_LONG_FIXTURE_WHEEL_MULTIPLIER || '0'
+  )
   const window = new BrowserWindow({
     x: 80,
     y: 80,
@@ -66,8 +70,23 @@ app.whenReady().then(() => {
       .code { margin: 8px 16px; padding: 8px 12px; background: #0b1020; color: #cbd5e1; border-radius: 6px; }
       .code pre { margin: 0; font: 12px/18px Consolas, monospace; }
       .photo { display: block; width: calc(100% - 32px); margin: 8px 16px; border-radius: 8px; }
+      #fake-scrollbar {
+        position: fixed; right: 100px; top: 36px; bottom: 0; width: 10px;
+        background: ${dark ? '#24262b' : '#e8e8e8'}; z-index: 4;
+      }
+      #fake-thumb {
+        position: absolute; left: 0; width: 10px; height: 40px;
+        background: ${dark ? '#6f737c' : '#9a9a9a'};
+      }
     </style>
     <script>
+      const wheelMultiplier = ${Number.isFinite(wheelMultiplier) ? wheelMultiplier : 0};
+      if (wheelMultiplier > 0) {
+        window.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          window.scrollBy(0, Math.sign(event.deltaY) * Math.abs(event.deltaY) * wheelMultiplier);
+        }, { passive: false });
+      }
       let titleFrame = 0;
       window.addEventListener("scroll", () => {
         cancelAnimationFrame(titleFrame);
@@ -75,10 +94,22 @@ app.whenReady().then(() => {
           document.title = "Pixmint Long Capture Fixture y=" + Math.round(window.scrollY);
         });
       });
+      ${fakeScrollbar ? `
+      const fakeThumb = document.getElementById("fake-thumb");
+      const updateFakeThumb = () => {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        const ratio = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0;
+        const track = Math.max(40, innerHeight - 36 - 40);
+        fakeThumb.style.top = ratio * track + "px";
+      };
+      addEventListener("scroll", updateFakeThumb, { passive: true });
+      updateFakeThumb();
+      ` : ''}
     </script>
   </head>
   <body>
     <header>Pixmint Long Capture Fixture · fixed header</header>
+    ${fakeScrollbar ? '<div id="fake-scrollbar"><div id="fake-thumb"></div></div>' : ''}
     ${rows}
   </body>
 </html>`

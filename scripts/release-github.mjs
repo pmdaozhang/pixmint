@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import https from 'node:https'
 import path from 'node:path'
@@ -11,20 +11,22 @@ if (!token) {
 
 const repository = process.env.GITHUB_REPOSITORY || 'pmdaozhang/pixmint'
 const [owner, repo] = repository.split('/')
-const tag = process.env.RELEASE_TAG || 'v0.5.0'
+const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+const version = process.env.RELEASE_VERSION || packageJson.version
+const tag = process.env.RELEASE_TAG || `v${version}`
 const target =
   process.env.RELEASE_TARGET ||
   execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 const releaseDir = process.env.RELEASE_DIR || 'release'
 const assets = [
   {
-    name: 'Pixmint-Setup-0.5.0.exe',
-    file: path.join(releaseDir, 'Pixmint-Setup-0.5.0.exe'),
+    name: `Pixmint-Setup-${version}.exe`,
+    file: path.join(releaseDir, `Pixmint-Setup-${version}.exe`),
     contentType: 'application/octet-stream'
   },
   {
-    name: 'Pixmint-Setup-0.5.0.exe.blockmap',
-    file: path.join(releaseDir, 'Pixmint-Setup-0.5.0.exe.blockmap'),
+    name: `Pixmint-Setup-${version}.exe.blockmap`,
+    file: path.join(releaseDir, `Pixmint-Setup-${version}.exe.blockmap`),
     contentType: 'application/octet-stream'
   },
   {
@@ -34,33 +36,12 @@ const assets = [
   }
 ]
 
-const body = `Pixmint 0.5.0（Windows）
-
-新增
-- 长截图：自动滚动、逐帧采集、重叠拼接、固定表头、进度 HUD、暂停/继续/完成/取消、长图预览、保存/复制。
-- 覆盖层工具栏“长截图”入口，结果使用独立预览窗口。
-
-修复
-- 修复每个拼接缝多出 1px 深色横线的问题。
-- 修复首帧/后续帧底部边缘不一致导致匹配失败的问题。
-
-验证
-- 后端 smoke 700×3396；UI smoke 700×3396。
-- Edge 真实长网页 700×3235；记事本长文档 700×13908。
-- 20k px 三次编码 1110/1050/1034ms，RSS 增长 185/196/205MB。
-- 深色 + 静态图片 + 代码块 700×5240。
-- 保存路径、不可滚动窗口、上限提示、OCR/翻译/录制/钉图/设置回归通过。
-- 完整单测 144 项通过。
-
-已知限制
-- VS Code 长文件因本机现有会话阻塞未验证；UAC/受保护窗口、网络懒加载图片未验证。
-- 125% / 150% / 200% DPI 和多显示器按用户要求本轮不测。
-- 安装包未代码签名，首次安装可能触发 SmartScreen。
-
-升级
-- 0.4.1 及更新版本可在应用内检查更新。
-- 0.3.10 老用户需先手动安装一次 0.4.0。
-`
+const notesPath = path.join('docs', `release-notes-v${version}.md`)
+const body =
+  process.env.RELEASE_BODY ||
+  (existsSync(notesPath)
+    ? readFileSync(notesPath, 'utf8')
+    : `Pixmint ${version}（Windows）\n\n- 安装包未代码签名，首次安装可能触发 SmartScreen。\n- 0.4.1 及更新版本可在应用内检查更新。\n- 0.3.10 老用户需先手动安装一次 0.4.0。\n`)
 
 function request(url, options = {}, payload = null) {
   return new Promise((resolve, reject) => {
@@ -135,7 +116,7 @@ async function ensureRelease() {
   }, JSON.stringify({
     tag_name: tag,
     target_commitish: target,
-    name: 'Pixmint v0.5.0',
+    name: `Pixmint v${version}`,
     body,
     draft: false,
     prerelease: false

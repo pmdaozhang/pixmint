@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   LongCaptureStitcher,
+  cropFrameHorizontal,
   detectStableHeader,
   matchVerticalOverlap,
   trimCaptureEdgeRow,
@@ -100,6 +101,28 @@ describe('trimCaptureEdgeRow', () => {
     const trimmed = trimCaptureEdgeRow(frame)
 
     expect(trimmed).toBe(frame)
+  })
+})
+
+describe('cropFrameHorizontal', () => {
+  it('removes the same margin from both sides for matching', () => {
+    const frame = frameAt(createPage(400), 0)
+    const margin = 4
+    const cropped = cropFrameHorizontal(frame, margin)
+
+    expect(cropped.width).toBe(frame.width - margin * 2)
+    expect(cropped.height).toBe(frame.height)
+    for (let y = 0; y < frame.height; y += 1) {
+      const expected = rowBytes(frame, y).subarray(
+        margin * 4,
+        (margin + cropped.width) * 4
+      )
+      const actual = cropped.data.subarray(
+        y * cropped.width * 4,
+        (y + 1) * cropped.width * 4
+      )
+      expect(Buffer.from(actual).equals(Buffer.from(expected))).toBe(true)
+    }
   })
 })
 

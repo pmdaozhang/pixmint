@@ -48,6 +48,7 @@ public class PixmintScrollHelper {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
   [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
+  [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
   [DllImport("dwmapi.dll", EntryPoint="DwmGetWindowAttribute")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT rect, int size);
   [DllImport("dwmapi.dll", EntryPoint="DwmGetWindowAttribute")] public static extern int DwmGetWindowAttributeInt(IntPtr hwnd, int attr, out int value, int size);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
@@ -105,6 +106,28 @@ public class PixmintScrollHelper {
   }
 
   public static string Scroll(long hwnd, int x, int y, int notches) {
+    return SendWheel(hwnd, x, y, notches * 120);
+  }
+
+  public static string ScrollDelta(long hwnd, int x, int y, int delta) {
+    return SendWheel(hwnd, x, y, delta);
+  }
+
+  public static string KeyScroll(long hwnd, int x, int y, int keyCode, int count) {
+    IntPtr h = new IntPtr(hwnd);
+    if (!IsWindow(h)) return "error:window";
+    if (!ForceForeground(h)) return "error:foreground";
+    if (!SetCursorPos(x, y)) return "error:cursor";
+    System.Threading.Thread.Sleep(30);
+    for (int i = 0; i < count; i++) {
+      keybd_event((byte)keyCode, 0, 0, UIntPtr.Zero);
+      keybd_event((byte)keyCode, 0, 2, UIntPtr.Zero);
+      System.Threading.Thread.Sleep(25);
+    }
+    return "ok";
+  }
+
+  static string SendWheel(long hwnd, int x, int y, int delta) {
     IntPtr h = new IntPtr(hwnd);
     if (!IsWindow(h)) return "error:window";
     if (!ForceForeground(h)) return "error:foreground";
@@ -113,7 +136,7 @@ public class PixmintScrollHelper {
     INPUT input = new INPUT();
     input.type = 0;
     input.mi.dwFlags = 0x0800;
-    input.mi.mouseData = unchecked((uint)(notches * 120));
+    input.mi.mouseData = unchecked((uint)delta);
     INPUT[] inputs = new INPUT[] { input };
     uint sent = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
     return sent == 1 ? "ok" : "error:sendinput";
@@ -174,6 +197,12 @@ while ($true) {
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'scroll') {
       $result = [PixmintScrollHelper]::Scroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'scrolldelta') {
+      $result = [PixmintScrollHelper]::ScrollDelta([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'keyscroll') {
+      $result = [PixmintScrollHelper]::KeyScroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5], 8)
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'restore') {
       $result = [PixmintScrollHelper]::Restore([int]$parts[2], [int]$parts[3])
@@ -270,9 +299,31 @@ export class ScrollDriver {
     y: number,
     notches: number
   ): Promise<ScrollResult> {
+    return this.scrollDelta(target, x, y, notches * 120)
+  }
+
+  async scrollDelta(
+    target: ScrollTarget,
+    x: number,
+    y: number,
+    delta: number
+  ): Promise<ScrollResult> {
     const payload = await this.client.request(
-      `scroll,${target.hwnd},${Math.round(x)},${Math.round(y)},${Math.trunc(notches)}`,
+      `scrolldelta,${target.hwnd},${Math.round(x)},${Math.round(y)},${Math.round(delta)}`,
       1500
+    )
+    return parseScrollResult(payload)
+  }
+
+  async scrollKeys(
+    target: ScrollTarget,
+    x: number,
+    y: number,
+    keyCode: number
+  ): Promise<ScrollResult> {
+    const payload = await this.client.request(
+      `keyscroll,${target.hwnd},${Math.round(x)},${Math.round(y)},${Math.round(keyCode)}`,
+      2000
     )
     return parseScrollResult(payload)
   }
