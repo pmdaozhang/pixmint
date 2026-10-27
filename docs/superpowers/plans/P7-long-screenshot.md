@@ -139,15 +139,15 @@
 - [x] 更新 `docs/RELEASE_CHECKLIST.md`
 - [x] 更新 `docs/regression-map.md`
 - [x] 更新 `docs/test-cases/P7-long-screenshot.md`（记录 1px 接缝覆盖范围）
-- [ ] 生成 `docs/reviews/iteration-YYYYMMDD-HHmm-v0.5.0.md/.json`
-- [ ] 运行 `node ../scripts/review/release-gate.mjs --project .`
+- [x] 生成 `docs/reviews/iteration-20261027-1125-v0.5.0.md/.json`
+- [x] 运行 `node ../scripts/review/release-gate.mjs --project .`（PASS，conditional，0 红、3 黄）
 
-> 门禁前置：`package.json` 当前仍是 0.4.1，且尚无 0.5.0 安装包。生成 v0.5.0 回顾前需确认是否升版本并打包；否则报告版本会与项目版本不一致。
+> 门禁结果：`docs/reviews/iteration-20261027-1125-v0.5.0.json`，结论 `conditional`；未实测项见报告黄色项。
 
 ## 9. 发布
 
-- [ ] 打包 `Pixmint-Setup-0.5.0.exe`
-- [ ] 验证 `latest.yml`、`.blockmap`
+- [x] 打包 `Pixmint-Setup-0.5.0.exe`（119,467,109 字节）
+- [x] 验证 `latest.yml`、`.blockmap`（版本 0.5.0，文件名一致）
 - [ ] GitHub Release `v0.5.0`
 - [ ] 0.4.1 → 0.5.0 应用内更新
 

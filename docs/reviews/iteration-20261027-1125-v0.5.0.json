@@ -1,0 +1,145 @@
+{
+  "version": "0.5.0",
+  "date": "2026-10-27T11:30:00+08:00",
+  "commit": "c010f22",
+  "level": "full",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "P7-E2E-REAL",
+      "item": "入口点击、真实应用、DPI、UAC、保存/复制、上限提示未实测",
+      "dimension": "regression",
+      "deadline": "2026-11-03",
+      "evidence": "docs/features/P7-long-screenshot.md#实测结果2026-10-27"
+    },
+    {
+      "id": "P7-PERF",
+      "item": "20k px 编码耗时和长截图内存未实测",
+      "dimension": "performance",
+      "deadline": "2026-11-10",
+      "evidence": "docs/features/P7-long-screenshot.md#性能与取舍预审"
+    },
+    {
+      "id": "P7-E2E-COVERAGE",
+      "item": "长截图专用 E2E 尚未建立，仅 smoke/覆盖层 E2E",
+      "dimension": "testing",
+      "deadline": "2026-11-03",
+      "evidence": "docs/superpowers/plans/P7-long-screenshot.md#7-测试与验证"
+    }
+  ],
+  "green": [
+    "stability",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 119467109,
+    "sourceFiles": 143,
+    "sourceLines": 21017,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 144 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "detail": "E2E_OK, toolbar 811px"
+      },
+      {
+        "name": "smoke_long_capture",
+        "status": "pass",
+        "command": "node_modules/.bin/electron.cmd . --smoke-long-capture",
+        "detail": "700x3396, 297504 bytes, rows 1..160, no seam"
+      },
+      {
+        "name": "smoke_long_capture_ui",
+        "status": "pass",
+        "command": "node_modules/.bin/electron.cmd . --smoke-long-capture-ui",
+        "detail": "700x3396, 297504 bytes"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.5.0.exe 119467109 bytes"
+      },
+      {
+        "name": "artifact_manifest",
+        "status": "pass",
+        "command": "release/latest.yml and release/Pixmint-Setup-0.5.0.exe.blockmap",
+        "detail": "version 0.5.0, manifest and blockmap present"
+      },
+      {
+        "name": "packaged_version",
+        "status": "pass",
+        "command": "release/win-unpacked/Pixmint.exe",
+        "detail": "FileVersion 0.5.0"
+      },
+      {
+        "name": "e2e_long_capture_click",
+        "status": "not_run",
+        "reason": "e2e-long-capture.cjs 尚未建立，入口点击、暂停/完成/取消和不可滚动窗口未自动化"
+      },
+      {
+        "name": "dpi_multimonitor",
+        "status": "not_run",
+        "reason": "当前环境仅 100% DPI 单显示器"
+      },
+      {
+        "name": "uac_protected",
+        "status": "not_run",
+        "reason": "未在 UAC/受保护窗口实测"
+      },
+      {
+        "name": "real_apps",
+        "status": "not_run",
+        "reason": "未在 Chrome/Edge、记事本、VS Code、设置页实测"
+      },
+      {
+        "name": "save_copy_dialog",
+        "status": "not_run",
+        "reason": "保存/复制对话框点击未自动化"
+      },
+      {
+        "name": "max_limit",
+        "status": "not_run",
+        "reason": "未触发 30,000px / 30M 像素上限"
+      },
+      {
+        "name": "ocr_recording_regression",
+        "status": "not_run",
+        "reason": "本轮未重跑 OCR/翻译/GIF/视频/设置/更新"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P7 长截图核心链路与 1px 接缝修复已完成，本地 0.5.0 安装包已生成。真实应用、DPI、多显示器、UAC、保存/复制对话框、上限提示和专用 E2E 未实测，因此结论为 conditional；GitHub Release 尚未发布。"
+}
