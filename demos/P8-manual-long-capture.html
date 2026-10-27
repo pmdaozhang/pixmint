@@ -1,0 +1,1799 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · P8 手动长截图</title>
+    <style>
+      :root {
+        --radius-sm: 6px;
+        --radius-md: 9px;
+        --radius-lg: 12px;
+        --radius-xl: 18px;
+        --radius-full: 999px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Segoe UI", sans-serif;
+        --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+
+      [data-theme="dark"] {
+        --page: #08090b;
+        --page-glow: rgba(58, 131, 247, 0.13);
+        --bg: #0d0d0e;
+        --bg-2: #151516;
+        --bg-3: #1e1e20;
+        --bg-4: #28282b;
+        --text: #f7f7f8;
+        --text-2: #a6a6ad;
+        --text-3: #73737b;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --accent: #3a83f7;
+        --accent-action: #2a6fd1;
+        --accent-soft: #12233a;
+        --success: #30d158;
+        --success-soft: #102515;
+        --warning: #ffd60a;
+        --warning-soft: #2a2410;
+        --danger: #ff453a;
+        --danger-soft: #2a1213;
+        --shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+        --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.35);
+        --preview-bg: #101012;
+        --grid: rgba(255, 255, 255, 0.03);
+        --dim: rgba(0, 0, 0, 0.56);
+        --code-bg: #111317;
+      }
+
+      [data-theme="light"] {
+        --page: #eef1f5;
+        --page-glow: rgba(2, 133, 255, 0.1);
+        --bg: #f9f9f9;
+        --bg-2: #ffffff;
+        --bg-3: #ededed;
+        --bg-4: #e2e2e2;
+        --text: #0d0d0d;
+        --text-2: #5d5d5d;
+        --text-3: #8f8f8f;
+        --border: rgba(0, 0, 0, 0.1);
+        --border-strong: rgba(0, 0, 0, 0.18);
+        --accent: #0285ff;
+        --accent-action: #0066cc;
+        --accent-soft: #e5f3ff;
+        --success: #248a3d;
+        --success-soft: #e6f4ea;
+        --warning: #8a5a00;
+        --warning-soft: #fff4d6;
+        --danger: #d70015;
+        --danger-soft: #fdecec;
+        --shadow: 0 24px 64px rgba(20, 30, 50, 0.18);
+        --shadow-sm: 0 2px 12px rgba(20, 30, 50, 0.08);
+        --preview-bg: #e6e7ea;
+        --grid: rgba(0, 0, 0, 0.035);
+        --dim: rgba(0, 0, 0, 0.4);
+        --code-bg: #f0f2f5;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        padding: 30px 18px 50px;
+        display: flex;
+        justify-content: center;
+        background:
+          radial-gradient(760px 440px at 50% -8%, var(--page-glow), transparent 64%),
+          radial-gradient(
+            620px 360px at 86% 22%,
+            color-mix(in srgb, var(--text) 4%, transparent),
+            transparent 70%
+          ),
+          var(--page);
+        color: var(--text);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        border: 0;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .demo-shell {
+        width: min(1240px, 100%);
+      }
+
+      .demo-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 28px;
+        margin: 0 auto 18px;
+      }
+
+      .demo-kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 9px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .demo-kicker::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+
+      .demo-head h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.12;
+        font-weight: 650;
+        letter-spacing: -0.03em;
+      }
+
+      .demo-head p {
+        max-width: 620px;
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.65;
+      }
+
+      .demo-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .demo-seg {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-2);
+      }
+
+      .demo-seg button {
+        height: 26px;
+        padding: 0 9px;
+        border-radius: 6px;
+        color: var(--text-2);
+        font-size: 11.5px;
+      }
+
+      .demo-seg button.on {
+        background: var(--bg-3);
+        color: var(--text);
+      }
+
+      .stage {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--bg);
+        box-shadow: var(--shadow);
+      }
+
+      .desktop {
+        position: relative;
+      }
+
+      .desktop-bar {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 15px;
+        border-bottom: 1px solid var(--border);
+        background:
+          linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--text) 3%, transparent),
+            transparent
+          ),
+          var(--bg-2);
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .window-dots i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-3);
+        opacity: 0.55;
+      }
+
+      .window-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+        color: var(--text-2);
+        font-size: 11.5px;
+      }
+
+      .window-title strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .window-title span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-3);
+      }
+
+      .window-badge {
+        margin-left: auto;
+        padding: 3px 7px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        color: var(--text-3);
+        font: 9.5px/1 var(--mono);
+      }
+
+      .desktop-body {
+        position: relative;
+        height: 560px;
+        overflow: hidden;
+        background: var(--preview-bg);
+      }
+
+      .doc-viewport {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        cursor: default;
+      }
+
+      .doc-viewport[data-capturing="true"] {
+        cursor: ns-resize;
+      }
+
+      .doc-track {
+        padding: 58px 330px 64px 48px;
+        transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+        will-change: transform;
+      }
+
+      .doc-sticky {
+        position: absolute;
+        z-index: 2;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px 0 52px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2);
+        backdrop-filter: blur(14px) saturate(1.2);
+        color: var(--text-2);
+        font-size: 10.5px;
+      }
+
+      .doc-sticky strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .doc-sticky .window-badge {
+        margin-left: auto;
+      }
+
+      .doc-section {
+        padding: 18px 0 22px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .doc-section:last-child {
+        border-bottom: 0;
+      }
+
+      .doc-kicker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        color: var(--accent);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .doc-kicker::before {
+        content: "";
+        width: 14px;
+        height: 1px;
+        background: currentColor;
+        opacity: 0.7;
+      }
+
+      .doc-h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .doc-p {
+        margin: 0 0 10px;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.72;
+      }
+
+      .doc-row {
+        display: flex;
+        gap: 8px;
+        margin: 9px 0 0;
+        color: var(--text-2);
+        font: 10.5px/1.5 var(--mono);
+      }
+
+      .doc-row span:first-child {
+        min-width: 22px;
+        color: var(--text-3);
+      }
+
+      .doc-code {
+        margin: 10px 0 0;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--code-bg);
+        color: var(--text-2);
+        font: 10.5px/1.65 var(--mono);
+        white-space: pre-wrap;
+      }
+
+      .doc-media {
+        height: 74px;
+        margin-top: 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background:
+          linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--accent) 28%, transparent),
+            transparent 48%
+          ),
+          linear-gradient(
+            -45deg,
+            color-mix(in srgb, var(--success) 18%, transparent),
+            transparent 55%
+          ),
+          var(--bg-3);
+      }
+
+      .doc-list {
+        display: grid;
+        gap: 6px;
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        color: var(--text-2);
+        font-size: 11.5px;
+        line-height: 1.55;
+      }
+
+      .doc-list li {
+        display: flex;
+        gap: 8px;
+      }
+
+      .doc-list li::before {
+        content: "";
+        width: 4px;
+        height: 4px;
+        margin-top: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex: none;
+      }
+
+      .doc-scrollbar {
+        position: absolute;
+        z-index: 3;
+        top: 58px;
+        right: 14px;
+        bottom: 22px;
+        width: 6px;
+        border-radius: var(--radius-full);
+        background: color-mix(in srgb, var(--text) 5%, transparent);
+        pointer-events: none;
+      }
+
+      .doc-thumb {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        min-height: 22px;
+        border-radius: inherit;
+        background: color-mix(in srgb, var(--text) 22%, transparent);
+        transition: top 0.2s ease, height 0.2s ease;
+      }
+
+      .selection {
+        position: absolute;
+        z-index: 4;
+        left: 34px;
+        top: 8px;
+        width: 610px;
+        height: 478px;
+        pointer-events: none;
+        border: 1.5px solid var(--accent);
+        border-radius: 4px;
+        box-shadow:
+          0 0 0 9999px var(--dim),
+          inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+      }
+
+      .selection::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--accent) 3%, transparent),
+          transparent 22%
+        );
+        pointer-events: none;
+      }
+
+      .selection-toolbar {
+        position: absolute;
+        z-index: 6;
+        top: 8px;
+        right: 8px;
+        left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 5px 4px 9px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--bg-2);
+        box-shadow: var(--shadow-sm);
+        pointer-events: auto;
+      }
+
+      .selection-label {
+        color: var(--text-2);
+        font-size: 10.5px;
+        white-space: nowrap;
+      }
+
+      .mini-btn {
+        height: 24px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-3);
+        color: var(--text);
+        font-size: 10.5px;
+      }
+
+      .mini-btn.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .handle {
+        position: absolute;
+        z-index: 7;
+        width: 8px;
+        height: 8px;
+        border: 1.5px solid var(--accent);
+        border-radius: 2px;
+        background: var(--bg);
+        pointer-events: none;
+      }
+
+      .handle.tl { top: -4px; left: -4px; }
+      .handle.tr { top: -4px; right: -4px; }
+      .handle.bl { bottom: -4px; left: -4px; }
+      .handle.br { bottom: -4px; right: -4px; }
+
+      .overlap-guide {
+        position: absolute;
+        z-index: 5;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        height: 76px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 9px;
+        border: 1px dashed color-mix(in srgb, var(--warning) 75%, transparent);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--warning) 7%, transparent);
+        color: var(--warning);
+        font: 600 10px/1 var(--mono);
+        letter-spacing: 0.04em;
+      }
+
+      .hud {
+        position: absolute;
+        z-index: 8;
+        top: 18px;
+        right: 18px;
+        width: 276px;
+        pointer-events: auto;
+      }
+
+      .hud-card {
+        padding: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: color-mix(in srgb, var(--bg-2) 94%, transparent);
+        box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        backdrop-filter: blur(18px) saturate(1.25);
+      }
+
+      .hud-card[data-tone="warning"] {
+        border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+      }
+
+      .hud-card[data-tone="error"] {
+        border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+      }
+
+      .hud-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .hud-icon {
+        display: flex;
+        color: var(--accent);
+      }
+
+      .hud-card[data-tone="warning"] .hud-icon {
+        color: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-icon {
+        color: var(--danger);
+      }
+
+      .hud-head strong {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .hud-pill {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 9.5px;
+        font-weight: 600;
+      }
+
+      .hud-card[data-tone="paused"] .hud-pill {
+        background: var(--bg-3);
+        color: var(--text-2);
+      }
+
+      .hud-card[data-tone="warning"] .hud-pill {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-pill {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .hud-meta {
+        margin-top: 6px;
+        color: var(--text-2);
+        font: 10px/1.35 var(--mono);
+      }
+
+      .hud-message {
+        min-height: 31px;
+        margin-top: 3px;
+        color: var(--text-3);
+        font-size: 10.5px;
+        line-height: 1.45;
+      }
+
+      .hud-card[data-tone="warning"] .hud-message {
+        color: var(--warning);
+      }
+
+      .hud-track {
+        height: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+        border-radius: var(--radius-full);
+        background: var(--bg-3);
+      }
+
+      .hud-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+        transition: width 0.2s ease, background 0.2s ease;
+      }
+
+      .hud-card[data-tone="warning"] .hud-fill {
+        background: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-fill {
+        background: var(--danger);
+      }
+
+      .hud-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 8px;
+      }
+
+      .hud-btn {
+        height: 27px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-3);
+        color: var(--text);
+        font-size: 10.5px;
+      }
+
+      .hud-btn:hover {
+        border-color: var(--border-strong);
+      }
+
+      .hud-btn.primary {
+        margin-left: auto;
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .hud-btn.primary + .hud-btn {
+        margin-left: 0;
+      }
+
+      .hud-hint {
+        margin-top: 7px;
+        color: var(--text-3);
+        font: 9.5px/1.3 var(--mono);
+      }
+
+      .demo-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .control-label {
+        margin-right: 2px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .btn {
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 11px;
+      }
+
+      .btn:hover {
+        border-color: var(--border-strong);
+      }
+
+      .btn.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .btn.ghost {
+        background: transparent;
+        color: var(--text-2);
+      }
+
+      .state-strip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .state-chip {
+        height: 25px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: transparent;
+        color: var(--text-2);
+        font-size: 10.5px;
+      }
+
+      .state-chip[aria-pressed="true"] {
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .note {
+        padding: 13px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-2);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .note-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 5px;
+        color: var(--text);
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+
+      .note-head svg {
+        color: var(--accent);
+      }
+
+      .note p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .demo-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 16px;
+        color: var(--text-3);
+        font: 9.5px/1.5 var(--mono);
+      }
+
+      .preview-backdrop {
+        position: fixed;
+        z-index: 50;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.62);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+      }
+
+      .preview-card {
+        width: min(940px, calc(100vw - 48px));
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: var(--bg-2);
+        box-shadow: var(--shadow);
+      }
+
+      .preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 15px 17px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .preview-kicker {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .preview-head h2 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: -0.02em;
+      }
+
+      .preview-meta {
+        margin: 4px 0 0;
+        color: var(--text-2);
+        font: 10px/1.4 var(--mono);
+      }
+
+      .preview-meta .ok {
+        color: var(--success);
+      }
+
+      .preview-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .zoom-label {
+        min-width: 38px;
+        color: var(--text-2);
+        font: 10px/1 var(--mono);
+        text-align: center;
+      }
+
+      .preview-body {
+        overflow: auto;
+        padding: 22px;
+        background:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+          var(--preview-bg);
+        background-size: 24px 24px, 24px 24px, auto;
+      }
+
+      .preview-long {
+        width: 620px;
+        margin: 0 auto;
+        padding: 38px 42px 44px;
+        background: var(--bg);
+        box-shadow: 0 22px 54px rgba(0, 0, 0, 0.35);
+        zoom: 0.78;
+      }
+
+      .preview-header-block {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -38px -42px 22px;
+        padding: 12px 42px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-2);
+        color: var(--text-2);
+        font-size: 10.5px;
+      }
+
+      .preview-header-block strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .preview-header-block .mark {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: var(--success-soft);
+        color: var(--success);
+        font: 9px/1 var(--mono);
+      }
+
+      .preview-long .doc-section {
+        padding: 20px 0 24px;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 80;
+        left: 50%;
+        bottom: 26px;
+        transform: translate(-50%, 12px);
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 11px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.16s ease, transform 0.16s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      @media (max-width: 1020px) {
+        .demo-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .demo-actions {
+          justify-content: flex-start;
+        }
+
+        .desktop-body {
+          height: 620px;
+        }
+
+        .doc-track {
+          padding-right: 48px;
+        }
+
+        .selection {
+          left: 22px;
+          top: 24px;
+          width: calc(100% - 44px);
+          height: 350px;
+        }
+
+        .hud {
+          top: auto;
+          right: 18px;
+          bottom: 18px;
+          width: min(276px, calc(100% - 36px));
+        }
+
+        .selection-toolbar {
+          top: -38px;
+        }
+
+        .notes {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        body {
+          padding: 20px 10px 34px;
+        }
+
+        .demo-head h1 {
+          font-size: 24px;
+        }
+
+        .desktop-body {
+          height: 660px;
+        }
+
+        .selection {
+          height: 300px;
+        }
+
+        .doc-track {
+          padding: 54px 24px 48px;
+        }
+
+        .preview-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .preview-actions {
+          justify-content: flex-start;
+        }
+
+        .preview-long {
+          width: 520px;
+        }
+
+        .demo-foot {
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-shell">
+      <header class="demo-head">
+        <div>
+          <div class="demo-kicker">Pixmint / P8</div>
+          <h1>手动长截图</h1>
+          <p>
+            框选一个区域，用户自己滚动；工具连续采帧并拼接。
+            <strong>正常滚即可，不需要配合速度。</strong>
+          </p>
+        </div>
+        <div class="demo-actions">
+          <div class="demo-seg" id="theme-seg" aria-label="主题">
+            <button class="on" data-theme-choice="dark">深色</button>
+            <button data-theme-choice="light">浅色</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="stage" aria-label="手动长截图交互演示">
+        <div class="desktop">
+          <div class="desktop-bar">
+            <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="window-title">
+              <strong>项目文档</strong>
+              <span>/ 长页面.html</span>
+            </span>
+            <span class="window-badge">1920 × 1080</span>
+          </div>
+
+          <div class="desktop-body">
+            <div class="doc-viewport" id="doc-viewport">
+              <div class="doc-sticky">
+                <strong>项目文档</strong>
+                <span>固定表头会出现在每一帧</span>
+                <span class="window-badge">固定表头</span>
+              </div>
+              <div class="doc-track" id="doc-track"></div>
+            </div>
+
+            <div class="doc-scrollbar" aria-hidden="true">
+              <span class="doc-thumb" id="doc-thumb"></span>
+            </div>
+
+            <div class="selection" id="selection">
+              <div class="selection-toolbar">
+                <span class="selection-label" id="selection-label">手动长截图区域</span>
+                <button class="mini-btn primary" id="start-btn" type="button">开始</button>
+              </div>
+              <span class="handle tl"></span>
+              <span class="handle tr"></span>
+              <span class="handle bl"></span>
+              <span class="handle br"></span>
+              <div class="overlap-guide" id="overlap-guide" hidden>
+                <span>让这段与新画面重叠</span>
+              </div>
+            </div>
+
+            <aside class="hud" id="hud">
+              <section class="hud-card" id="hud-card" data-tone="idle" aria-live="polite">
+                <div class="hud-head">
+                  <span class="hud-icon" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="6" y="3" width="12" height="15" rx="1.6" />
+                      <path d="M12 7v6M9 11l3 3 3-3M4 21h16" />
+                    </svg>
+                  </span>
+                  <strong>手动长截图</strong>
+                  <span class="hud-pill" id="hud-pill">准备就绪</span>
+                </div>
+                <div class="hud-meta" id="hud-meta">已接 0 屏 · 0px</div>
+                <div class="hud-message" id="hud-message">
+                  框选区域后开始，正常滚动即可。
+                </div>
+                <div class="hud-track"><div class="hud-fill" id="hud-fill"></div></div>
+                <div class="hud-actions">
+                  <button class="hud-btn" id="pause-btn" type="button" hidden>暂停</button>
+                  <button class="hud-btn" id="undo-btn" type="button" hidden>回退一屏</button>
+                  <button class="hud-btn primary" id="finish-btn" type="button" hidden>完成</button>
+                  <button class="hud-btn" id="cancel-btn" type="button" hidden>取消</button>
+                </div>
+                <div class="hud-hint">P 暂停 · U 回退 · F 完成 · Esc 取消</div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-controls" aria-label="演示控制">
+        <div class="control-group">
+          <span class="control-label">演示</span>
+          <button class="btn primary" id="sim-start" type="button">开始倒计时</button>
+          <button class="btn" id="sim-scroll" type="button">滚动一屏</button>
+          <button class="btn" id="sim-continuous" type="button">连续滚动</button>
+          <button class="btn" id="sim-jump" type="button">模拟跳跃</button>
+          <button class="btn" id="sim-undo" type="button">回退一屏</button>
+          <button class="btn" id="sim-finish" type="button">完成</button>
+          <button class="btn ghost" id="sim-cancel" type="button">取消</button>
+        </div>
+      </section>
+
+      <section class="state-strip" aria-label="状态预览">
+        <span class="control-label">状态</span>
+        <button class="state-chip" data-state="selection" type="button" aria-pressed="true">选区</button>
+        <button class="state-chip" data-state="counting" type="button" aria-pressed="false">倒计时</button>
+        <button class="state-chip" data-state="capturing" type="button" aria-pressed="false">跟随中</button>
+        <button class="state-chip" data-state="gap" type="button" aria-pressed="false">跳变</button>
+        <button class="state-chip" data-state="paused" type="button" aria-pressed="false">已暂停</button>
+        <button class="state-chip" data-state="preview" type="button" aria-pressed="false">预览</button>
+      </section>
+
+      <section class="notes" aria-label="设计说明">
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 12h16M12 4v16" />
+            </svg>
+            不要求控速
+          </div>
+          <p>采集端按 10–15fps 连续取帧，不再等用户“停稳”；正常滚轮和触控板速度都能接住。</p>
+        </article>
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v18M5 10l7-7 7 7" />
+            </svg>
+            不注入滚轮
+          </div>
+          <p>手动模式只截固定屏幕区域，不依赖窗口句柄、SendInput 或 UIA，兼容性天然更好。</p>
+        </article>
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l9 16H3L12 3zM12 9v5M12 17h.01" />
+            </svg>
+            不静默出残缺图
+          </div>
+          <p>检测到跳变就暂停追加，提示回滚；前面的内容保留，不会直接给你一张缺段的长图。</p>
+        </article>
+      </section>
+
+      <footer class="demo-foot">
+        <span>P8 · 手动长截图 · 交互 Demo</span>
+        <span>仅用于确认交互，不是最终实现</span>
+      </footer>
+    </div>
+
+    <div class="preview-backdrop" id="preview-backdrop" hidden>
+      <section class="preview-card" role="dialog" aria-modal="true" aria-label="长截图预览">
+        <header class="preview-head">
+          <div>
+            <span class="preview-kicker">预览</span>
+            <h2>手动长截图</h2>
+            <p class="preview-meta" id="preview-meta">8 屏 · 4,860px · <span class="ok">接缝连续</span></p>
+          </div>
+          <div class="preview-actions">
+            <button class="btn" id="zoom-out" type="button" aria-label="缩小">−</button>
+            <span class="zoom-label" id="zoom-label">78%</span>
+            <button class="btn" id="zoom-in" type="button" aria-label="放大">+</button>
+            <button class="btn" id="preview-copy" type="button">复制</button>
+            <button class="btn primary" id="preview-save" type="button">保存 PNG</button>
+            <button class="btn ghost" id="preview-close" type="button" aria-label="关闭预览">关闭</button>
+          </div>
+        </header>
+        <div class="preview-body">
+          <div class="preview-long" id="preview-long"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+      const root = document.documentElement
+      const docViewport = document.getElementById("doc-viewport")
+      const docTrack = document.getElementById("doc-track")
+      const docThumb = document.getElementById("doc-thumb")
+      const selection = document.getElementById("selection")
+      const selectionLabel = document.getElementById("selection-label")
+      const startButton = document.getElementById("start-btn")
+      const overlapGuide = document.getElementById("overlap-guide")
+      const hud = document.getElementById("hud")
+      const hudCard = document.getElementById("hud-card")
+      const hudPill = document.getElementById("hud-pill")
+      const hudMeta = document.getElementById("hud-meta")
+      const hudMessage = document.getElementById("hud-message")
+      const hudFill = document.getElementById("hud-fill")
+      const pauseButton = document.getElementById("pause-btn")
+      const undoButton = document.getElementById("undo-btn")
+      const finishButton = document.getElementById("finish-btn")
+      const cancelButton = document.getElementById("cancel-btn")
+      const previewBackdrop = document.getElementById("preview-backdrop")
+      const previewLong = document.getElementById("preview-long")
+      const previewMeta = document.getElementById("preview-meta")
+      const zoomLabel = document.getElementById("zoom-label")
+      const toast = document.getElementById("toast")
+
+      const state = {
+        mode: "selection",
+        screens: 0,
+        height: 0,
+        stitchedScreens: 0,
+        scroll: 0,
+        maxScroll: 640,
+        zoom: 0.78,
+        countdown: 3,
+        rolledBack: false,
+        timer: null,
+        continuousTimer: null
+      }
+
+      const sectionTitles = [
+        "先把滚动截图当成一条流水线",
+        "固定表头只保留一次",
+        "滚动条不能污染匹配",
+        "每一帧只追加新内容",
+        "跳变时先停下，不猜",
+        "完成后再统一编码"
+      ]
+
+      function svgArrow() {
+        return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>'
+      }
+
+      function sectionHtml(index, forPreview = false) {
+        const number = String(index + 1).padStart(2, "0")
+        const title = sectionTitles[index % sectionTitles.length]
+        const media = index % 3 === 1 ? '<div class="doc-media"></div>' : ""
+        const code =
+          index % 3 === 2
+            ? '<pre class="doc-code">capture(frame) → match(previous, next) → append(newRows)</pre>'
+            : ""
+        const list =
+          index % 4 === 0
+            ? '<ul class="doc-list"><li>采集与拼接解耦，先保证帧率。</li><li>匹配失败只提示，不结束会话。</li></ul>'
+            : ""
+        return `
+          <section class="doc-section">
+            <div class="doc-kicker">${number} · 长页面</div>
+            <h3 class="doc-h2">${title}</h3>
+            <p class="doc-p">
+              这一段用于模拟真实文档内容。用户正常滚动，工具持续采帧；
+              每一帧只把底部新增的行追加到长图，不重复表头，也不把滚动条拼进去。
+            </p>
+            ${list}
+            ${code}
+            ${media}
+            <div class="doc-row"><span>${number}</span><span>frame accepted · offset 300 · confidence 0.998</span></div>
+          </section>
+        `
+      }
+
+      function renderDoc() {
+        docTrack.innerHTML = Array.from({ length: 7 }, (_, index) =>
+          sectionHtml(index)
+        ).join("")
+        requestAnimationFrame(() => {
+          state.maxScroll = Math.max(
+            0,
+            docTrack.offsetHeight - docViewport.clientHeight
+          )
+          setScroll(state.scroll)
+        })
+      }
+
+      function renderPreview() {
+        const count = Math.max(1, Math.min(12, state.stitchedScreens || 1))
+        previewLong.innerHTML = `
+          <div class="preview-header-block">
+            <strong>项目文档</strong>
+            <span>固定表头只出现一次</span>
+            <span class="mark">接缝连续</span>
+          </div>
+          ${Array.from({ length: count }, (_, index) =>
+            sectionHtml(index, true)
+          ).join("")}
+        `
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+        previewMeta.innerHTML = `${state.screens} 屏 · ${state.height.toLocaleString()}px · <span class="ok">接缝连续</span>`
+      }
+
+      function setScroll(value) {
+        state.scroll = Math.max(0, Math.min(state.maxScroll, value))
+        docTrack.style.transform = `translateY(${-state.scroll}px)`
+        const trackHeight = Math.max(1, docViewport.clientHeight - 80)
+        const thumbHeight = Math.max(
+          22,
+          Math.round(
+            (docViewport.clientHeight / Math.max(1, docTrack.offsetHeight)) *
+              trackHeight
+          )
+        )
+        const thumbTop =
+          state.maxScroll > 0
+            ? (state.scroll / state.maxScroll) * (trackHeight - thumbHeight)
+            : 0
+        docThumb.style.height = `${thumbHeight}px`
+        docThumb.style.top = `${thumbTop}px`
+      }
+
+      function setTone(tone) {
+        hudCard.dataset.tone = tone
+      }
+
+      function renderHud() {
+        const meta = `已接 ${state.screens} 屏 · ${state.height.toLocaleString()}px`
+        hudMeta.textContent = meta
+        hudFill.style.width = `${Math.min(100, (state.screens / 12) * 100)}%`
+        overlapGuide.hidden = state.mode !== "gap"
+
+        pauseButton.hidden = true
+        undoButton.hidden = true
+        finishButton.hidden = true
+        cancelButton.hidden = true
+
+        if (state.mode === "selection") {
+          setTone("idle")
+          hudPill.textContent = "准备就绪"
+          hudMessage.textContent = "框选区域后开始，正常滚动即可。"
+        } else if (state.mode === "counting") {
+          setTone("active")
+          hudPill.textContent = "准备中"
+          hudMessage.textContent = `${state.countdown} 秒后开始，请把鼠标放到选区内。`
+          cancelButton.hidden = false
+        } else if (state.mode === "capturing") {
+          setTone("active")
+          hudPill.textContent = "跟随中"
+          hudMessage.textContent =
+            state.scroll >= state.maxScroll - 4
+              ? "已到页面底部，点击完成。"
+              : "正常滚动即可，不用刻意放慢。"
+          pauseButton.hidden = false
+          finishButton.hidden = false
+          cancelButton.hidden = false
+        } else if (state.mode === "gap") {
+          setTone("warning")
+          hudPill.textContent = "需要回滚"
+          hudMessage.textContent =
+            "这一帧没接上，请回滚一点；前面的内容已保留。"
+          undoButton.hidden = false
+          finishButton.hidden = false
+          cancelButton.hidden = false
+        } else if (state.mode === "paused") {
+          setTone("paused")
+          hudPill.textContent = "已暂停"
+          hudMessage.textContent = "已暂停，滚动不会计入。"
+          pauseButton.hidden = false
+          pauseButton.textContent = "继续"
+          finishButton.hidden = false
+          cancelButton.hidden = false
+          undoButton.hidden = false
+        } else if (state.mode === "preview") {
+          hud.hidden = true
+          return
+        }
+
+        hud.hidden = false
+        if (state.mode === "capturing" || state.mode === "paused") {
+          pauseButton.textContent =
+            state.mode === "paused" ? "继续" : "暂停"
+        }
+        selectionLabel.textContent =
+          state.mode === "selection"
+            ? "手动长截图区域"
+            : state.mode === "counting"
+              ? "准备开始"
+              : state.mode === "preview"
+                ? "已完成"
+                : "正在采集"
+        startButton.hidden = state.mode !== "selection"
+        docViewport.dataset.capturing =
+          state.mode === "capturing" || state.mode === "gap" ? "true" : "false"
+      }
+
+      function resetSession(keepScroll = false) {
+        if (state.timer) clearInterval(state.timer)
+        if (state.continuousTimer) clearInterval(state.continuousTimer)
+        state.timer = null
+        state.continuousTimer = null
+        state.mode = "selection"
+        state.screens = 0
+        state.height = 0
+        state.stitchedScreens = 0
+        state.countdown = 3
+        state.rolledBack = false
+        if (!keepScroll) state.scroll = 0
+        clearTimeout(showToast.timer)
+        toast.classList.remove("show")
+        previewBackdrop.hidden = true
+        renderPreview()
+        setScroll(state.scroll)
+        renderHud()
+        updateChips()
+      }
+
+      function startCountdown() {
+        if (state.mode !== "selection") return
+        if (state.timer) clearInterval(state.timer)
+        state.mode = "counting"
+        state.countdown = 3
+        state.screens = 1
+        state.height = 540
+        state.stitchedScreens = 1
+        state.scroll = 0
+        state.rolledBack = false
+        setScroll(0)
+        renderPreview()
+        renderHud()
+        updateChips()
+        state.timer = setInterval(() => {
+          state.countdown -= 1
+          if (state.countdown > 0) {
+            renderHud()
+            return
+          }
+          clearInterval(state.timer)
+          state.timer = null
+          startCapturing()
+        }, 900)
+      }
+
+      function startCapturing() {
+        if (state.screens === 0) {
+          state.screens = 1
+          state.height = 540
+          state.stitchedScreens = 1
+          renderPreview()
+        }
+        state.mode = "capturing"
+        state.rolledBack = false
+        renderHud()
+        updateChips()
+      }
+
+      function triggerGap() {
+        if (state.mode !== "capturing") return
+        if (state.continuousTimer) {
+          clearInterval(state.continuousTimer)
+          state.continuousTimer = null
+        }
+        state.mode = "gap"
+        state.rolledBack = false
+        renderHud()
+        updateChips()
+        showToast("检测到跳变，已暂停追加")
+      }
+
+      function addFrame() {
+        if (state.mode !== "capturing") return
+        state.screens += 1
+        state.height += 360
+        state.stitchedScreens += 1
+        renderPreview()
+        renderHud()
+      }
+
+      function advanceScroll(delta) {
+        if (state.mode === "paused") return
+        if (state.mode !== "capturing" && state.mode !== "gap") return
+
+        if (delta < 0) {
+          setScroll(state.scroll + delta)
+          if (state.mode === "gap") {
+            state.rolledBack = true
+            hudMessage.textContent = "已回滚，继续向下滚动即可接上。"
+          }
+          return
+        }
+
+        if (delta > 680) {
+          setScroll(state.scroll + Math.min(delta, 260))
+          triggerGap()
+          return
+        }
+
+        if (state.mode === "gap") {
+          if (!state.rolledBack) {
+            hudMessage.textContent = "请先回滚一点，让画面产生重叠。"
+            return
+          }
+          state.mode = "capturing"
+          state.rolledBack = false
+        }
+
+        setScroll(state.scroll + delta)
+        addFrame()
+      }
+
+      function pauseOrResume() {
+        if (state.mode === "capturing") {
+          state.mode = "paused"
+        } else if (state.mode === "paused") {
+          state.mode = "capturing"
+        } else {
+          return
+        }
+        renderHud()
+        updateChips()
+      }
+
+      function undoLast() {
+        if (state.screens <= 1) {
+          showToast("已经是第一屏")
+          return
+        }
+        state.screens -= 1
+        state.height = Math.max(540, state.height - 360)
+        state.stitchedScreens = Math.max(1, state.stitchedScreens - 1)
+        if (state.mode === "gap") {
+          state.mode = "capturing"
+          state.rolledBack = false
+        }
+        renderPreview()
+        renderHud()
+        updateChips()
+        showToast("已撤销上一段")
+      }
+
+      function finish() {
+        if (state.screens < 1) {
+          showToast("还没有采集内容")
+          return
+        }
+        clearTimeout(showToast.timer)
+        toast.classList.remove("show")
+        if (state.timer) clearInterval(state.timer)
+        if (state.continuousTimer) clearInterval(state.continuousTimer)
+        state.timer = null
+        state.continuousTimer = null
+        state.mode = "preview"
+        renderPreview()
+        renderHud()
+        updateChips()
+        previewBackdrop.hidden = false
+        document.getElementById("preview-close").focus()
+      }
+
+      function cancel() {
+        resetSession()
+        showToast("已取消，临时结果已清理")
+      }
+
+      function showToast(message) {
+        toast.textContent = message
+        toast.classList.add("show")
+        clearTimeout(showToast.timer)
+        showToast.timer = setTimeout(
+          () => toast.classList.remove("show"),
+          1700
+        )
+      }
+
+      function updateChips() {
+        document.querySelectorAll(".state-chip").forEach((chip) => {
+          chip.setAttribute(
+            "aria-pressed",
+            String(chip.dataset.state === state.mode)
+          )
+        })
+      }
+
+      function setDemoState(name) {
+        if (name === "selection") {
+          resetSession()
+          return
+        }
+        if (name === "counting") {
+          resetSession()
+          startCountdown()
+          return
+        }
+        if (name === "preview") {
+          resetSession()
+          state.screens = 8
+          state.height = 4860
+          state.stitchedScreens = 8
+          finish()
+          return
+        }
+        if (name === "capturing" || name === "gap" || name === "paused") {
+          resetSession()
+          state.screens = 4
+          state.height = 1620
+          state.stitchedScreens = 4
+          state.scroll = Math.min(state.maxScroll, 360)
+          setScroll(state.scroll)
+          renderPreview()
+          startCapturing()
+          if (name === "gap") triggerGap()
+          if (name === "paused") pauseOrResume()
+          updateChips()
+        }
+      }
+
+      startButton.addEventListener("click", startCountdown)
+      pauseButton.addEventListener("click", pauseOrResume)
+      undoButton.addEventListener("click", undoLast)
+      finishButton.addEventListener("click", finish)
+      cancelButton.addEventListener("click", cancel)
+
+      document.getElementById("sim-start").addEventListener("click", startCountdown)
+      document.getElementById("sim-scroll").addEventListener("click", () => {
+        if (state.mode === "selection" || state.mode === "counting") {
+          startCapturing()
+        }
+        advanceScroll(280)
+      })
+      document.getElementById("sim-continuous").addEventListener("click", () => {
+        if (state.mode === "selection" || state.mode === "counting") {
+          startCapturing()
+        }
+        if (state.mode !== "capturing") return
+        if (state.continuousTimer) clearInterval(state.continuousTimer)
+        let steps = 0
+        state.continuousTimer = setInterval(() => {
+          steps += 1
+          advanceScroll(76)
+          if (steps >= 18) {
+            clearInterval(state.continuousTimer)
+            state.continuousTimer = null
+            showToast("连续滚动结束，接缝保持连续")
+          }
+        }, 120)
+      })
+      document.getElementById("sim-jump").addEventListener("click", () => {
+        if (state.mode !== "capturing") {
+          startCapturing()
+        }
+        triggerGap()
+      })
+      document.getElementById("sim-undo").addEventListener("click", undoLast)
+      document.getElementById("sim-finish").addEventListener("click", finish)
+      document.getElementById("sim-cancel").addEventListener("click", cancel)
+
+      document.querySelectorAll(".state-chip").forEach((chip) => {
+        chip.addEventListener("click", () => setDemoState(chip.dataset.state))
+      })
+
+      docViewport.addEventListener(
+        "wheel",
+        (event) => {
+          if (state.mode !== "capturing" && state.mode !== "gap") return
+          event.preventDefault()
+          advanceScroll(event.deltaY)
+        },
+        { passive: false }
+      )
+
+      document.getElementById("preview-close").addEventListener("click", () => {
+        previewBackdrop.hidden = true
+        state.mode = "selection"
+        state.screens = 0
+        state.height = 0
+        state.stitchedScreens = 0
+        renderPreview()
+        renderHud()
+        updateChips()
+      })
+
+      previewBackdrop.addEventListener("click", (event) => {
+        if (event.target === previewBackdrop) {
+          document.getElementById("preview-close").click()
+        }
+      })
+
+      document.getElementById("zoom-out").addEventListener("click", () => {
+        state.zoom = Math.max(0.5, state.zoom - 0.08)
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+      })
+
+      document.getElementById("zoom-in").addEventListener("click", () => {
+        state.zoom = Math.min(1.2, state.zoom + 0.08)
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+      })
+
+      document.getElementById("preview-copy").addEventListener("click", () => {
+        showToast("已复制长截图到剪贴板（演示）")
+      })
+
+      document.getElementById("preview-save").addEventListener("click", () => {
+        showToast("已保存长截图 PNG（演示）")
+      })
+
+      document.querySelectorAll("#theme-seg button").forEach((button) => {
+        button.addEventListener("click", () => {
+          root.dataset.theme = button.dataset.themeChoice
+          document.querySelectorAll("#theme-seg button").forEach((item) => {
+            item.classList.toggle("on", item === button)
+          })
+        })
+      })
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          if (!previewBackdrop.hidden) {
+            document.getElementById("preview-close").click()
+          } else {
+            cancel()
+          }
+          return
+        }
+        if (!previewBackdrop.hidden) return
+        const key = event.key.toLowerCase()
+        if (key === "p") pauseOrResume()
+        if (key === "u") undoLast()
+        if (key === "f") finish()
+      })
+
+      renderDoc()
+      renderPreview()
+      renderHud()
+      updateChips()
+    </script>
+  </body>
+</html>

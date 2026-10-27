@@ -1,0 +1,151 @@
+{
+  "date": "2026-10-27",
+  "status": "phase-0-complete",
+  "environment": {
+    "platform": "Windows",
+    "display": {
+      "width": 1920,
+      "height": 1080,
+      "scaleFactor": 1
+    },
+    "note": "2560x1440 and 3840x2160 are off-screen synthetic rectangles; only 1920x1080 is a real display."
+  },
+  "gdi": [
+    {
+      "width": 700,
+      "height": 600,
+      "mode": "raw",
+      "targetFps": 10,
+      "achievedFps": 9.06,
+      "avgCaptureMs": 22.34,
+      "p95CaptureMs": 29.39,
+      "minCaptureMs": 14.58,
+      "maxCaptureMs": 34.9,
+      "bytesPerFrame": 1680000
+    },
+    {
+      "width": 700,
+      "height": 600,
+      "mode": "png",
+      "targetFps": 10,
+      "achievedFps": 9.08,
+      "avgCaptureMs": 33.55,
+      "p95CaptureMs": 42.36,
+      "minCaptureMs": 20.61,
+      "maxCaptureMs": 43.05,
+      "encodedBytes": 6010
+    },
+    {
+      "width": 700,
+      "height": 600,
+      "mode": "raw",
+      "targetFps": 1000,
+      "achievedFps": 59.97,
+      "avgCaptureMs": 16.63,
+      "p95CaptureMs": 18.96,
+      "minCaptureMs": 13.13,
+      "maxCaptureMs": 19.96,
+      "bytesPerFrame": 1680000
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "mode": "raw",
+      "targetFps": 10,
+      "achievedFps": 9.14,
+      "avgCaptureMs": 49.38,
+      "p95CaptureMs": 60.57,
+      "minCaptureMs": 34.25,
+      "maxCaptureMs": 64.07,
+      "bytesPerFrame": 8294400
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "mode": "raw",
+      "targetFps": 1000,
+      "achievedFps": 21.48,
+      "avgCaptureMs": 46.51,
+      "p95CaptureMs": 57.89,
+      "minCaptureMs": 29.99,
+      "maxCaptureMs": 58.21,
+      "bytesPerFrame": 8294400
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "mode": "png",
+      "targetFps": 1000,
+      "achievedFps": 11.05,
+      "avgCaptureMs": 90.47,
+      "p95CaptureMs": 108.4,
+      "minCaptureMs": 73.1,
+      "maxCaptureMs": 108.4,
+      "encodedBytes": 96082
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "mode": "raw",
+      "targetFps": 1000,
+      "achievedFps": 20.38,
+      "avgCaptureMs": 49.03,
+      "p95CaptureMs": 59.85,
+      "minCaptureMs": 37.15,
+      "maxCaptureMs": 59.85,
+      "bytesPerFrame": 14745600,
+      "synthetic": true
+    },
+    {
+      "width": 3840,
+      "height": 2160,
+      "mode": "raw",
+      "targetFps": 1000,
+      "achievedFps": 15.23,
+      "avgCaptureMs": 65.62,
+      "p95CaptureMs": 78.1,
+      "minCaptureMs": 51.34,
+      "maxCaptureMs": 78.1,
+      "bytesPerFrame": 33177600,
+      "synthetic": true
+    }
+  ],
+  "electron": [
+    {
+      "name": "full-frame",
+      "fps": 14.87,
+      "avgIntervalMs": 67.26,
+      "p95IntervalMs": 100.0
+    },
+    {
+      "name": "crop-700x600",
+      "fps": 15.34,
+      "avgIntervalMs": 65.19,
+      "p95IntervalMs": 99.0
+    },
+    {
+      "name": "crop-full-frame",
+      "fps": 12.18,
+      "avgIntervalMs": 82.1,
+      "p95IntervalMs": 106.6
+    }
+  ],
+  "electronObservedRanges": {
+    "fullFrameFps": [14.87, 17.56],
+    "crop700x600Fps": [15.34, 20.2],
+    "cropFullFrameFps": [12.18, 19.29],
+    "p95IntervalMs": [81.5, 106.6],
+    "note": "One earlier multi-window run produced a requestVideoFrameCallback timeout; one-process-per-config removed the state reuse issue."
+  },
+  "decision": {
+    "primary": "gdi-raw-with-binary-transport",
+    "fallback": "electron-desktopcapturer-video-stream",
+    "wgc": "deferred",
+    "perFramePng": "rejected"
+  },
+  "nextGate": [
+    "Measure PowerShell-to-Node binary BGRA transport at 700x600 and 1920x1080.",
+    "Measure matching cost at 10fps on consecutive frames.",
+    "Validate on a real 4K display, 125/150/200% DPI, and dual monitors."
+  ]
+}
