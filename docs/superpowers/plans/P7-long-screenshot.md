@@ -45,21 +45,22 @@
 
 ## 3. 匹配与拼接纯逻辑
 
-- [ ] 新增 `src/shared/long-capture.ts`
-- [ ] `decodeFrame` / `frameSize` / `cropRows` / `appendRows`
-- [ ] 灰度降采样
-- [ ] 底部条带模板匹配（SAD + 归一化）
-- [ ] 逐行校验与置信度
-- [ ] 固定表头检测：
+- [x] 新增 `src/shared/long-capture.ts`
+- [x] `FrameImage` / `matchVerticalOverlap` / `LongCaptureStitcher`
+- [x] BT.601 灰度降采样
+- [x] 底部条带 SAD 匹配 + 期望偏移惩罚
+- [x] 整帧近似相同检测，避免“没滚动也拼出偏移”
+- [x] 完整重叠区二次验证，淘汰重复纹理的局部误匹配
+- [x] 固定表头检测：
   - 比较前三帧顶部若干行
   - 完全一致时标记固定区域
   - 后续帧跳过固定区域
-- [ ] 最大像素/高度校验
-- [ ] `tests/long-capture.test.ts`：
+- [x] 最大像素/高度校验
+- [x] `tests/long-capture.test.ts`：
   - 已知偏移
-  - 噪声
+  - 小噪声
   - 固定表头
-  - 固定底栏
+  - [ ] 固定底栏（v1 边界场景，尚未实现）
   - 低置信度
   - 最大高度
 
