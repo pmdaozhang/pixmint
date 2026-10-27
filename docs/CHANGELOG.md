@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- 新增 P8 窗口长截图：截图工具栏纯图标入口、真实窗口选择器、内容区选区确认、自动滚动拼接和长图预览。
+- 新增“重新选择”流程，可在确认页返回窗口列表并重新指定目标窗口。
+- 新增窗口选区纯函数、6 个边界单测和真实窗口长截图 E2E。
+
+### Changed
+
+- 窗口长截图自动滚动会校验实际滚动目标 hwnd 与用户选择窗口一致。
+- 截图工具栏新增窗口长截图图标，原有操作顺序保持不变。
+
+### Fixed
+
+- 修复窗口目标 PowerShell sidecar 未遵循 `SidecarClient` 协议、导致 `error:command` 的问题。
+- 修复 `GetCurrentThreadId` 错声明在 `user32.dll`、导致窗口信息无法读取的问题。
+- 修复向左/向右拖动选区时整体平移而不是固定对边的问题。
+
+### Verified
+
+- `pnpm typecheck` 通过。
+- `pnpm test` 通过：23 个测试文件、147 个用例。
+- `pnpm build` 通过。
+- `node scripts/spike/verify-window-long-capture-demo.cjs` 通过。
+- `node e2e-overlay.cjs` 通过。
+- `pnpm e2e:window-long` 通过：真实 Edge 窗口、重新选择、自动滚动 2 屏、882×1280 预览。
+- 未实测：微信、PDF、IDE、地图、多显示器组合和 macOS。
+
 ## [0.4.1] - 2026-10-26
 
 ### Fixed

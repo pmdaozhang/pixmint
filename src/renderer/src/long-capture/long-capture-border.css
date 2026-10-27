@@ -1,0 +1,53 @@
+html[data-route="long-capture-border"],
+html[data-route="long-capture-border"] body,
+html[data-route="long-capture-border"] #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Segoe UI", sans-serif;
+}
+
+.long-border-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.long-border-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #3a83f7;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(58, 131, 247, 0.35);
+}
+
+.long-border-label {
+  position: absolute;
+  height: 21px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(13, 13, 14, 0.94);
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.long-border-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3a83f7;
+  box-shadow: 0 0 0 3px rgba(58, 131, 247, 0.18);
+}

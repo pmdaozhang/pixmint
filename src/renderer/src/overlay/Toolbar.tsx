@@ -20,7 +20,16 @@ interface Props {
   submenuOpen: boolean
   onToolClick(tool: Tool): void
   onAction(
-    action: 'ocr' | 'translate' | 'gif' | 'video' | 'copy' | 'pin' | 'save' | 'close'
+    action:
+      | 'ocr'
+      | 'translate'
+      | 'gif'
+      | 'video'
+      | 'long'
+      | 'copy'
+      | 'pin'
+      | 'save'
+      | 'close'
   ): void
   onUndo(): void
   onRedo(): void
@@ -414,6 +423,14 @@ export function Toolbar({
             </button>
             <button className="tb" title="录制视频" onClick={() => onAction('video')}>
               <Icon name="video" />
+            </button>
+            <button
+              className="tb tb-long"
+              title="窗口长截图"
+              aria-label="窗口长截图"
+              onClick={() => onAction('long')}
+            >
+              <Icon name="long" />
             </button>
             <span className="div" />
             <button className="act" onClick={() => onAction('close')}>
