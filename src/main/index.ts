@@ -123,6 +123,7 @@ const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const isLongCaptureSmoke = process.argv.includes('--smoke-long-capture')
 const isLongCaptureUiSmoke = process.argv.includes('--smoke-long-capture-ui')
+const isLongCaptureManualSmoke = process.argv.includes('--smoke-long-capture-manual')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
@@ -381,6 +382,7 @@ function registerIpc(): void {
   ipcMain.on('long-capture:resume', () => longCaptureController.resume())
   ipcMain.on('long-capture:finish', () => longCaptureController.finish())
   ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
+  ipcMain.on('long-capture:manual', () => longCaptureController.manual())
   ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
   ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
   ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
@@ -995,6 +997,81 @@ async function runLongCaptureSmokeUi(): Promise<void> {
   }
 }
 
+async function runLongCaptureManualSmoke(): Promise<void> {
+  if (app.isPackaged) {
+    console.error('LONG_CAPTURE_MANUAL_SMOKE_PACKAGED_UNSUPPORTED')
+    app.exit(1)
+    return
+  }
+  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
+  const electronPath = join(
+    app.getAppPath(),
+    'node_modules',
+    'electron',
+    'dist',
+    'electron.exe'
+  )
+  const fixture = spawn(electronPath, [fixturePath], {
+    stdio: 'ignore',
+    env: { ...process.env, PIXMINT_LONG_FIXTURE_AUTO_SCROLL: '1' }
+  })
+  const reportPath = join(
+    app.getAppPath(),
+    'test-results',
+    'long-capture-manual-smoke.json'
+  )
+  const writeReport = (value: unknown): void => {
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true })
+      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
+    } catch {
+      // smoke 报告失败不应改变测试结果
+    }
+  }
+  writeReport({ ok: false, stage: 'started' })
+  let finishTimer: ReturnType<typeof setTimeout> | null = null
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 2200))
+    const display = screen.getPrimaryDisplay()
+    const selection = { x: 100, y: 138, width: 700, height: 535 }
+    const progress: unknown[] = []
+    finishTimer = setTimeout(() => longCaptureManager.finish(), 11000)
+    const result = await longCaptureManager.startManual({
+      display,
+      selection,
+      onProgress: (value) => {
+        progress.push(value)
+        console.log('LONG_CAPTURE_MANUAL_PROGRESS', JSON.stringify(value))
+      }
+    })
+    if (finishTimer) clearTimeout(finishTimer)
+    writeReport({ ok: Boolean(result), result, progress })
+    if (!result || result.height <= selection.height) {
+      console.error('LONG_CAPTURE_MANUAL_SMOKE_FAIL', JSON.stringify(result))
+      app.exit(1)
+      return
+    }
+    console.log(
+      'LONG_CAPTURE_MANUAL_SMOKE_OK',
+      result.width,
+      result.height,
+      result.bytes
+    )
+    app.exit(0)
+  } catch (error) {
+    writeReport({
+      ok: false,
+      stage: 'exception',
+      error: error instanceof Error ? error.message : String(error)
+    })
+    console.error('LONG_CAPTURE_MANUAL_SMOKE_ERROR', error)
+    app.exit(1)
+  } finally {
+    if (finishTimer) clearTimeout(finishTimer)
+    fixture.kill()
+  }
+}
+
 if (
   !isSmokeTest &&
   !isCaptureSmoke &&
@@ -1006,6 +1083,7 @@ if (
   !isFastCaptureSmoke &&
   !isLongCaptureSmoke &&
   !isLongCaptureUiSmoke &&
+  !isLongCaptureManualSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
   !isCaptureOnce &&
@@ -1027,6 +1105,7 @@ if (
       !isFastCaptureSmoke &&
       !isLongCaptureSmoke &&
       !isLongCaptureUiSmoke &&
+      !isLongCaptureManualSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
       !isCaptureOnce &&
@@ -1054,6 +1133,11 @@ if (
     if (isLongCaptureUiSmoke) {
       initServices()
       void runLongCaptureSmokeUi()
+      return
+    }
+    if (isLongCaptureManualSmoke) {
+      initServices()
+      void runLongCaptureManualSmoke()
       return
     }
     initServices()

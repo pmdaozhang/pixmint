@@ -17,6 +17,7 @@ import {
  */
 export class LongCaptureController {
   private readonly hud: LongCaptureHud
+  private lastPayload: OverlayCompletePayload | null = null
 
   constructor(
     private readonly preloadPath: string,
@@ -29,6 +30,7 @@ export class LongCaptureController {
   }
 
   async start(payload: OverlayCompletePayload): Promise<void> {
+    this.lastPayload = payload
     const display =
       screen.getAllDisplays().find((candidate) => candidate.id === payload.displayId) ??
       screen.getPrimaryDisplay()
@@ -38,18 +40,45 @@ export class LongCaptureController {
       await this.manager.start({
         display,
         selection: payload.selection,
-        onProgress: (progress) => this.hud.send(progress),
-        onComplete: () => {
-          this.hud.hide()
-          createLongCapturePreview(this.preloadPath, () => {
-            this.manager.deleteResult()
-          })
-        }
+        ...this.callbacks()
       })
     } catch (error) {
       this.hud.hide()
       const message = error instanceof Error ? error.message : String(error)
       notify(`长截图失败：${message}`)
+    }
+  }
+
+  manual(): void {
+    const payload = this.lastPayload
+    if (!payload) return
+    const display =
+      screen.getAllDisplays().find((candidate) => candidate.id === payload.displayId) ??
+      screen.getPrimaryDisplay()
+    void this.manager
+      .startManual({
+        display,
+        selection: payload.selection,
+        ...this.callbacks()
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        notify(`手动长截图失败：${message}`)
+      })
+  }
+
+  private callbacks(): {
+    onProgress: (progress: ReturnType<LongCaptureManager['getProgress']>) => void
+    onComplete: () => void
+  } {
+    return {
+      onProgress: (progress) => this.hud.send(progress),
+      onComplete: () => {
+        this.hud.hide()
+        createLongCapturePreview(this.preloadPath, () => {
+          this.manager.deleteResult()
+        })
+      }
     }
   }
 

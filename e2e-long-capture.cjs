@@ -276,7 +276,17 @@ async function testUnscrollable(app, fixture) {
   if (!message.includes('没有滚动')) {
     throw new Error('unscrollable window did not report a scroll error')
   }
-  await hud.locator('.hud-actions button').nth(0).click({ force: true })
+  await hud
+    .locator('.hud-actions button', { hasText: '改手动滚动' })
+    .first()
+    .click({ force: true })
+  await hud.waitForFunction(
+    () => document.querySelector('.hud-pill')?.textContent?.trim() === '手动滚动',
+    undefined,
+    { timeout: 8000 }
+  )
+  console.log('LONG_CAPTURE_MANUAL_STARTED')
+  await hud.locator('.hud-actions button').nth(2).click({ force: true })
   await sleep(800)
   if ((await countWindowsByUrl(app, 'long-capture-hud')) !== 0) {
     throw new Error('unscrollable error HUD did not close')

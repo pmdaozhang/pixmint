@@ -321,6 +321,7 @@ export type LongCapturePhase =
   | 'scrolling'
   | 'capturing'
   | 'matching'
+  | 'manual'
   | 'paused'
   | 'finished'
   | 'error'

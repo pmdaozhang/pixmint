@@ -15,6 +15,7 @@ const LABELS: Record<LongCapturePhase, string> = {
   scrolling: '滚动中',
   capturing: '截取中',
   matching: '拼接中',
+  manual: '手动滚动',
   paused: '已暂停',
   finished: '已完成',
   error: '已停止',
@@ -101,6 +102,14 @@ export function LongCaptureHudApp(): JSX.Element {
                 完成
               </button>
             </>
+          )}
+          {error && (
+            <button
+              className="hud-btn primary"
+              onClick={() => window.snapglass.longCapture.manual()}
+            >
+              改手动滚动
+            </button>
           )}
           <button
             className="hud-btn"

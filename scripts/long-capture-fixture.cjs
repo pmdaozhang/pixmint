@@ -9,6 +9,7 @@ app.whenReady().then(() => {
   const withMedia = process.env.PIXMINT_LONG_FIXTURE_MEDIA === '1'
   const unscrollable = process.env.PIXMINT_LONG_FIXTURE_UNSCROLLABLE === '1'
   const fakeScrollbar = process.env.PIXMINT_LONG_FIXTURE_SCROLLBAR === '1'
+  const autoScroll = process.env.PIXMINT_LONG_FIXTURE_AUTO_SCROLL === '1'
   const wheelMultiplier = Number(
     process.env.PIXMINT_LONG_FIXTURE_WHEEL_MULTIPLIER || '0'
   )
@@ -104,6 +105,16 @@ app.whenReady().then(() => {
       };
       addEventListener("scroll", updateFakeThumb, { passive: true });
       updateFakeThumb();
+      ` : ''}
+      ${autoScroll ? `
+      setTimeout(() => {
+        let step = 0;
+        const timer = setInterval(() => {
+          window.scrollBy(0, 300);
+          step += 1;
+          if (step >= 8) clearInterval(timer);
+        }, 700);
+      }, 2500);
       ` : ''}
     </script>
   </head>

@@ -37,6 +37,8 @@ const MAX_WHEEL_DELTA = MAX_NOTCHES * 120
 const MATCH_EDGE_MARGIN = 24
 const MAX_UIA_STEPS = 40
 const NO_MATCH_LIMIT = 3
+const MANUAL_CAPTURE_MS = 250
+const MANUAL_MAX_FRAMES = 200
 
 export interface LongCaptureStartOptions {
   display: Electron.Display
@@ -239,6 +241,53 @@ export class LongCaptureManager {
     this.cancel()
     this.deleteResult()
     this.driver.dispose()
+  }
+
+  private async publishResult(
+    stitcher: LongCaptureStitcher,
+    screens: number,
+    message: string,
+    onComplete?: (result: LongCaptureResult) => void
+  ): Promise<LongCaptureResult> {
+    this.setProgress({
+      phase: 'capturing',
+      screens,
+      height: stitcher.currentHeight,
+      message: '正在编码长图'
+    })
+    const frame = stitcher.getFrame()
+    const encodeStarted = Date.now()
+    const png = encodePng(frame)
+    this.lastEncodeMs = Date.now() - encodeStarted
+    const filePath = join(
+      app.getPath('temp'),
+      `pixmint-long-${process.pid}-${Date.now()}.png`
+    )
+    writeFileSync(filePath, png)
+    this.resultFilePath = filePath
+    const result: LongCaptureResult = {
+      width: frame.width,
+      height: frame.height,
+      bytes: png.length,
+      filePath
+    }
+    this.result = result
+    this.setProgress({
+      phase: 'finished',
+      screens,
+      height: frame.height,
+      message
+    })
+    try {
+      onComplete?.(result)
+    } catch {
+      // 完成回调异常不应把成功结果改成失败
+    }
+    logDiagnostic(
+      'long-capture',
+      `finished ${frame.width}x${frame.height} screens=${screens} bytes=${png.length} encode=${this.lastEncodeMs}ms`
+    )
+    return this.result
   }
 
   async start(options: LongCaptureStartOptions): Promise<LongCaptureResult | null> {
@@ -620,50 +669,16 @@ export class LongCaptureManager {
         stitcher.initialize(first, 0)
       }
 
-      this.setProgress({
-        phase: 'capturing',
+      return await this.publishResult(
+        stitcher,
         screens,
-        height: stitcher.currentHeight,
-        message: '正在编码长图'
-      })
-      const frame = stitcher.getFrame()
-      const encodeStarted = Date.now()
-      const png = encodePng(frame)
-      this.lastEncodeMs = Date.now() - encodeStarted
-      const filePath = join(
-        app.getPath('temp'),
-        `pixmint-long-${process.pid}-${Date.now()}.png`
-      )
-      writeFileSync(filePath, png)
-      this.resultFilePath = filePath
-      const result: LongCaptureResult = {
-        width: frame.width,
-        height: frame.height,
-        bytes: png.length,
-        filePath
-      }
-      this.result = result
-
-      this.setProgress({
-        phase: 'finished',
-        screens,
-        height: frame.height,
-        message: overlapLost
+        overlapLost
           ? '长截图已停止，已保留当前结果'
           : limitReached
             ? '已达到长截图上限，已保留当前结果'
-            : '长截图已完成'
-      })
-      try {
-        options.onComplete?.(result)
-      } catch {
-        // 完成回调异常不应把成功结果改成失败
-      }
-      logDiagnostic(
-        'long-capture',
-        `finished ${frame.width}x${frame.height} screens=${screens} bytes=${png.length} encode=${this.lastEncodeMs}ms`
+            : '长截图已完成',
+        options.onComplete
       )
-      return this.result
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error)
@@ -685,6 +700,209 @@ export class LongCaptureManager {
       if (cursor) {
         await this.driver.restore(cursor.x, cursor.y).catch(() => undefined)
       }
+      this.running = false
+      this.paused = false
+      this.finishRequested = false
+      this.resumeWaiters = []
+      this.progressListener = undefined
+    }
+  }
+
+  /**
+   * 手动长截图：用户自己滚动，主进程只负责定时采帧、稳定帧检测和拼接。
+   * 用户停稳后才尝试追加；找不到重叠时只提示，不终止会话。
+   */
+  async startManual(
+    options: LongCaptureStartOptions
+  ): Promise<LongCaptureResult | null> {
+    if (this.running) throw new Error('长截图已在运行')
+    if (options.selection.width < 120 || options.selection.height < 120) {
+      throw new Error('长截图选区太小')
+    }
+
+    this.running = true
+    this.paused = false
+    this.cancelled = false
+    this.finishRequested = false
+    this.result = null
+    this.resultFilePath = ''
+    this.progressListener = options.onProgress
+    this.currentProgress = { phase: 'manual', screens: 1, height: 0 }
+
+    const maxHeight = options.maxHeight ?? MAX_HEIGHT
+    const maxPixels = options.maxPixels ?? MAX_PIXELS
+    const maxFrames = options.maxFrames ?? MANUAL_MAX_FRAMES
+    const captureRect =
+      options.captureRect ?? ((rect: Rect) => fastCapture.capture(rect, 2000))
+    const absolute = {
+      x: options.display.bounds.x + options.selection.x,
+      y: options.display.bounds.y + options.selection.y,
+      width: options.selection.width,
+      height: options.selection.height
+    }
+    const physical = screen.dipToScreenRect(null, absolute)
+
+    try {
+      this.setProgress({
+        phase: 'manual',
+        screens: 1,
+        height: 0,
+        message: '请慢慢向下滚动，停一下再继续'
+      })
+      const firstDataUrl = await captureRect(physical)
+      if (!firstDataUrl) throw new Error('无法截取长截图选区')
+      const first = trimCaptureEdgeRow(frameFromDataUrl(firstDataUrl))
+      let previous: FrameImage = first
+      let previousMatch = cropFrameHorizontal(first, MATCH_EDGE_MARGIN)
+      let lastSeenMatch = previousMatch
+      let lastAttempted: FrameImage | null = null
+      let stitcher: LongCaptureStitcher | null = null
+      let headerHeight = 0
+      let screens = 1
+      let limitReached = false
+
+      this.setProgress({
+        phase: 'manual',
+        screens: 1,
+        height: first.height,
+        message: '请慢慢向下滚动，停一下再继续'
+      })
+
+      while (!this.cancelled && !this.finishRequested && screens < maxFrames) {
+        await this.waitForResume()
+        if (this.cancelled || this.finishRequested) break
+        if (this.currentProgress.phase === 'paused') {
+          this.setProgress({
+            phase: 'manual',
+            screens,
+            height: stitcher?.currentHeight ?? first.height,
+            message: '请继续慢慢向下滚动'
+          })
+        }
+        await delay(MANUAL_CAPTURE_MS)
+        if (this.cancelled || this.finishRequested) break
+        if (this.paused) continue
+
+        const dataUrl = await captureRect(physical)
+        if (!dataUrl) throw new Error('截取长截图帧失败')
+        const current = trimCaptureEdgeRow(frameFromDataUrl(dataUrl))
+        const currentMatch = cropFrameHorizontal(current, MATCH_EDGE_MARGIN)
+
+        if (
+          !framesAreSimilar(lastSeenMatch, currentMatch, {
+            stepX: 4,
+            stepY: 2
+          })
+        ) {
+          lastSeenMatch = currentMatch
+          continue
+        }
+
+        if (
+          framesAreSimilar(previousMatch, currentMatch, {
+            stepX: 4,
+            stepY: 2
+          }) ||
+          (lastAttempted &&
+            framesAreSimilar(lastAttempted, currentMatch, {
+              stepX: 4,
+              stepY: 2
+            }))
+        ) {
+          continue
+        }
+
+        const match = findOverlap(
+          previousMatch,
+          currentMatch,
+          stitcher ? headerHeight : undefined,
+          undefined,
+          !stitcher
+        )
+        lastAttempted = currentMatch
+        if (!match || match.offset < 8) {
+          this.setProgress({
+            phase: 'manual',
+            screens,
+            height: stitcher?.currentHeight ?? first.height,
+            message: '滚动太快，请慢一点或回滚到重叠位置'
+          })
+          continue
+        }
+
+        if (!stitcher) {
+          headerHeight = match.headerHeight
+          stitcher = new LongCaptureStitcher({ maxHeight, maxPixels })
+          stitcher.initialize(previous, headerHeight)
+        }
+        const appended = stitcher.append(current, {
+          ...match,
+          headerHeight
+        })
+        if (appended.appended === 0) {
+          limitReached = true
+          break
+        }
+        if (appended.truncated) limitReached = true
+        previous = current
+        previousMatch = currentMatch
+        lastSeenMatch = currentMatch
+        screens += 1
+        this.setProgress({
+          phase: 'manual',
+          screens,
+          height: stitcher.currentHeight,
+          message: limitReached
+            ? '已达到长截图上限'
+            : `已截取 ${screens} 屏 · 继续慢慢向下滚动`
+        })
+        logDiagnostic(
+          'long-capture',
+          `manual frame ${screens} offset=${match.offset} confidence=${match.confidence.toFixed(3)} header=${headerHeight}`
+        )
+        if (limitReached) break
+      }
+
+      if (this.cancelled) {
+        this.cleanupResultFile()
+        this.setProgress({
+          phase: 'cancelled',
+          screens: 0,
+          height: 0,
+          message: '长截图已取消'
+        })
+        return null
+      }
+
+      if (!stitcher) {
+        stitcher = new LongCaptureStitcher({ maxHeight, maxPixels })
+        stitcher.initialize(first, 0)
+      }
+      return await this.publishResult(
+        stitcher,
+        screens,
+        limitReached
+          ? '已达到长截图上限，已保留当前结果'
+          : '手动长截图已完成',
+        options.onComplete
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logDiagnostic('long-capture', `manual failed: ${message}`, 'error')
+      this.setProgress({
+        phase: 'error',
+        screens: this.currentProgress.screens,
+        height: this.currentProgress.height,
+        error: message,
+        message
+      })
+      try {
+        options.onError?.(message)
+      } catch {
+        // 错误回调异常不应覆盖原始错误
+      }
+      return null
+    } finally {
       this.running = false
       this.paused = false
       this.finishRequested = false
