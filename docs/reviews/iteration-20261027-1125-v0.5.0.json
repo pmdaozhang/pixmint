@@ -1,6 +1,6 @@
 {
   "version": "0.5.0",
-  "date": "2026-10-27T12:30:00+08:00",
+  "date": "2026-10-27T12:45:00+08:00",
   "commit": "0958e70",
   "level": "full",
   "conclusion": "conditional",
@@ -181,9 +181,14 @@
         "name": "update_check",
         "status": "not_run",
         "reason": "更新检查未单独重跑"
+      },
+      {
+        "name": "github_release",
+        "status": "not_run",
+        "reason": "git push 到 GitHub 连接重置/超时，SSH 无可用密钥；本地安装包和门禁已完成"
       }
     ]
   },
   "exception": null,
-  "notes": "P7 长截图核心链路、1px 接缝修复、专用 E2E、Edge/记事本真实应用、20k px 性能、保存/上限/不可滚动、深色图片代码块和既有功能回归均通过，本地 0.5.0 安装包已生成。VS Code 因现有会话阻塞、UAC/受保护窗口和网络懒加载未验证；DPI/多显示器按用户要求不测，因此结论为 conditional；GitHub Release 尚未发布。"
+  "notes": "P7 长截图核心链路、1px 接缝修复、专用 E2E、Edge/记事本真实应用、20k px 性能、保存/上限/不可滚动、深色图片代码块和既有功能回归均通过，本地 0.5.0 安装包已生成。VS Code 因现有会话阻塞、UAC/受保护窗口和网络懒加载未验证；DPI/多显示器按用户要求不测，因此结论为 conditional。GitHub Release 因 git push 连接重置/超时且无 SSH 密钥未完成。"
 }

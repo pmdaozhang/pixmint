@@ -150,7 +150,7 @@
 
 - [x] 打包 `Pixmint-Setup-0.5.0.exe`（119,467,109 字节）
 - [x] 验证 `latest.yml`、`.blockmap`（版本 0.5.0，文件名一致）
-- [ ] GitHub Release `v0.5.0`
+- [ ] GitHub Release `v0.5.0`（HTTPS push 连接重置/超时，SSH 无密钥）
 - [ ] 0.4.1 → 0.5.0 应用内更新
 
 ## 文件清单
