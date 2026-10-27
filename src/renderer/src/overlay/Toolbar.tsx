@@ -427,12 +427,9 @@ export function Toolbar({
             </button>
             <button
               className="tb"
-              title="手动长截图（推荐）"
-              onClick={() => onAction('longManual')}
+              title="长截图（自动滚动）"
+              onClick={() => onAction('long')}
             >
-              <Icon name="longManual" />
-            </button>
-            <button className="tb" title="自动长截图" onClick={() => onAction('long')}>
               <Icon name="long" />
             </button>
             <span className="div" />

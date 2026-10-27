@@ -111,6 +111,7 @@ export interface SnapglassApi {
     finish(): void
     cancel(): void
     manual(): void
+    retry(): void
     undo(): void
     onProgress(callback: (progress: LongCaptureProgress) => void): () => void
     previewInfo(): Promise<LongCapturePreviewInfo | null>

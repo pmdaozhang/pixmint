@@ -61,6 +61,7 @@ export class SidecarClient {
         env: config.env
       })
       child.stdout.setEncoding('utf8')
+      child.stderr.setEncoding('utf8')
       child.stdout.on('data', (chunk: string) => this.onData(chunk))
       child.stderr.on('data', (chunk: string) => {
         this.log(`stderr: ${chunk.trim().slice(0, 500)}`)

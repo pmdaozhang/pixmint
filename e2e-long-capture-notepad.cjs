@@ -90,6 +90,36 @@ $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
   }
 }
 
+function focusNotepadWindow() {
+  const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class PixmintFocusNotepad {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+}
+"@
+$p = Get-Process notepad -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like '*pixmint-long-notepad*' } | Select-Object -First 1
+if ($p) {
+  $hwnd = $p.MainWindowHandle
+  [PixmintFocusNotepad]::ShowWindow($hwnd, 9) | Out-Null
+  [PixmintFocusNotepad]::SetWindowPos($hwnd, [IntPtr](-1), 0, 0, 0, 0, 0x0003) | Out-Null
+  [PixmintFocusNotepad]::SetForegroundWindow($hwnd) | Out-Null
+  [PixmintFocusNotepad]::SetWindowPos($hwnd, [IntPtr](-2), 0, 0, 0, 0, 0x0003) | Out-Null
+  Start-Sleep -Milliseconds 300
+}
+`
+  try {
+    execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {
+      encoding: 'utf8'
+    })
+  } catch (error) {
+    console.log('NOTEPAD_FOCUS_ERROR', error.message)
+  }
+}
+
 function killTree(process) {
   if (!process || process.killed) return
   spawn('taskkill', ['/PID', String(process.pid), '/T', '/F'], {
@@ -123,7 +153,10 @@ function killTree(process) {
 
     const overlay = await showOverlay(app)
     await selectRegion(overlay)
-    await overlay.locator('.tb[title="长截图"]').click()
+    await overlay.locator('.tb[title^="长截图"]').click()
+    await sleep(120)
+    focusNotepadWindow()
+    await sleep(250)
     const hud = await waitForWindow(app, '.hud-card', 15000)
     await hud.waitForSelector('.hud-card', { timeout: 5000 })
     const preview = await waitForWindow(app, '.long-preview-root', 40000)

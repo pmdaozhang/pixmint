@@ -96,15 +96,23 @@ export function LongCaptureHudApp(): JSX.Element {
                   回退一屏
                 </button>
               ) : (
-                <button
-                  className="hud-btn"
-                  onClick={() => {
-                    if (paused) window.snapglass.longCapture.resume()
-                    else window.snapglass.longCapture.pause()
-                  }}
-                >
-                  {paused ? '继续' : '暂停'}
-                </button>
+                <>
+                  <button
+                    className="hud-btn"
+                    onClick={() => {
+                      if (paused) window.snapglass.longCapture.resume()
+                      else window.snapglass.longCapture.pause()
+                    }}
+                  >
+                    {paused ? '继续' : '暂停'}
+                  </button>
+                  <button
+                    className="hud-btn"
+                    onClick={() => window.snapglass.longCapture.undo()}
+                  >
+                    回退一屏
+                  </button>
+                </>
               )}
               <button
                 className="hud-btn primary"
@@ -117,9 +125,9 @@ export function LongCaptureHudApp(): JSX.Element {
           {error && (
             <button
               className="hud-btn primary"
-              onClick={() => window.snapglass.longCapture.manual()}
+              onClick={() => window.snapglass.longCapture.retry()}
             >
-              改手动滚动
+              重试
             </button>
           )}
           <button

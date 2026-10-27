@@ -6,6 +6,7 @@ import type {
 import { notify } from './image-utils'
 import { LongCaptureManager } from './long-capture'
 import { LongCaptureHud } from './windows/long-capture-hud'
+import { LongCaptureBorder } from './windows/long-capture-border'
 import {
   closeLongCapturePreview,
   createLongCapturePreview
@@ -17,15 +18,18 @@ import {
  */
 export class LongCaptureController {
   private readonly hud: LongCaptureHud
+  private readonly border: LongCaptureBorder
   private lastPayload: OverlayCompletePayload | null = null
 
   constructor(
     private readonly preloadPath: string,
     private readonly manager: LongCaptureManager
   ) {
+    this.border = new LongCaptureBorder(preloadPath)
     this.hud = new LongCaptureHud(preloadPath, () => {
       // 用户关闭 HUD 等同于取消本次长截图；已完成时 cancel 是幂等的。
       this.manager.cancel()
+      this.border.hide()
     })
   }
 
@@ -36,6 +40,7 @@ export class LongCaptureController {
       screen.getPrimaryDisplay()
     this.hud.show(display, payload.selection)
     this.hud.send(this.manager.getProgress())
+    this.border.show(display, payload.selection, 'auto')
     try {
       await this.manager.start({
         display,
@@ -43,6 +48,7 @@ export class LongCaptureController {
         ...this.callbacks()
       })
     } catch (error) {
+      this.border.hide()
       this.hud.hide()
       const message = error instanceof Error ? error.message : String(error)
       notify(`长截图失败：${message}`)
@@ -61,6 +67,7 @@ export class LongCaptureController {
       screen.getPrimaryDisplay()
     this.hud.show(display, payload.selection)
     this.hud.send(this.manager.getProgress())
+    this.border.show(display, payload.selection, 'manual')
     try {
       await this.manager.startManual({
         display,
@@ -68,6 +75,7 @@ export class LongCaptureController {
         ...this.callbacks()
       })
     } catch (error) {
+      this.border.hide()
       this.hud.hide()
       const message = error instanceof Error ? error.message : String(error)
       notify(`手动长截图失败：${message}`)
@@ -80,6 +88,12 @@ export class LongCaptureController {
     void this.startManual(payload)
   }
 
+  retry(): void {
+    const payload = this.lastPayload
+    if (!payload) return
+    void this.start(payload)
+  }
+
   private callbacks(): {
     onProgress: (progress: ReturnType<LongCaptureManager['getProgress']>) => void
     onComplete: () => void
@@ -87,6 +101,7 @@ export class LongCaptureController {
     return {
       onProgress: (progress) => this.hud.send(progress),
       onComplete: () => {
+        this.border.hide()
         this.hud.hide()
         createLongCapturePreview(this.preloadPath, () => {
           this.manager.deleteResult()
@@ -116,6 +131,7 @@ export class LongCaptureController {
   cancel(): void {
     this.manager.cancel()
     this.hud.hide()
+    this.border.hide()
   }
 
   previewInfo(): LongCapturePreviewInfo | null {
@@ -138,6 +154,7 @@ export class LongCaptureController {
   dispose(): void {
     this.manager.cancel()
     this.hud.dispose()
+    this.border.dispose()
     closeLongCapturePreview()
     this.manager.deleteResult()
     this.manager.dispose()

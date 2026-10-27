@@ -43,6 +43,7 @@ const MANUAL_MAX_FRAMES = 600
 const MANUAL_CAPTURE_TIMEOUT_MS = 2000
 const MANUAL_FIRST_FRAME_TIMEOUT_MS = 5000
 const MANUAL_CAPTURE_FAILURE_LIMIT = 3
+const MANUAL_COUNTDOWN_MS = 3000
 
 export interface LongCaptureStartOptions {
   display: Electron.Display
@@ -55,6 +56,7 @@ export interface LongCaptureStartOptions {
   maxHeight?: number
   maxPixels?: number
   maxFrames?: number
+  countdownMs?: number
   captureRect?: CaptureRectFn
 }
 
@@ -371,6 +373,10 @@ export class LongCaptureManager {
 
       const target = await this.driver.findTarget(centerX, centerY)
       if (!target) throw new Error('没有找到可滚动窗口，请确认选区落在窗口内容上')
+      logDiagnostic(
+        'long-capture',
+        `auto target hwnd=${target.hwnd} class=${target.className} title=${target.title}`
+      )
       options.onTarget?.(target)
 
       const firstDataUrl = await captureRect(physical)
@@ -442,6 +448,10 @@ export class LongCaptureManager {
             -wheelDelta
           )
           if (!scroll.ok) throw new Error(mapScrollError(scroll.error))
+          logDiagnostic(
+            'long-capture',
+            `auto scroll delta=${-wheelDelta} ok=${scroll.ok} error=${scroll.error ?? ''}`
+          )
           appliedScrollSteps = wheelDelta
         }
 
@@ -704,7 +714,7 @@ export class LongCaptureManager {
       }
 
     if (overlapLost && stitcher) {
-      const message = '自动滚动没有接上，请改手动滚动；已保留当前内容'
+      const message = '自动滚动没有接上，请调整选区或重试'
       this.setProgress({
         phase: 'error',
         screens,
@@ -807,6 +817,20 @@ export class LongCaptureManager {
     const physical = screen.dipToScreenRect(null, absolute)
 
     try {
+      if (
+        !(await this.waitManualCountdown(
+          options.countdownMs ?? MANUAL_COUNTDOWN_MS
+        ))
+      ) {
+        this.setProgress({
+          phase: 'cancelled',
+          screens: 0,
+          height: 0,
+          message: '长截图已取消'
+        })
+        return null
+      }
+
       const firstRaw = await this.manualSource.capture(
         physical,
         MANUAL_FIRST_FRAME_TIMEOUT_MS
@@ -815,6 +839,7 @@ export class LongCaptureManager {
         throw new Error('无法截取长截图选区；请确认桌面未锁定')
       }
       const first = trimCaptureEdgeRow(firstRaw)
+      const firstFrameAt = Date.now()
       let previous: FrameImage = first
       let previousMatch = cropFrameHorizontal(first, MATCH_EDGE_MARGIN)
       let stitcher: LongCaptureStitcher | null = null
@@ -906,12 +931,21 @@ export class LongCaptureManager {
             stepY: 2
           })
         ) {
-          report({
-            phase: this.manualPhase === 'gap' ? 'gap' : 'manual',
-            screens,
-            height: currentHeight(),
-            message: this.manualPhase === 'gap' ? gapMessage : idleMessage
-          })
+          if (this.manualPhase === 'gap') {
+            report({
+              phase: 'gap',
+              screens,
+              height: currentHeight(),
+              message: gapMessage
+            })
+          } else if (!stitcher && Date.now() - firstFrameAt > 1200) {
+            report({
+              phase: 'manual',
+              screens,
+              height: currentHeight(),
+              message: idleMessage
+            })
+          }
           const wait = MANUAL_CAPTURE_MS - (Date.now() - frameStarted)
           if (wait > 0) await delay(wait)
           continue
@@ -1056,6 +1090,35 @@ export class LongCaptureManager {
     await new Promise<void>((resolve) => {
       this.resumeWaiters.push(resolve)
     })
+  }
+
+  /**
+   * 背景：用户点完手动长截图后，需要时间把鼠标移到选区内，不能立刻开拍。
+   * 设计意图：3 秒倒计时内持续更新 HUD；暂停期间保持倒计时位置，取消/完成立即退出。
+   * 关键约束：倒计时不是采集阶段，screens/height 保持 0，避免 HUD 显示虚假进度。
+   */
+  private async waitManualCountdown(ms: number): Promise<boolean> {
+    if (ms <= 0) return true
+    const end = Date.now() + ms
+    let lastSecond = -1
+    while (Date.now() < end) {
+      if (this.cancelled || this.finishRequested) return false
+      await this.waitForResume()
+      if (this.cancelled || this.finishRequested) return false
+      const remaining = Math.max(0, end - Date.now())
+      const second = Math.max(1, Math.ceil(remaining / 1000))
+      if (second !== lastSecond) {
+        lastSecond = second
+        this.setProgress({
+          phase: 'preparing',
+          screens: 0,
+          height: 0,
+          message: `${second} 秒后开始，请把鼠标放到选区内`
+        })
+      }
+      await delay(Math.min(250, remaining))
+    }
+    return true
   }
 
   /**

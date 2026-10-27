@@ -1,0 +1,2255 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · 窗口长截图交互 Demo</title>
+    <style>
+      :root {
+        --radius-sm: 6px;
+        --radius-md: 9px;
+        --radius-lg: 12px;
+        --radius-xl: 18px;
+        --radius-full: 999px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Segoe UI", sans-serif;
+        --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+
+      [data-theme="dark"] {
+        --page: #08090b;
+        --page-glow: rgba(58, 131, 247, 0.13);
+        --bg: #0d0d0e;
+        --bg-2: #151516;
+        --bg-3: #1e1e20;
+        --bg-4: #28282b;
+        --text: #f7f7f8;
+        --text-2: #a6a6ad;
+        --text-3: #73737b;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --accent: #3a83f7;
+        --accent-action: #2a6fd1;
+        --accent-soft: #12233a;
+        --success: #30d158;
+        --success-soft: #102515;
+        --warning: #ffd60a;
+        --warning-soft: #2a2410;
+        --danger: #ff453a;
+        --danger-soft: #2a1213;
+        --shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+        --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.35);
+        --dim: rgba(0, 0, 0, 0.58);
+        --desktop:
+          radial-gradient(620px 360px at 16% 22%, rgba(255, 92, 165, 0.28), transparent 65%),
+          radial-gradient(540px 360px at 78% 18%, rgba(74, 144, 255, 0.32), transparent 62%),
+          radial-gradient(640px 420px at 54% 92%, rgba(126, 82, 255, 0.2), transparent 65%),
+          #12131a;
+        --grid: rgba(255, 255, 255, 0.03);
+        --preview-bg: #101012;
+      }
+
+      [data-theme="light"] {
+        --page: #eef1f5;
+        --page-glow: rgba(2, 133, 255, 0.1);
+        --bg: #f9f9f9;
+        --bg-2: #ffffff;
+        --bg-3: #ededed;
+        --bg-4: #e2e2e2;
+        --text: #0d0d0d;
+        --text-2: #5d5d5d;
+        --text-3: #8f8f8f;
+        --border: rgba(0, 0, 0, 0.1);
+        --border-strong: rgba(0, 0, 0, 0.18);
+        --accent: #0285ff;
+        --accent-action: #0066cc;
+        --accent-soft: #e5f3ff;
+        --success: #248a3d;
+        --success-soft: #e6f4ea;
+        --warning: #8a5a00;
+        --warning-soft: #fff4d6;
+        --danger: #d70015;
+        --danger-soft: #fdecec;
+        --shadow: 0 24px 64px rgba(20, 30, 50, 0.18);
+        --shadow-sm: 0 2px 12px rgba(20, 30, 50, 0.08);
+        --dim: rgba(0, 0, 0, 0.42);
+        --desktop:
+          radial-gradient(620px 360px at 16% 22%, rgba(255, 92, 165, 0.22), transparent 65%),
+          radial-gradient(540px 360px at 78% 18%, rgba(74, 144, 255, 0.24), transparent 62%),
+          radial-gradient(640px 420px at 54% 92%, rgba(126, 82, 255, 0.16), transparent 65%),
+          #d9deea;
+        --grid: rgba(0, 0, 0, 0.035);
+        --preview-bg: #e6e7ea;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        padding: 30px 18px 48px;
+        display: flex;
+        justify-content: center;
+        background:
+          radial-gradient(760px 440px at 50% -8%, var(--page-glow), transparent 64%),
+          radial-gradient(
+            620px 360px at 86% 22%,
+            color-mix(in srgb, var(--text) 4%, transparent),
+            transparent 70%
+          ),
+          var(--page);
+        color: var(--text);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        border: 0;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .demo-shell {
+        width: min(1240px, 100%);
+      }
+
+      .demo-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 28px;
+        margin: 0 auto 18px;
+      }
+
+      .demo-kicker {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 9px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .demo-kicker::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+
+      .demo-head h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.12;
+        font-weight: 650;
+        letter-spacing: -0.03em;
+      }
+
+      .demo-head p {
+        max-width: 650px;
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 12.5px;
+        line-height: 1.65;
+      }
+
+      .demo-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .demo-seg {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-2);
+      }
+
+      .demo-seg button {
+        height: 26px;
+        padding: 0 9px;
+        border-radius: 6px;
+        color: var(--text-2);
+        font-size: 11.5px;
+      }
+
+      .demo-seg button.on {
+        background: var(--bg-3);
+        color: var(--text);
+      }
+
+      .stage {
+        position: relative;
+        height: 620px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--desktop);
+        box-shadow: var(--shadow);
+        isolation: isolate;
+      }
+
+      .stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 32px 32px, 32px 32px;
+        opacity: 0.7;
+      }
+
+      .mock-window {
+        position: absolute;
+        z-index: 1;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        border-radius: 14px;
+        background: #1b1c21;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+      }
+
+      .mock-window.chrome {
+        left: 62px;
+        top: 48px;
+        z-index: 2;
+        width: 760px;
+        height: 500px;
+        background: #f7f8fb;
+        color: #111827;
+      }
+
+      .mock-window.vscode {
+        left: 846px;
+        top: 150px;
+        width: 300px;
+        height: 360px;
+        background: #181a20;
+        color: #d7dce5;
+      }
+
+      .mock-window.notes {
+        left: 530px;
+        top: 90px;
+        width: 280px;
+        height: 190px;
+        background: #f7f0d8;
+        color: #4a3d22;
+        transform: rotate(-1.5deg);
+      }
+
+      .mock-window.status {
+        left: 900px;
+        top: 440px;
+        width: 220px;
+        height: 128px;
+        background: #0f1014;
+        color: #8d94a3;
+      }
+
+      .window-bar {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 12px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+        background: #eceff5;
+        font-size: 10.5px;
+      }
+
+      .mock-window.vscode .window-bar,
+      .mock-window.status .window-bar {
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+        background: #20232a;
+        color: #aeb6c4;
+      }
+
+      .mock-window.notes .window-bar {
+        border-bottom-color: rgba(90, 71, 26, 0.14);
+        background: #efe3bd;
+        color: #5f4c24;
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 5px;
+      }
+
+      .window-dots i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #9aa3b3;
+        opacity: 0.65;
+      }
+
+      .window-bar strong {
+        font-weight: 600;
+      }
+
+      .window-bar span {
+        color: inherit;
+        opacity: 0.62;
+      }
+
+      .chrome-tab {
+        margin-left: 10px;
+        padding: 4px 10px;
+        border-radius: 6px 6px 0 0;
+        background: #f7f8fb;
+        color: #334155;
+        font-size: 10px;
+      }
+
+      .chrome-content,
+      .vscode-content,
+      .notes-content,
+      .status-content {
+        position: relative;
+        height: calc(100% - 38px);
+        overflow: hidden;
+      }
+
+      .chrome-content {
+        background: #f7f8fb;
+      }
+
+      .vscode-content {
+        background: #181a20;
+      }
+
+      .notes-content {
+        background: #f7f0d8;
+        padding: 14px 16px;
+      }
+
+      .status-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f1014;
+        color: #73798a;
+        font: 10px/1.5 var(--mono);
+        text-align: center;
+      }
+
+      .page-fixed {
+        position: absolute;
+        z-index: 3;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 24px;
+        border-bottom: 1px solid #dbe2ec;
+        background: rgba(255, 255, 255, 0.92);
+        color: #46536a;
+        font-size: 10.5px;
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+      }
+
+      .page-fixed strong {
+        color: #172033;
+        font-weight: 650;
+      }
+
+      .page-fixed .fixed-badge {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: #e7efff;
+        color: #2365d8;
+        font: 9px/1 var(--mono);
+      }
+
+      .page-track {
+        position: absolute;
+        top: 38px;
+        left: 0;
+        right: 0;
+        padding: 24px 30px 44px;
+        transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+        will-change: transform;
+      }
+
+      .vscode-track {
+        top: 0;
+        padding: 18px 18px 40px;
+        color: #cfd6e2;
+        font: 9px/1.75 var(--mono);
+      }
+
+      .vscode-track .code-line {
+        display: flex;
+        gap: 10px;
+        white-space: pre;
+      }
+
+      .vscode-track .code-line span:first-child {
+        width: 18px;
+        color: #596171;
+        text-align: right;
+      }
+
+      .notes-content p {
+        margin: 0 0 8px;
+        font-size: 10.5px;
+        line-height: 1.7;
+      }
+
+      .notes-content h3 {
+        margin: 0 0 8px;
+        font-size: 13px;
+      }
+
+      .doc-section {
+        padding: 16px 0 20px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .doc-section:last-child {
+        border-bottom: 0;
+      }
+
+      .doc-kicker {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 7px;
+        color: #2563eb;
+        font: 600 8.5px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .doc-kicker::before {
+        content: "";
+        width: 12px;
+        height: 1px;
+        background: currentColor;
+      }
+
+      .doc-section h3 {
+        margin: 0 0 7px;
+        color: #111827;
+        font-size: 16px;
+        line-height: 1.35;
+        letter-spacing: -0.015em;
+      }
+
+      .doc-section p {
+        margin: 0 0 8px;
+        color: #4b5563;
+        font-size: 10.5px;
+        line-height: 1.75;
+      }
+
+      .doc-code {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        background: #f1f4f8;
+        color: #475569;
+        font: 9px/1.7 var(--mono);
+      }
+
+      .doc-media {
+        height: 54px;
+        margin-top: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        background:
+          linear-gradient(135deg, rgba(58, 131, 247, 0.2), transparent 55%),
+          linear-gradient(-45deg, rgba(48, 209, 88, 0.15), transparent 58%),
+          #eef2f7;
+      }
+
+      .selection {
+        position: absolute;
+        z-index: 10;
+        border: 2px solid var(--accent);
+        border-radius: 4px;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.6),
+          0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent),
+          0 0 0 9999px var(--dim);
+        pointer-events: none;
+      }
+
+      .selection-label {
+        position: absolute;
+        left: 0;
+        top: -27px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: var(--radius-full);
+        background: rgba(13, 13, 14, 0.94);
+        color: #fff;
+        font: 9.5px/1 var(--mono);
+        white-space: nowrap;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      }
+
+      .selection-label .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .handle {
+        position: absolute;
+        z-index: 3;
+        width: 9px;
+        height: 9px;
+        border: 1.5px solid var(--accent);
+        border-radius: 2px;
+        background: #fff;
+        pointer-events: auto;
+      }
+
+      .handle[data-dir="nw"] { left: -5px; top: -5px; cursor: nwse-resize; }
+      .handle[data-dir="n"] { left: 50%; top: -5px; transform: translateX(-50%); cursor: ns-resize; }
+      .handle[data-dir="ne"] { right: -5px; top: -5px; cursor: nesw-resize; }
+      .handle[data-dir="e"] { right: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+      .handle[data-dir="se"] { right: -5px; bottom: -5px; cursor: nwse-resize; }
+      .handle[data-dir="s"] { left: 50%; bottom: -5px; transform: translateX(-50%); cursor: ns-resize; }
+      .handle[data-dir="sw"] { left: -5px; bottom: -5px; cursor: nesw-resize; }
+      .handle[data-dir="w"] { left: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+
+      .capture-frame {
+        position: absolute;
+        z-index: 11;
+        border: 2px solid var(--accent);
+        border-radius: 4px;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+      }
+
+      .capture-label {
+        position: absolute;
+        left: 0;
+        top: -25px;
+        padding: 4px 8px;
+        border-radius: var(--radius-full);
+        background: rgba(13, 13, 14, 0.94);
+        color: #fff;
+        font: 9.5px/1 var(--mono);
+        white-space: nowrap;
+      }
+
+      .dock {
+        position: absolute;
+        z-index: 20;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px;
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--bg-2) 94%, transparent);
+        box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        backdrop-filter: blur(18px) saturate(1.25);
+      }
+
+      .dock-btn {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        color: var(--text-2);
+      }
+
+      .dock-btn:hover {
+        background: var(--bg-3);
+        color: var(--text);
+      }
+
+      .dock-btn.on {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .dock-divider {
+        width: 1px;
+        height: 20px;
+        margin: 0 3px;
+        background: var(--border);
+      }
+
+      .long-btn {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .long-btn:hover {
+        background: var(--accent-action);
+      }
+
+      .long-btn.on {
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+      }
+
+      .picker {
+        position: absolute;
+        z-index: 30;
+        right: 180px;
+        bottom: 68px;
+        width: 330px;
+        max-height: 350px;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: color-mix(in srgb, var(--bg-2) 97%, transparent);
+        box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(22px) saturate(1.3);
+        backdrop-filter: blur(22px) saturate(1.3);
+      }
+
+      .picker-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 3px 4px 8px;
+      }
+
+      .picker-head strong {
+        font-size: 11.5px;
+      }
+
+      .picker-head span {
+        color: var(--text-3);
+        font: 9px/1 var(--mono);
+      }
+
+      .picker-group {
+        margin-top: 7px;
+      }
+
+      .picker-group-title {
+        padding: 5px 5px 4px;
+        color: var(--text-3);
+        font: 600 9px/1 var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .picker-row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 6px;
+        border-radius: var(--radius-md);
+        text-align: left;
+      }
+
+      .picker-row:hover {
+        background: var(--bg-3);
+      }
+
+      .picker-row:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+
+      .thumb {
+        width: 54px;
+        height: 34px;
+        flex: none;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        background: var(--bg-4);
+      }
+
+      .thumb.screen {
+        background:
+          radial-gradient(circle at 30% 30%, #ff5aa5, transparent 38%),
+          radial-gradient(circle at 72% 42%, #3a83f7, transparent 42%),
+          linear-gradient(140deg, #f5a14b, #6d58ff 58%, #10131b);
+      }
+
+      .thumb.chrome {
+        background:
+          linear-gradient(#e9edf4 0 30%, transparent 30%),
+          repeating-linear-gradient(#f8fafc 0 5px, #e8edf4 5px 6px);
+      }
+
+      .thumb.vscode {
+        background:
+          linear-gradient(90deg, #1f2430 0 24%, transparent 24%),
+          repeating-linear-gradient(#181a20 0 6px, #222632 6px 7px);
+      }
+
+      .thumb.notes {
+        background:
+          linear-gradient(#efe3bd 0 30%, transparent 30%),
+          repeating-linear-gradient(#f7f0d8 0 5px, #e6d8ac 5px 6px);
+      }
+
+      .thumb.status {
+        background:
+          radial-gradient(circle at 50% 45%, rgba(58, 131, 247, 0.3), transparent 42%),
+          #0f1014;
+      }
+
+      .picker-meta {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .picker-meta strong {
+        display: block;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 550;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .picker-meta span {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-3);
+        font: 9px/1 var(--mono);
+      }
+
+      .picker-badge {
+        margin-left: auto;
+        padding: 3px 6px;
+        border-radius: var(--radius-full);
+        background: var(--bg-3);
+        color: var(--text-3);
+        font: 8.5px/1 var(--mono);
+      }
+
+      .picker-row.active {
+        background: var(--accent-soft);
+      }
+
+      .picker-row.active .picker-meta strong {
+        color: var(--accent);
+      }
+
+      .confirm-bar {
+        position: absolute;
+        z-index: 25;
+        top: 48px;
+        right: 28px;
+        width: 300px;
+        padding: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: color-mix(in srgb, var(--bg-2) 96%, transparent);
+        box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        backdrop-filter: blur(18px) saturate(1.25);
+      }
+
+      .confirm-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .confirm-head strong {
+        font-size: 11.5px;
+      }
+
+      .confirm-pill {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: var(--accent-soft);
+        color: var(--accent);
+        font: 9px/1 var(--mono);
+      }
+
+      .confirm-meta {
+        margin-top: 6px;
+        color: var(--text-2);
+        font: 9.5px/1.45 var(--mono);
+      }
+
+      .confirm-hint {
+        margin-top: 4px;
+        color: var(--text-3);
+        font-size: 9.5px;
+        line-height: 1.45;
+      }
+
+      .confirm-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        height: 29px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 10.5px;
+      }
+
+      .btn:hover {
+        border-color: var(--border-strong);
+      }
+
+      .btn.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .btn.ghost {
+        background: transparent;
+        color: var(--text-2);
+      }
+
+      .hud {
+        position: absolute;
+        z-index: 30;
+        top: 28px;
+        right: 28px;
+        width: 286px;
+      }
+
+      .hud-card {
+        padding: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: color-mix(in srgb, var(--bg-2) 95%, transparent);
+        box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        backdrop-filter: blur(18px) saturate(1.25);
+      }
+
+      .hud-card[data-tone="warning"] {
+        border-color: color-mix(in srgb, var(--warning) 46%, var(--border));
+      }
+
+      .hud-card[data-tone="error"] {
+        border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+      }
+
+      .hud-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .hud-icon {
+        color: var(--accent);
+      }
+
+      .hud-head strong {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .hud-pill {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 9px;
+        font-weight: 600;
+      }
+
+      .hud-card[data-tone="paused"] .hud-pill {
+        background: var(--bg-3);
+        color: var(--text-2);
+      }
+
+      .hud-card[data-tone="warning"] .hud-pill {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-pill {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .hud-meta {
+        margin-top: 6px;
+        color: var(--text-2);
+        font: 9.5px/1.35 var(--mono);
+      }
+
+      .hud-message {
+        min-height: 30px;
+        margin-top: 3px;
+        color: var(--text-3);
+        font-size: 10.5px;
+        line-height: 1.45;
+      }
+
+      .hud-card[data-tone="warning"] .hud-message {
+        color: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-message {
+        color: var(--danger);
+      }
+
+      .hud-track {
+        height: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+        border-radius: var(--radius-full);
+        background: var(--bg-3);
+      }
+
+      .hud-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+        transition: width 0.25s ease;
+      }
+
+      .hud-card[data-tone="warning"] .hud-fill,
+      .hud-card[data-tone="error"] .hud-fill {
+        width: 100%;
+        background: var(--warning);
+      }
+
+      .hud-card[data-tone="error"] .hud-fill {
+        background: var(--danger);
+      }
+
+      .hud-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 8px;
+      }
+
+      .hud-btn {
+        height: 27px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-3);
+        color: var(--text);
+        font-size: 10px;
+      }
+
+      .hud-btn.primary {
+        margin-left: auto;
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .hud-btn.primary + .hud-btn {
+        margin-left: 0;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .control-label {
+        margin-right: 2px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .state-strip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .state-chip {
+        height: 25px;
+        padding: 0 9px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        color: var(--text-2);
+        font-size: 10.5px;
+      }
+
+      .state-chip[aria-pressed="true"] {
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .note {
+        padding: 13px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-2);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .note-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 5px;
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+
+      .note-head svg {
+        color: var(--accent);
+      }
+
+      .note p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      .demo-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 16px;
+        color: var(--text-3);
+        font: 9.5px/1.5 var(--mono);
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 80;
+        left: 50%;
+        bottom: 26px;
+        transform: translate(-50%, 12px);
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 11px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.16s ease, transform 0.16s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .preview-backdrop {
+        position: fixed;
+        z-index: 50;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.62);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+      }
+
+      .preview-card {
+        width: min(940px, calc(100vw - 48px));
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: var(--bg-2);
+        box-shadow: var(--shadow);
+      }
+
+      .preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 15px 17px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .preview-kicker {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text-3);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .preview-head h2 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: -0.02em;
+      }
+
+      .preview-meta {
+        margin: 4px 0 0;
+        color: var(--text-2);
+        font: 10px/1.4 var(--mono);
+      }
+
+      .preview-meta .ok {
+        color: var(--success);
+      }
+
+      .preview-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .zoom-label {
+        min-width: 38px;
+        color: var(--text-2);
+        font: 10px/1 var(--mono);
+        text-align: center;
+      }
+
+      .preview-body {
+        overflow: auto;
+        padding: 22px;
+        background:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+          var(--preview-bg);
+        background-size: 24px 24px, 24px 24px, auto;
+      }
+
+      .preview-long {
+        width: 620px;
+        margin: 0 auto;
+        padding: 38px 42px 44px;
+        background: #f7f8fb;
+        color: #111827;
+        box-shadow: 0 22px 54px rgba(0, 0, 0, 0.35);
+        zoom: 0.78;
+      }
+
+      .preview-header-block {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -38px -42px 22px;
+        padding: 12px 42px;
+        border-bottom: 1px solid #dbe2ec;
+        background: #fff;
+        color: #46536a;
+        font-size: 10.5px;
+      }
+
+      .preview-header-block strong {
+        color: #172033;
+        font-weight: 650;
+      }
+
+      .preview-header-block .mark {
+        margin-left: auto;
+        padding: 3px 7px;
+        border-radius: var(--radius-full);
+        background: #e6f4ea;
+        color: #248a3d;
+        font: 9px/1 var(--mono);
+      }
+
+      @media (max-width: 1080px) {
+        .demo-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .demo-actions {
+          justify-content: flex-start;
+        }
+
+        .stage {
+          height: 650px;
+        }
+
+        .mock-window.chrome {
+          left: 30px;
+          width: 700px;
+        }
+
+        .mock-window.vscode {
+          left: 760px;
+        }
+
+        .confirm-bar,
+        .hud {
+          top: auto;
+          right: 18px;
+          bottom: 78px;
+          width: min(300px, calc(100% - 36px));
+        }
+
+        .notes {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        body {
+          padding: 20px 10px 34px;
+        }
+
+        .demo-head h1 {
+          font-size: 24px;
+        }
+
+        .stage {
+          height: 700px;
+        }
+
+        .mock-window.chrome {
+          left: 14px;
+          width: 620px;
+        }
+
+        .mock-window.vscode,
+        .mock-window.notes {
+          display: none;
+        }
+
+        .picker {
+          right: 12px;
+          width: calc(100% - 24px);
+        }
+
+        .demo-foot {
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-shell">
+      <header class="demo-head">
+        <div>
+          <div class="demo-kicker">Pixmint / 窗口长截图</div>
+          <h1>选择窗口，自动滚到底</h1>
+          <p>
+            悬浮工具栏选择窗口 → 默认选中内容区 → 可手动微调 → 工具自动滚动并拼接。
+            用户不需要自己滚，也不需要控制速度。
+          </p>
+        </div>
+        <div class="demo-actions">
+          <div class="demo-seg" id="theme-seg" aria-label="主题">
+            <button class="on" data-theme-choice="dark">深色</button>
+            <button data-theme-choice="light">浅色</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="stage" id="stage" aria-label="窗口长截图交互演示">
+        <div class="mock-window notes" id="window-notes">
+          <div class="window-bar">
+            <span class="window-dots"><i></i><i></i><i></i></span>
+            <strong>记事本</strong>
+            <span>会议记录.txt</span>
+          </div>
+          <div class="notes-content">
+            <h3>会议记录</h3>
+            <p>这是一个短窗口，用来演示“没有可滚动内容”的错误状态。</p>
+            <p>选中它之后仍然可以调整边框，但开始长截图会提示没有可滚动内容。</p>
+          </div>
+        </div>
+
+        <div class="mock-window vscode" id="window-vscode">
+          <div class="window-bar">
+            <span class="window-dots"><i></i><i></i><i></i></span>
+            <strong>VS Code</strong>
+            <span>long-capture.ts</span>
+          </div>
+          <div class="vscode-content" id="vscode-content">
+            <div class="page-track vscode-track" id="vscode-track">
+              <div class="code-line"><span>1</span><span>export class LongCapture {</span></div>
+              <div class="code-line"><span>2</span><span>  async start(windowId: number) {</span></div>
+              <div class="code-line"><span>3</span><span>    await focus(windowId)</span></div>
+              <div class="code-line"><span>4</span><span>    const target = await findScrollable(windowId)</span></div>
+              <div class="code-line"><span>5</span><span>    await captureLoop(target)</span></div>
+              <div class="code-line"><span>6</span><span>  }</span></div>
+              <div class="code-line"><span>7</span><span>}</span></div>
+              <div class="code-line"><span>8</span><span></span></div>
+              <div class="code-line"><span>9</span><span>// auto scroll until no movement</span></div>
+              <div class="code-line"><span>10</span><span>while (scrollable) {</span></div>
+              <div class="code-line"><span>11</span><span>  await scroll(step)</span></div>
+              <div class="code-line"><span>12</span><span>  await captureFrame()</span></div>
+              <div class="code-line"><span>13</span><span>}</span></div>
+              <div class="code-line"><span>14</span><span></span></div>
+              <div class="code-line"><span>15</span><span>const header = await detectHeader()</span></div>
+              <div class="code-line"><span>16</span><span>const footer = await detectFooter()</span></div>
+              <div class="code-line"><span>17</span><span>await stitch.finish()</span></div>
+              <div class="code-line"><span>18</span><span></span></div>
+              <div class="code-line"><span>19</span><span>// bottom: no movement for 3 tries</span></div>
+              <div class="code-line"><span>20</span><span>if (!moved) stop()</span></div>
+              <div class="code-line"><span>21</span><span></span></div>
+              <div class="code-line"><span>22</span><span>/* pause = freeze scroll, not reset */</span></div>
+              <div class="code-line"><span>23</span><span>/* stop = keep result */</span></div>
+              <div class="code-line"><span>24</span><span>/* cancel = discard */</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mock-window status" id="window-status">
+          <div class="window-bar">
+            <span class="window-dots"><i></i><i></i><i></i></span>
+            <strong>Status</strong>
+          </div>
+          <div class="status-content">不可滚动窗口<br />用于错误状态演示</div>
+        </div>
+
+        <div class="mock-window chrome" id="window-chrome">
+          <div class="window-bar">
+            <span class="window-dots"><i></i><i></i><i></i></span>
+            <strong>Chrome</strong>
+            <span>项目文档</span>
+            <span class="chrome-tab">项目文档 / 长页面</span>
+          </div>
+          <div class="chrome-content" id="chrome-content">
+            <div class="page-fixed">
+              <strong>项目文档</strong>
+              <span>固定表头只出现一次</span>
+              <span class="fixed-badge">固定表头</span>
+            </div>
+            <div class="page-track" id="chrome-track"></div>
+          </div>
+        </div>
+
+        <div class="selection" id="selection" hidden>
+          <div class="selection-label">
+            <span class="dot"></span>
+            窗口内容区 · <span id="selection-size">0 × 0</span>
+          </div>
+          <span class="handle" data-dir="nw"></span>
+          <span class="handle" data-dir="n"></span>
+          <span class="handle" data-dir="ne"></span>
+          <span class="handle" data-dir="e"></span>
+          <span class="handle" data-dir="se"></span>
+          <span class="handle" data-dir="s"></span>
+          <span class="handle" data-dir="sw"></span>
+          <span class="handle" data-dir="w"></span>
+        </div>
+
+        <div class="capture-frame" id="capture-frame" hidden>
+          <span class="capture-label" id="capture-label">自动滚动中</span>
+        </div>
+
+        <div class="dock" id="dock">
+          <button class="dock-btn" type="button" title="移动选区">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v5M12 16v5M3 12h5M16 12h5" /><circle cx="12" cy="12" r="2" /></svg>
+          </button>
+          <button class="dock-btn" type="button" title="矩形 / 椭圆">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="2" /></svg>
+          </button>
+          <button class="dock-btn" type="button" title="文字">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14M12 6v12M9 18h6" /></svg>
+          </button>
+          <span class="dock-divider"></span>
+          <button class="dock-btn" type="button" title="复制">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" /></svg>
+          </button>
+          <button class="dock-btn" type="button" title="保存">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h12l2 2v16H5z" /><path d="M8 3v6h8V3M8 21v-7h8v7" /></svg>
+          </button>
+          <button class="dock-btn" type="button" title="钉图">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 7 4 4H6l4-4zM12 14v7" /></svg>
+          </button>
+          <span class="dock-divider"></span>
+          <button
+            class="long-btn"
+            id="long-btn"
+            type="button"
+            title="长截图"
+            aria-label="长截图"
+            aria-expanded="false"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="15" rx="1.6" /><path d="M12 7v6M9 11l3 3 3-3M4 21h16" /></svg>
+          </button>
+        </div>
+
+        <aside class="picker" id="picker" hidden>
+          <div class="picker-head">
+            <strong>选择要长截图的窗口</strong>
+            <span>自动滚动</span>
+          </div>
+          <div class="picker-group">
+            <div class="picker-group-title">屏幕</div>
+            <button class="picker-row" data-target="screen" type="button">
+              <span class="thumb screen"></span>
+              <span class="picker-meta">
+                <strong>Screen 1 (Primary)</strong>
+                <span>屏幕</span>
+              </span>
+              <span class="picker-badge">需单一窗口</span>
+            </button>
+          </div>
+          <div class="picker-group">
+            <div class="picker-group-title">窗口</div>
+            <button class="picker-row" data-target="chrome" type="button">
+              <span class="thumb chrome"></span>
+              <span class="picker-meta">
+                <strong>Chrome - 项目文档</strong>
+                <span>窗口</span>
+              </span>
+            </button>
+            <button class="picker-row" data-target="vscode" type="button">
+              <span class="thumb vscode"></span>
+              <span class="picker-meta">
+                <strong>VS Code - 长截图实现</strong>
+                <span>窗口</span>
+              </span>
+            </button>
+            <button class="picker-row" data-target="notes" type="button">
+              <span class="thumb notes"></span>
+              <span class="picker-meta">
+                <strong>记事本 - 会议记录</strong>
+                <span>窗口</span>
+              </span>
+              <span class="picker-badge">不可滚动</span>
+            </button>
+            <button class="picker-row" data-target="status" type="button">
+              <span class="thumb status"></span>
+              <span class="picker-meta">
+                <strong>Status</strong>
+                <span>窗口</span>
+              </span>
+              <span class="picker-badge">不可滚动</span>
+            </button>
+          </div>
+        </aside>
+
+        <aside class="confirm-bar" id="confirm-bar" hidden>
+          <div class="confirm-head">
+            <strong id="confirm-title">Chrome - 项目文档</strong>
+            <span class="confirm-pill">窗口</span>
+          </div>
+          <div class="confirm-meta" id="confirm-meta">页面内容区 · 760 × 462</div>
+          <div class="confirm-hint">选区限制在窗口内容区内；拖动四角/边线微调。</div>
+          <div class="confirm-actions">
+            <button class="btn ghost" id="reselect-btn" type="button">重新选择</button>
+            <button class="btn primary" id="start-btn" type="button">开始长截图</button>
+          </div>
+        </aside>
+
+        <aside class="hud" id="hud" hidden>
+          <section class="hud-card" id="hud-card" data-tone="active" aria-live="polite">
+            <div class="hud-head">
+              <span class="hud-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="15" rx="1.6" /><path d="M12 7v6M9 11l3 3 3-3M4 21h16" /></svg>
+              </span>
+              <strong>窗口长截图</strong>
+              <span class="hud-pill" id="hud-pill">自动滚动中</span>
+            </div>
+            <div class="hud-meta" id="hud-meta">已截 1 屏 · 462px</div>
+            <div class="hud-message" id="hud-message">工具正在自动滚动，不需要你操作。</div>
+            <div class="hud-track"><div class="hud-fill" id="hud-fill"></div></div>
+            <div class="hud-actions">
+              <button class="hud-btn" id="pause-btn" type="button">暂停</button>
+              <button class="hud-btn primary" id="stop-btn" type="button">停止</button>
+              <button class="hud-btn" id="cancel-btn" type="button">取消</button>
+              <button class="hud-btn primary" id="reselect-hud" type="button" hidden>重新选择窗口</button>
+              <button class="hud-btn" id="close-hud" type="button" hidden>关闭</button>
+            </div>
+          </section>
+        </aside>
+
+        <div class="toast" id="toast" role="status"></div>
+      </section>
+
+      <section class="controls" aria-label="演示控制">
+        <span class="control-label">演示</span>
+        <button class="btn primary" id="open-picker" type="button">打开窗口菜单</button>
+        <button class="btn" id="pick-chrome" type="button">选择 Chrome</button>
+        <button class="btn" id="pick-vscode" type="button">选择 VS Code</button>
+        <button class="btn" id="pick-notes" type="button">选择不可滚动窗口</button>
+        <button class="btn" id="demo-start" type="button">开始</button>
+        <button class="btn" id="demo-pause" type="button">暂停/继续</button>
+        <button class="btn" id="demo-stop" type="button">停止</button>
+        <button class="btn ghost" id="demo-cancel" type="button">取消</button>
+        <button class="btn ghost" id="demo-reset" type="button">重置</button>
+      </section>
+
+      <section class="state-strip" aria-label="状态预览">
+        <span class="control-label">状态</span>
+        <button class="state-chip" data-demo-state="menu" type="button" aria-pressed="false">选择窗口</button>
+        <button class="state-chip" data-demo-state="adjust" type="button" aria-pressed="false">调整选区</button>
+        <button class="state-chip" data-demo-state="capturing" type="button" aria-pressed="false">自动滚动</button>
+        <button class="state-chip" data-demo-state="paused" type="button" aria-pressed="false">已暂停</button>
+        <button class="state-chip" data-demo-state="preview" type="button" aria-pressed="false">预览</button>
+        <button class="state-chip" data-demo-state="error" type="button" aria-pressed="false">错误</button>
+      </section>
+
+      <section class="notes" aria-label="设计说明">
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+            入口在悬浮菜单
+          </div>
+          <p>长截图按钮留在截图工具栏；点击在按钮上方弹出屏幕/窗口二级菜单，不另开全屏选择器。</p>
+        </article>
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h13" /></svg>
+            窗口内容区，不含地址栏
+          </div>
+          <p>选中窗口后自动框住主内容区；浏览器不含标签栏和地址栏。用户可拖动手柄微调，但限制在窗口内。</p>
+        </article>
+        <article class="note">
+          <div class="note-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 10l7-7 7 7" /></svg>
+            工具自动滚，用户只控制暂停/停止
+          </div>
+          <p>默认一直滚到滚不动；暂停立即停、继续接着滚；停止保留已截内容进预览，取消才丢弃。</p>
+        </article>
+      </section>
+
+      <footer class="demo-foot">
+        <span>P8 · 窗口长截图 · 交互 Demo</span>
+        <span>仅用于确认交互，不是最终实现</span>
+      </footer>
+    </div>
+
+    <div class="preview-backdrop" id="preview-backdrop" hidden>
+      <section class="preview-card" role="dialog" aria-modal="true" aria-label="长截图预览">
+        <header class="preview-head">
+          <div>
+            <span class="preview-kicker">预览</span>
+            <h2>窗口长截图</h2>
+            <p class="preview-meta" id="preview-meta">6 屏 · 3,234px · <span class="ok">接缝连续</span></p>
+          </div>
+          <div class="preview-actions">
+            <button class="btn" id="zoom-out" type="button" aria-label="缩小">−</button>
+            <span class="zoom-label" id="zoom-label">78%</span>
+            <button class="btn" id="zoom-in" type="button" aria-label="放大">+</button>
+            <button class="btn" id="preview-copy" type="button">复制</button>
+            <button class="btn primary" id="preview-save" type="button">保存 PNG</button>
+            <button class="btn ghost" id="preview-close" type="button">关闭</button>
+          </div>
+        </header>
+        <div class="preview-body">
+          <div class="preview-long" id="preview-long"></div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const root = document.documentElement
+      const stage = document.getElementById("stage")
+      const picker = document.getElementById("picker")
+      const longBtn = document.getElementById("long-btn")
+      const selection = document.getElementById("selection")
+      const selectionSize = document.getElementById("selection-size")
+      const captureFrame = document.getElementById("capture-frame")
+      const captureLabel = document.getElementById("capture-label")
+      const confirmBar = document.getElementById("confirm-bar")
+      const confirmTitle = document.getElementById("confirm-title")
+      const confirmMeta = document.getElementById("confirm-meta")
+      const hud = document.getElementById("hud")
+      const hudCard = document.getElementById("hud-card")
+      const hudPill = document.getElementById("hud-pill")
+      const hudMeta = document.getElementById("hud-meta")
+      const hudMessage = document.getElementById("hud-message")
+      const hudFill = document.getElementById("hud-fill")
+      const pauseBtn = document.getElementById("pause-btn")
+      const stopBtn = document.getElementById("stop-btn")
+      const cancelBtn = document.getElementById("cancel-btn")
+      const reselectHud = document.getElementById("reselect-hud")
+      const closeHud = document.getElementById("close-hud")
+      const previewBackdrop = document.getElementById("preview-backdrop")
+      const previewLong = document.getElementById("preview-long")
+      const previewMeta = document.getElementById("preview-meta")
+      const zoomLabel = document.getElementById("zoom-label")
+      const toast = document.getElementById("toast")
+
+      const targets = {
+        chrome: {
+          title: "Chrome - 项目文档",
+          window: "window-chrome",
+          content: "chrome-content",
+          track: "chrome-track",
+          scrollable: true
+        },
+        vscode: {
+          title: "VS Code - 长截图实现",
+          window: "window-vscode",
+          content: "vscode-content",
+          track: "vscode-track",
+          scrollable: true
+        },
+        notes: {
+          title: "记事本 - 会议记录",
+          window: "window-notes",
+          content: "notes-content",
+          track: null,
+          scrollable: false
+        },
+        status: {
+          title: "Status",
+          window: "window-status",
+          content: "status-content",
+          track: null,
+          scrollable: false
+        }
+      }
+
+      const state = {
+        mode: "idle",
+        target: null,
+        selection: { x: 0, y: 0, w: 0, h: 0 },
+        bounds: { x: 0, y: 0, w: 0, h: 0 },
+        offset: 0,
+        maxOffset: 0,
+        screens: 0,
+        height: 0,
+        timer: null,
+        atBottom: false,
+        drag: null,
+        zoom: 0.78
+      }
+
+      function showToast(message) {
+        toast.textContent = message
+        toast.classList.add("show")
+        clearTimeout(showToast.timer)
+        showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800)
+      }
+
+      function relativeRect(element) {
+        const rect = element.getBoundingClientRect()
+        const stageRect = stage.getBoundingClientRect()
+        return {
+          x: rect.left - stageRect.left,
+          y: rect.top - stageRect.top,
+          w: rect.width,
+          h: rect.height
+        }
+      }
+
+      function setSelection(rect) {
+        state.selection = {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          w: Math.round(rect.w),
+          h: Math.round(rect.h)
+        }
+        selection.style.left = `${state.selection.x}px`
+        selection.style.top = `${state.selection.y}px`
+        selection.style.width = `${state.selection.w}px`
+        selection.style.height = `${state.selection.h}px`
+        selectionSize.textContent = `${state.selection.w} × ${state.selection.h}`
+        confirmMeta.textContent = `页面内容区 · ${state.selection.w} × ${state.selection.h}`
+        captureFrame.style.left = `${state.selection.x}px`
+        captureFrame.style.top = `${state.selection.y}px`
+        captureFrame.style.width = `${state.selection.w}px`
+        captureFrame.style.height = `${state.selection.h}px`
+      }
+
+      function showPicker() {
+        state.mode = "menu"
+        picker.hidden = false
+        longBtn.classList.add("on")
+        longBtn.setAttribute("aria-expanded", "true")
+        confirmBar.hidden = true
+        hud.hidden = true
+        captureFrame.hidden = true
+        selection.hidden = true
+        updateChips()
+      }
+
+      function hidePicker() {
+        picker.hidden = true
+        longBtn.classList.remove("on")
+        longBtn.setAttribute("aria-expanded", "false")
+      }
+
+      function bringTargetFront(id) {
+        Object.values(targets).forEach((target) => {
+          const element = document.getElementById(target.window)
+          if (element) element.style.zIndex = "1"
+        })
+        const active = targets[id]
+        if (active) {
+          const element = document.getElementById(active.window)
+          if (element) element.style.zIndex = "6"
+        }
+      }
+
+      function resetTrack(id) {
+        const target = targets[id]
+        if (!target?.track) return
+        const track = document.getElementById(target.track)
+        if (track) track.style.transform = "translateY(0)"
+      }
+
+      function selectTarget(id) {
+        if (id === "screen") {
+          showToast("当前桌面有多个窗口，请选择具体窗口")
+          return
+        }
+        const target = targets[id]
+        if (!target) return
+        clearTimer()
+        resetPageTracks()
+        state.target = id
+        state.offset = 0
+        state.maxOffset = 0
+        state.screens = 0
+        state.height = 0
+        state.atBottom = false
+        bringTargetFront(id)
+        const content = document.getElementById(target.content)
+        if (!content) return
+        state.mode = "adjust"
+        hidePicker()
+        confirmBar.hidden = false
+        hud.hidden = true
+        captureFrame.hidden = true
+        selection.hidden = false
+        const bounds = relativeRect(content)
+        state.bounds = { ...bounds }
+        setSelection(bounds)
+        confirmTitle.textContent = target.title
+        confirmBar.querySelector(".confirm-pill").textContent =
+          target.scrollable ? "窗口" : "不可滚动"
+        confirmBar.querySelector(".confirm-hint").textContent =
+          target.scrollable
+            ? "选区限制在窗口内容区内；拖动四角/边线微调。"
+            : "该窗口没有可滚动内容，开始后会提示重新选择。"
+        updateChips()
+      }
+
+      function clearTimer() {
+        if (state.timer) {
+          clearTimeout(state.timer)
+          state.timer = null
+        }
+      }
+
+      function resetPageTracks() {
+        Object.values(targets).forEach((target) => {
+          if (target.track) {
+            const track = document.getElementById(target.track)
+            if (track) track.style.transform = "translateY(0)"
+          }
+        })
+      }
+
+      function getScrollable(id) {
+        const target = targets[id]
+        if (!target?.scrollable || !target.track) return null
+        const content = document.getElementById(target.content)
+        const track = document.getElementById(target.track)
+        if (!content || !track) return null
+        const maxOffset = Math.max(0, track.scrollHeight - content.clientHeight)
+        if (maxOffset < 40) return null
+        return { content, track, maxOffset }
+      }
+
+      function startCapture() {
+        if (!state.target) {
+          showPicker()
+          return
+        }
+        const target = targets[state.target]
+        const scrollable = getScrollable(state.target)
+        if (!target || !scrollable) {
+          showError("该窗口没有可滚动内容，请重新选择")
+          return
+        }
+        state.mode = "capturing"
+        state.offset = 0
+        state.maxOffset = scrollable.maxOffset
+        state.screens = 1
+        state.height = Math.round(state.selection.h)
+        state.atBottom = false
+        hidePicker()
+        confirmBar.hidden = true
+        selection.hidden = true
+        document.getElementById("dock").hidden = true
+        captureFrame.hidden = false
+        captureFrame.style.left = `${state.selection.x}px`
+        captureFrame.style.top = `${state.selection.y}px`
+        captureFrame.style.width = `${state.selection.w}px`
+        captureFrame.style.height = `${state.selection.h}px`
+        captureLabel.textContent = "自动滚动中"
+        hud.hidden = false
+        pauseBtn.hidden = false
+        stopBtn.hidden = false
+        cancelBtn.hidden = false
+        reselectHud.hidden = true
+        closeHud.hidden = true
+        pauseBtn.textContent = "暂停"
+        updateHud("active", "自动滚动中", "工具正在自动滚动，不需要你操作。")
+        updateMeta()
+        scheduleStep()
+        updateChips()
+      }
+
+      function scheduleStep() {
+        clearTimer()
+        if (state.mode !== "capturing") return
+        state.timer = setTimeout(step, 800)
+      }
+
+      function step() {
+        if (state.mode !== "capturing") return
+        const scrollable = getScrollable(state.target)
+        if (!scrollable) {
+          showError("窗口没有可滚动内容，已停止")
+          return
+        }
+        const increment = Math.max(140, Math.round(state.selection.h * 0.58))
+        state.offset = Math.min(scrollable.maxOffset, state.offset + increment)
+        scrollable.track.style.transform = `translateY(-${state.offset}px)`
+        state.screens += 1
+        state.height = Math.round(state.selection.h + state.offset)
+        updateMeta()
+        updateHud(
+          "active",
+          "自动滚动中",
+          state.offset >= scrollable.maxOffset
+            ? "已到底，正在生成长图。"
+            : "工具正在自动滚动，不需要你操作。"
+        )
+        if (state.offset >= scrollable.maxOffset) {
+          state.atBottom = true
+          clearTimer()
+          state.timer = setTimeout(() => {
+            if (state.mode === "capturing") finishCapture("已到底，自动结束")
+          }, 700)
+          return
+        }
+        scheduleStep()
+      }
+
+      function updateMeta() {
+        hudMeta.textContent = `已截 ${state.screens} 屏 · ${state.height.toLocaleString()}px`
+        hudFill.style.width = `${Math.min(100, (state.screens / 8) * 100)}%`
+      }
+
+      function updateHud(tone, pill, message) {
+        hudCard.dataset.tone = tone
+        hudPill.textContent = pill
+        hudMessage.textContent = message
+      }
+
+      function pauseCapture() {
+        if (state.mode === "paused") {
+          state.mode = "capturing"
+          pauseBtn.textContent = "暂停"
+          updateHud("active", "自动滚动中", "继续自动滚动，不需要你操作。")
+          if (state.atBottom) {
+            state.mode = "capturing"
+            state.timer = setTimeout(() => {
+              if (state.mode === "capturing") finishCapture("已到底，自动结束")
+            }, 350)
+          } else {
+            scheduleStep()
+          }
+          updateChips()
+          return
+        }
+        if (state.mode !== "capturing") return
+        state.mode = "paused"
+        clearTimer()
+        pauseBtn.textContent = "继续"
+        updateHud("paused", "已暂停", "已暂停，滚动和采帧都已停下。点继续接着滚。")
+        updateChips()
+      }
+
+      function stopCapture() {
+        if (state.mode !== "capturing" && state.mode !== "paused") return
+        finishCapture("已停止，保留当前结果")
+      }
+
+      function finishCapture(message) {
+        clearTimer()
+        state.mode = "preview"
+        hud.hidden = true
+        captureFrame.hidden = true
+        document.getElementById("dock").hidden = false
+        buildPreview()
+        previewMeta.innerHTML = `${state.screens} 屏 · ${state.height.toLocaleString()}px · <span class="ok">接缝连续</span>`
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+        previewBackdrop.hidden = false
+        showToast(message)
+        updateChips()
+      }
+
+      function showError(message) {
+        clearTimer()
+        state.mode = "error"
+        hidePicker()
+        confirmBar.hidden = true
+        selection.hidden = true
+        captureFrame.hidden = true
+        document.getElementById("dock").hidden = false
+        hud.hidden = false
+        updateHud("error", "无法开始", message)
+        hudMeta.textContent = state.target ? targets[state.target].title : "未选择窗口"
+        hudFill.style.width = "100%"
+        pauseBtn.hidden = true
+        stopBtn.hidden = true
+        cancelBtn.hidden = true
+        reselectHud.hidden = false
+        closeHud.hidden = false
+        updateChips()
+      }
+
+      function reset() {
+        clearTimeout(showToast.timer)
+        toast.classList.remove("show")
+        clearTimer()
+        state.mode = "idle"
+        state.target = null
+        state.offset = 0
+        state.maxOffset = 0
+        state.screens = 0
+        state.height = 0
+        state.atBottom = false
+        hidePicker()
+        confirmBar.hidden = true
+        hud.hidden = true
+        captureFrame.hidden = true
+        selection.hidden = true
+        document.getElementById("dock").hidden = false
+        previewBackdrop.hidden = true
+        pauseBtn.hidden = false
+        stopBtn.hidden = false
+        cancelBtn.hidden = false
+        reselectHud.hidden = true
+        closeHud.hidden = true
+        pauseBtn.textContent = "暂停"
+        resetPageTracks()
+        Object.values(targets).forEach((target) => {
+          const element = document.getElementById(target.window)
+          if (element) element.style.zIndex = target === targets.chrome ? "2" : "1"
+        })
+        updateChips()
+      }
+
+      function cancel() {
+        reset()
+        showToast("已取消，结果已丢弃")
+      }
+
+      function buildPreview() {
+        const target = targets[state.target] || targets.chrome
+        const count = Math.max(1, Math.min(10, state.screens))
+        const sections = Array.from({ length: count }, (_, index) => {
+          const number = String(index + 1).padStart(2, "0")
+          const media = index % 3 === 1 ? '<div class="doc-media"></div>' : ""
+          const code = index % 3 === 2 ? '<div class="doc-code">capture(window) → scroll(auto) → stitch()</div>' : ""
+          return `
+            <section class="doc-section">
+              <div class="doc-kicker">${number} · 长页面</div>
+              <h3>${index === 0 ? "窗口内容区从第一屏开始" : "自动滚动后追加的新内容"}</h3>
+              <p>这里展示窗口长截图的拼接结果：固定表头只保留一次，滚动条不进入长图，工具自动滚到底后结束。</p>
+              ${code}
+              ${media}
+              <div class="doc-code">screen ${number} · offset ${index * 240} · confidence 0.998</div>
+            </section>
+          `
+        }).join("")
+        previewLong.innerHTML = `
+          <div class="preview-header-block">
+            <strong>项目文档</strong>
+            <span>固定表头只出现一次</span>
+            <span class="mark">接缝连续</span>
+          </div>
+          ${sections}
+        `
+      }
+
+      function renderChromePage() {
+        const track = document.getElementById("chrome-track")
+        track.innerHTML = Array.from({ length: 7 }, (_, index) => {
+          const number = String(index + 1).padStart(2, "0")
+          const media = index % 3 === 1 ? '<div class="doc-media"></div>' : ""
+          const code = index % 3 === 2 ? '<div class="doc-code">capture(window) → scroll(auto) → stitch()</div>' : ""
+          return `
+            <section class="doc-section">
+              <div class="doc-kicker">${number} · 长页面</div>
+              <h3>${index === 0 ? "先把窗口长截图当成一条流水线" : index === 1 ? "固定表头只出现一次" : index === 2 ? "滚动条不进入长图" : "每一帧只追加新内容"}</h3>
+              <p>这一段用于模拟真实文档内容。工具会选中这个窗口、找到主内容区，然后自动向下滚动并逐帧拼接，不需要用户自己滑。</p>
+              ${code}
+              ${media}
+              <div class="doc-code">frame ${number} · capture(window) · confidence 0.998</div>
+            </section>
+          `
+        }).join("")
+      }
+
+      function updateChips() {
+        document.querySelectorAll("[data-demo-state]").forEach((chip) => {
+          chip.setAttribute("aria-pressed", String(chip.dataset.demoState === state.mode))
+        })
+      }
+
+      function setDemoState(name) {
+        if (name === "menu") {
+          reset()
+          showPicker()
+          return
+        }
+        if (name === "adjust") {
+          reset()
+          selectTarget("chrome")
+          return
+        }
+        if (name === "error") {
+          reset()
+          selectTarget("status")
+          startCapture()
+          return
+        }
+        if (name === "preview") {
+          reset()
+          selectTarget("chrome")
+          state.screens = 6
+          state.height = 3234
+          finishCapture("预览状态")
+          return
+        }
+        reset()
+        selectTarget("chrome")
+        startCapture()
+        if (name === "paused") {
+          setTimeout(() => {
+            if (state.mode === "capturing") pauseCapture()
+          }, 120)
+        }
+      }
+
+      longBtn.addEventListener("click", () => {
+        if (state.mode === "capturing" || state.mode === "paused") return
+        if (picker.hidden) showPicker()
+        else hidePicker()
+      })
+
+      picker.querySelectorAll(".picker-row").forEach((row) => {
+        row.addEventListener("click", () => selectTarget(row.dataset.target))
+      })
+
+      document.getElementById("start-btn").addEventListener("click", startCapture)
+      document.getElementById("reselect-btn").addEventListener("click", showPicker)
+      pauseBtn.addEventListener("click", pauseCapture)
+      stopBtn.addEventListener("click", stopCapture)
+      cancelBtn.addEventListener("click", cancel)
+      reselectHud.addEventListener("click", () => {
+        reset()
+        showPicker()
+      })
+      closeHud.addEventListener("click", reset)
+
+      document.getElementById("open-picker").addEventListener("click", showPicker)
+      document.getElementById("pick-chrome").addEventListener("click", () => selectTarget("chrome"))
+      document.getElementById("pick-vscode").addEventListener("click", () => selectTarget("vscode"))
+      document.getElementById("pick-notes").addEventListener("click", () => selectTarget("notes"))
+      document.getElementById("demo-start").addEventListener("click", startCapture)
+      document.getElementById("demo-pause").addEventListener("click", pauseCapture)
+      document.getElementById("demo-stop").addEventListener("click", stopCapture)
+      document.getElementById("demo-cancel").addEventListener("click", cancel)
+      document.getElementById("demo-reset").addEventListener("click", reset)
+      document.querySelectorAll("[data-demo-state]").forEach((chip) => {
+        chip.addEventListener("click", () => setDemoState(chip.dataset.demoState))
+      })
+
+      document.getElementById("preview-close").addEventListener("click", reset)
+      document.getElementById("zoom-out").addEventListener("click", () => {
+        state.zoom = Math.max(0.5, state.zoom - 0.08)
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+      })
+      document.getElementById("zoom-in").addEventListener("click", () => {
+        state.zoom = Math.min(1.2, state.zoom + 0.08)
+        previewLong.style.zoom = String(state.zoom)
+        zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`
+      })
+      document.getElementById("preview-copy").addEventListener("click", () => {
+        showToast("已复制长截图到剪贴板（演示）")
+      })
+      document.getElementById("preview-save").addEventListener("click", () => {
+        showToast("已保存长截图 PNG（演示）")
+      })
+
+      document.querySelectorAll("#theme-seg button").forEach((button) => {
+        button.addEventListener("click", () => {
+          root.dataset.theme = button.dataset.themeChoice
+          document.querySelectorAll("#theme-seg button").forEach((item) => {
+            item.classList.toggle("on", item === button)
+          })
+        })
+      })
+
+      document.querySelectorAll(".handle").forEach((handle) => {
+        handle.addEventListener("pointerdown", (event) => {
+          if (state.mode !== "adjust") return
+          event.preventDefault()
+          event.stopPropagation()
+          state.drag = {
+            dir: handle.dataset.dir,
+            startX: event.clientX,
+            startY: event.clientY,
+            rect: { ...state.selection }
+          }
+          handle.setPointerCapture(event.pointerId)
+        })
+      })
+
+      window.addEventListener("pointermove", (event) => {
+        if (!state.drag) return
+        const dx = event.clientX - state.drag.startX
+        const dy = event.clientY - state.drag.startY
+        const start = state.drag.rect
+        const bounds = state.bounds
+        const min = 120
+        let { x, y, w, h } = start
+        const dir = state.drag.dir
+
+        if (dir.includes("w")) {
+          x = Math.min(start.x + dx, start.x + start.w - min)
+          w = start.x + start.w - x
+        }
+        if (dir.includes("e")) {
+          w = Math.max(min, start.w + dx)
+        }
+        if (dir.includes("n")) {
+          y = Math.min(start.y + dy, start.y + start.h - min)
+          h = start.y + start.h - y
+        }
+        if (dir.includes("s")) {
+          h = Math.max(min, start.h + dy)
+        }
+
+        x = Math.max(bounds.x, Math.min(x, bounds.x + bounds.w - w))
+        y = Math.max(bounds.y, Math.min(y, bounds.y + bounds.h - h))
+        w = Math.min(w, bounds.x + bounds.w - x)
+        h = Math.min(h, bounds.y + bounds.h - y)
+        setSelection({ x, y, w, h })
+      })
+
+      window.addEventListener("pointerup", () => {
+        state.drag = null
+      })
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          if (!previewBackdrop.hidden) {
+            reset()
+          } else if (state.mode === "capturing" || state.mode === "paused") {
+            cancel()
+          } else if (state.mode === "menu") {
+            hidePicker()
+          }
+        }
+      })
+
+      renderChromePage()
+      updateChips()
+    </script>
+  </body>
+</html>

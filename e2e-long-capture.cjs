@@ -97,7 +97,7 @@ async function selectRegion(overlay) {
 async function startLongCapture(app) {
   const overlay = await showOverlay(app)
   await selectRegion(overlay)
-  const longButton = overlay.locator('.tb[title="长截图"]')
+  const longButton = overlay.locator('.tb[title^="长截图"]')
   if ((await longButton.count()) !== 1) {
     throw new Error('long screenshot toolbar entry is missing')
   }

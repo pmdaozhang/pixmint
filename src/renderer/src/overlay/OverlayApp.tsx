@@ -677,7 +677,12 @@ export function OverlayApp(): JSX.Element {
         }
       }}
     >
-      {!recorderModeActive && !selection && !hoverRect && <div className="pre-dim" />}
+      {!recorderModeActive && !selection && !hoverRect && (
+        <>
+          <div className="pre-dim" />
+          <div className="selection-hint">拖拽框选要截图的区域</div>
+        </>
+      )}
       {!recorderModeActive && phase === 'selecting' && hoverRect && (
         <>
           <DimAround rect={hoverRect} />

@@ -396,6 +396,7 @@ function registerIpc(): void {
   ipcMain.on('long-capture:finish', () => longCaptureController.finish())
   ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
   ipcMain.on('long-capture:manual', () => longCaptureController.manual())
+  ipcMain.on('long-capture:retry', () => longCaptureController.retry())
   ipcMain.on('long-capture:undo', () => longCaptureController.undo())
   ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
   ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
@@ -1192,6 +1193,7 @@ async function runLongCaptureManualSyntheticSmoke(): Promise<void> {
       display,
       selection,
       maxFrames: 120,
+      countdownMs: 150,
       onProgress: (value) => {
         progress.push({
           phase: value.phase,
@@ -1219,12 +1221,14 @@ async function runLongCaptureManualSyntheticSmoke(): Promise<void> {
       messages.some((message) => message.includes('没接上'))
     const sawUndo = messages.some((message) => message.includes('已回退一屏'))
     const sawPause = progress.some((item) => item.phase === 'paused')
+    const sawCountdown = progress.some((item) => item.phase === 'preparing')
     const ok = Boolean(
       result &&
         result.height > selection.height &&
         sawGap &&
         sawUndo &&
-        sawPause
+        sawPause &&
+        sawCountdown
     )
     writeReport({
       ok,
@@ -1232,11 +1236,12 @@ async function runLongCaptureManualSyntheticSmoke(): Promise<void> {
       sawGap,
       sawUndo,
       sawPause,
+      sawCountdown,
       lastProgress: progress.slice(-12)
     })
     console.log(
       'LONG_CAPTURE_MANUAL_SYNTHETIC_RESULT',
-      JSON.stringify({ ok, result, sawGap, sawUndo, sawPause })
+      JSON.stringify({ ok, result, sawGap, sawUndo, sawPause, sawCountdown })
     )
     manager.deleteResult()
     app.exit(ok ? 0 : 1)

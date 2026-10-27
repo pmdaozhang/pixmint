@@ -66,8 +66,28 @@
 .selection {
   position: absolute;
   z-index: 5;
-  border: 1.5px solid var(--accent);
+  border: 2px solid var(--accent);
   border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  pointer-events: none;
+}
+
+.selection-hint {
+  position: fixed;
+  z-index: 6;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
 

@@ -12,6 +12,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 Add-Type -ReferencedAssemblies Microsoft.CSharp,UIAutomationClient,UIAutomationTypes,WindowsBase @"
 using System;
+using System.IO;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
@@ -53,10 +54,27 @@ public class PixmintScrollHelper {
   [DllImport("dwmapi.dll", EntryPoint="DwmGetWindowAttribute")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT rect, int size);
   [DllImport("dwmapi.dll", EntryPoint="DwmGetWindowAttribute")] public static extern int DwmGetWindowAttributeInt(IntPtr hwnd, int attr, out int value, int size);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+  [DllImport("kernel32.dll", SetLastError=true)] public static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder name, ref uint size);
+  [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 
   static IntPtr found;
   static RECT foundRect;
+
+  // Skip another Pixmint instance so auto-scroll never targets its own windows.
+  static bool IsPixmintProcess(uint pid) {
+    IntPtr process = OpenProcess(0x1000, false, pid);
+    if (process == IntPtr.Zero) return false;
+    try {
+      StringBuilder name = new StringBuilder(1024);
+      uint size = (uint)name.Capacity;
+      if (!QueryFullProcessImageName(process, 0, name, ref size)) return false;
+      return string.Equals(Path.GetFileName(name.ToString()), "Pixmint.exe", StringComparison.OrdinalIgnoreCase);
+    } finally {
+      CloseHandle(process);
+    }
+  }
 
   public static void MakeDpiAware() {
     try { SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }
@@ -70,7 +88,7 @@ public class PixmintScrollHelper {
       if (!IsWindowVisible(h) || IsIconic(h)) return true;
       uint pid;
       GetWindowThreadProcessId(h, out pid);
-      if (pid == appPid) return true;
+      if (pid == appPid || IsPixmintProcess(pid)) return true;
       StringBuilder sb = new StringBuilder(256);
       GetClassName(h, sb, 256);
       string cls = sb.ToString();

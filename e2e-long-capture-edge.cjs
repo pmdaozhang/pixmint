@@ -134,6 +134,36 @@ $bmp.Save('${imagePath.replace(/\\/g, '/')}', [System.Drawing.Imaging.ImageForma
   }
 }
 
+function focusEdgeWindow() {
+  const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class PixmintFocus {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+}
+"@
+$p = Get-Process msedge | Where-Object { $_.MainWindowTitle -eq 'Pixmint Edge Long Capture' } | Select-Object -First 1
+if ($p) {
+  $hwnd = $p.MainWindowHandle
+  [PixmintFocus]::ShowWindow($hwnd, 9) | Out-Null
+  [PixmintFocus]::SetWindowPos($hwnd, [IntPtr](-1), 0, 0, 0, 0, 0x0003) | Out-Null
+  [PixmintFocus]::SetForegroundWindow($hwnd) | Out-Null
+  [PixmintFocus]::SetWindowPos($hwnd, [IntPtr](-2), 0, 0, 0, 0, 0x0003) | Out-Null
+  Start-Sleep -Milliseconds 300
+}
+`
+  try {
+    execFileSync('powershell.exe', ['-NoProfile', '-Command', script], {
+      encoding: 'utf8'
+    })
+  } catch (error) {
+    console.log('EDGE_FOCUS_ERROR', error.message)
+  }
+}
+
 ;(async () => {
   const profile = path.join(os.tmpdir(), `pixmint-edge-${Date.now()}`)
   fs.mkdirSync(profile, { recursive: true })
@@ -163,6 +193,8 @@ $bmp.Save('${imagePath.replace(/\\/g, '/')}', [System.Drawing.Imaging.ImageForma
   let app = null
   try {
     await sleep(4500)
+    focusEdgeWindow()
+    await sleep(350)
     listEdgeWindows()
     captureEdgeWindow()
     app = await electron.launch({
@@ -176,7 +208,10 @@ $bmp.Save('${imagePath.replace(/\\/g, '/')}', [System.Drawing.Imaging.ImageForma
 
     const overlay = await showOverlay(app)
     await selectRegion(overlay)
-    await overlay.locator('.tb[title="长截图"]').click()
+    await overlay.locator('.tb[title^="长截图"]').click()
+    await sleep(120)
+    focusEdgeWindow()
+    await sleep(250)
 
     const hud = await waitForWindow(app, '.hud-card', 15000)
     await hud.waitForSelector('.hud-card', { timeout: 5000 })
