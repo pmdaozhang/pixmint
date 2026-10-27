@@ -429,8 +429,10 @@ export function matchVerticalOverlap(
 export class LongCaptureStitcher {
   private width = 0
   private height = 0
+  private baseHeight = 0
   private headerHeight = 0
   private data = new Uint8Array(0)
+  private appendedRows: number[] = []
   private initialized = false
 
   constructor(private readonly limits: LongCaptureStitcherLimits = {}) {}
@@ -457,8 +459,10 @@ export class LongCaptureStitcher {
 
     this.width = frame.width
     this.height = frame.height
+    this.baseHeight = frame.height
     this.headerHeight = headerHeight
     this.data = frame.data.slice()
+    this.appendedRows = []
     this.initialized = true
   }
 
@@ -492,8 +496,27 @@ export class LongCaptureStitcher {
     next.set(frame.data.subarray(sourceStart, sourceStart + copyBytes), this.data.length)
     this.data = next
     this.height += allowed
+    this.appendedRows.push(allowed)
 
     return { appended: allowed, truncated: allowed < match.newRows }
+  }
+
+  /**
+   * 背景：手动长截图可能出现一次误匹配，用户需要撤掉最后追加的一段。
+   * 设计意图：只记录每次追加的行数，撤销时裁回 baseHeight 以上，不保留整帧历史。
+   * 关键约束：只能撤销已经追加且未被后续裁剪吃掉的行；返回实际移除行数。
+   */
+  undoLast(): number {
+    if (!this.initialized) throw new Error('拼接器尚未初始化')
+    const rows = this.appendedRows.pop() ?? 0
+    if (rows <= 0) return 0
+    const nextHeight = Math.max(this.baseHeight, this.height - rows)
+    const removed = this.height - nextHeight
+    if (removed <= 0) return 0
+    this.height = nextHeight
+    const rowBytes = this.width * BYTES_PER_PIXEL
+    this.data = this.data.slice(0, this.height * rowBytes)
+    return removed
   }
 
   getFrame(): FrameImage {

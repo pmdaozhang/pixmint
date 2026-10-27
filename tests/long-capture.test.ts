@@ -264,6 +264,32 @@ describe('LongCaptureStitcher', () => {
     expect(stitcher.currentHeight).toBe(FRAME_HEIGHT + 10)
   })
 
+  it('undoes the last appended segment', () => {
+    const page = createPage(400)
+    const first = frameAt(page, 0)
+    const second = frameAt(page, 20)
+    const match = matchVerticalOverlap(first, second, { headerHeight: HEADER_HEIGHT })
+    const stitcher = new LongCaptureStitcher()
+    stitcher.initialize(first, HEADER_HEIGHT)
+    stitcher.append(second, match!)
+
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT + 20)
+    expect(stitcher.undoLast()).toBe(20)
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT)
+    expect(stitcher.getFrame().data.length).toBe(WIDTH * FRAME_HEIGHT * 4)
+    expect(stitcher.undoLast()).toBe(0)
+  })
+
+  it('does not undo below the first frame', () => {
+    const page = createPage(400)
+    const first = frameAt(page, 0)
+    const stitcher = new LongCaptureStitcher()
+    stitcher.initialize(first, HEADER_HEIGHT)
+
+    expect(stitcher.undoLast()).toBe(0)
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT)
+  })
+
   it('rejects an invalid header height', () => {
     const page = createPage(400)
     const frame = frameAt(page, 0)

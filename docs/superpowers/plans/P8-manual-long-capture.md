@@ -1,6 +1,6 @@
 # P8 手动长截图实施计划
 
-状态：Phase 0 完成，Phase 1 待开始 | 更新：2026-10-27
+状态：Phase 1 核心完成，真实桌面传输待复测 | 更新：2026-10-27
 
 ## 目标
 
@@ -37,42 +37,42 @@
 - Electron 视频流：多次样本约 12–20fps，p95 约 81–107ms；可作为备选，但不适合按 30fps 规划。
 - 不引入 WGC；下一道门是 PowerShell→Node 的原始帧传输。
 
-## Phase 1：采集传输与手动核心链路
+## Phase 1：采集传输与手动核心链路（已完成）
 
 ### 任务
 
-1. 新增 `src/main/long-capture/frame-source.ts`，定义帧源接口、GDI 原始帧实现和 Electron 视频流备选实现。
-2. 新增二进制传输 spike：把 700×600 和 1920×1080 原始 BGRA 从 sidecar 传到主进程，测端到端帧率；不达标再评估 WGC。
+1. 新增 `src/main/long-capture/frame-source.ts`，定义帧源接口和 GDI 原始帧实现。
+2. 新增二进制传输 smoke：把 700×600 和 1920×1080 原始 BGRA 从 sidecar 传到主进程，测端到端帧率；合成帧 700×600 9.20fps、1080p 9.06fps 通过，真实 GDI 采集待复测。
 3. 改造 `src/main/long-capture.ts` 的 `startManual`：
    - 去掉“连续两帧近似相同才尝试”的门槛；
    - 每帧都尝试匹配上一张已接受帧；
    - 失败不推进上一张已接受帧，保持会话；
    - 记录采集 fps、接受/拒绝原因、offset/confidence。
 4. 扩展 `src/shared/long-capture.ts`：
-   - 预期偏移；
-   - 反向滚动检测；
-   - 动态滚动条遮罩；
-   - 固定表头/底栏；
-   - `LongCaptureStitcher.undoLast()`。
+   - 预期偏移（已完成）；
+   - 反向滚动检测（已完成）；
+   - 动态滚动条遮罩（待 Phase 3）；
+   - 固定表头/底栏（表头已完成，底栏待 Phase 3）；
+   - `LongCaptureStitcher.undoLast()`（已完成）。
 5. 新增 `tests/long-capture-frame-source.test.ts`；扩展 `tests/long-capture.test.ts`。
 
 ### 验证门
 
-- 700×600@10fps 端到端采集 ≥ 9fps，单帧 p95 ≤ 100ms。
-- 1920×1080@10fps 端到端采集 ≥ 8fps，或明确降级策略。
-- 变速 fixture 200–2000px/s 连续滚动，无缺失/重复。
-- 跳变不推进上一张已接受帧，回滚后可继续。
+- 700×600@10fps 端到端采集 ≥ 9fps，单帧 p95 ≤ 100ms：**合成传输 9.20fps / p95 19ms；真实 GDI 采集待复测**。
+- 1920×1080@10fps 端到端采集 ≥ 8fps，或明确降级策略：**合成传输 9.06fps / p95 47ms；真实 GDI 采集待复测**。
+- 合成手动 smoke：700×4134，连续帧、跳变、回滚、暂停、撤销、完成通过。
+- 跳变不推进上一张已接受帧，回滚后可继续：合成 smoke 通过。
 
-## Phase 2：入口与 HUD
+## Phase 2：入口与 HUD（核心已完成）
 
 ### 任务
 
-1. `src/renderer/src/overlay/Toolbar.tsx`：手动模式默认入口，自动模式可选。
-2. `src/main/long-capture-controller.ts`：手动直接启动；自动失败/假成功一键切手动。
-3. `src/main/windows/long-capture-hud.ts`：HUD 不抢焦点，位置在选区外，支持全局热键。
+1. `src/renderer/src/overlay/Toolbar.tsx`：手动模式直接入口，自动模式保留（已完成）。
+2. `src/main/long-capture-controller.ts`：手动直接启动；自动失败/假成功一键切手动（已完成）。
+3. `src/main/windows/long-capture-hud.ts`：HUD 不抢焦点，位置在选区外（已有，全局热键待补）。
 4. `src/renderer/src/long-capture/LongCaptureHudApp.tsx` 和 CSS：
    - 跟随中、跳变、暂停、完成；
-   - 回退一屏；
+   - 回退一屏（已完成）；
    - “正常滚动即可”文案；
    - 无滚动、失焦、遮挡提示。
 5. `src/shared/types.ts`、`src/shared/api.ts`、`src/preload/index.ts`：新增 IPC。
@@ -80,9 +80,9 @@
 
 ### 验证门
 
-- 手动入口不依赖自动模式失败。
-- 自动模式中途 `overlapLost` 不再直接预览残缺图。
-- 完成/取消/回退/暂停都有真实 UI 路径和 E2E。
+- 手动入口不依赖自动模式失败：已完成。
+- 自动模式中途 `overlapLost` 不再直接预览残缺图：已完成。
+- 完成/取消/回退/暂停都有真实 UI 路径和 E2E：合成 smoke 覆盖状态机，真实 UI 待补。
 
 ## Phase 3：边界与质量
 

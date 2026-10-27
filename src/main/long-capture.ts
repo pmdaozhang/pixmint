@@ -18,6 +18,7 @@ import {
 } from '../shared/long-capture'
 import { encodePng, frameFromDataUrl } from './long-capture/image'
 import { ScrollDriver } from './long-capture/scroll-driver'
+import { createDefaultFrameSource, type FrameSource } from './long-capture/frame-source'
 import type { ScrollTarget } from '../shared/scroll-target'
 import { fastCapture } from './fast-capture'
 import { logDiagnostic } from './diagnostics'
@@ -37,8 +38,11 @@ const MAX_WHEEL_DELTA = MAX_NOTCHES * 120
 const MATCH_EDGE_MARGIN = 24
 const MAX_UIA_STEPS = 40
 const NO_MATCH_LIMIT = 3
-const MANUAL_CAPTURE_MS = 250
-const MANUAL_MAX_FRAMES = 200
+const MANUAL_CAPTURE_MS = 80
+const MANUAL_MAX_FRAMES = 600
+const MANUAL_CAPTURE_TIMEOUT_MS = 2000
+const MANUAL_FIRST_FRAME_TIMEOUT_MS = 5000
+const MANUAL_CAPTURE_FAILURE_LIMIT = 3
 
 export interface LongCaptureStartOptions {
   display: Electron.Display
@@ -113,10 +117,14 @@ function findOverlap(
  */
 export class LongCaptureManager {
   private readonly driver: ScrollDriver
+  private readonly manualSource: FrameSource
   private running = false
   private paused = false
   private cancelled = false
   private finishRequested = false
+  private manualSession = false
+  private manualPhase: 'manual' | 'gap' = 'manual'
+  private undoRequested = false
   private resumeWaiters: Array<() => void> = []
   private currentProgress: LongCaptureProgress = {
     phase: 'idle',
@@ -129,8 +137,9 @@ export class LongCaptureManager {
   private lastEncodeMs = 0
   private progressListener?: (progress: LongCaptureProgress) => void
 
-  constructor(driver?: ScrollDriver) {
+  constructor(driver?: ScrollDriver, manualSource?: FrameSource) {
     this.driver = driver ?? new ScrollDriver()
+    this.manualSource = manualSource ?? createDefaultFrameSource()
   }
 
   getProgress(): LongCaptureProgress {
@@ -205,6 +214,9 @@ export class LongCaptureManager {
 
   pause(): void {
     if (!this.running || this.paused) return
+    if (this.manualSession) {
+      this.manualPhase = this.currentProgress.phase === 'gap' ? 'gap' : 'manual'
+    }
     this.paused = true
     this.setProgress({
       phase: 'paused',
@@ -217,6 +229,17 @@ export class LongCaptureManager {
   resume(): void {
     if (!this.running || !this.paused) return
     this.paused = false
+    if (this.manualSession) {
+      this.setProgress({
+        phase: this.manualPhase,
+        screens: this.currentProgress.screens,
+        height: this.currentProgress.height,
+        message:
+          this.manualPhase === 'gap'
+            ? '这一帧没接上，请回滚一点；前面的内容已保留'
+            : '继续正常滚动'
+      })
+    }
     const waiters = this.resumeWaiters.splice(0)
     for (const resolve of waiters) resolve()
   }
@@ -237,10 +260,23 @@ export class LongCaptureManager {
     for (const resolve of waiters) resolve()
   }
 
+  /**
+   * 背景：手动模式误接一帧时，用户需要撤掉最后一段而不是重开整个会话。
+   * 设计意图：只发信号，由采集循环在安全点执行 undo，避免和拼接写入并发。
+   * 关键约束：暂停中也必须唤醒循环；一次只撤销最近一段。
+   */
+  undo(): void {
+    if (!this.running || !this.manualSession) return
+    this.undoRequested = true
+    const waiters = this.resumeWaiters.splice(0)
+    for (const resolve of waiters) resolve()
+  }
+
   dispose(): void {
     this.cancel()
     this.deleteResult()
     this.driver.dispose()
+    this.manualSource.dispose()
   }
 
   private async publishResult(
@@ -300,6 +336,9 @@ export class LongCaptureManager {
     this.paused = false
     this.cancelled = false
     this.finishRequested = false
+    this.manualSession = false
+    this.manualPhase = 'manual'
+    this.undoRequested = false
     this.result = null
     this.resultFilePath = ''
     this.progressListener = options.onProgress
@@ -664,6 +703,23 @@ export class LongCaptureManager {
         return null
       }
 
+    if (overlapLost && stitcher) {
+      const message = '自动滚动没有接上，请改手动滚动；已保留当前内容'
+      this.setProgress({
+        phase: 'error',
+        screens,
+        height: stitcher.currentHeight,
+        error: message,
+        message
+      })
+      try {
+        options.onError?.(message)
+      } catch {
+        // 错误回调异常不应覆盖原始状态
+      }
+      return null
+    }
+
       if (!stitcher) {
         stitcher = new LongCaptureStitcher({ maxHeight, maxPixels })
         stitcher.initialize(first, 0)
@@ -709,8 +765,9 @@ export class LongCaptureManager {
   }
 
   /**
-   * 手动长截图：用户自己滚动，主进程只负责定时采帧、稳定帧检测和拼接。
-   * 用户停稳后才尝试追加；找不到重叠时只提示，不终止会话。
+   * 背景：手动模式要求用户自然滚动，不能再要求“停稳”或控制速度。
+   * 设计意图：80ms 连续取原始帧；每帧都尝试匹配上一张已接受帧，失败保持上一张不动。
+   * 关键约束：手动模式不注入滚轮、不找窗口句柄；只截固定屏幕区域。
    */
   async startManual(
     options: LongCaptureStartOptions
@@ -724,16 +781,23 @@ export class LongCaptureManager {
     this.paused = false
     this.cancelled = false
     this.finishRequested = false
+    this.manualSession = true
+    this.manualPhase = 'manual'
+    this.undoRequested = false
     this.result = null
     this.resultFilePath = ''
     this.progressListener = options.onProgress
     this.currentProgress = { phase: 'manual', screens: 1, height: 0 }
+    this.setProgress({
+      phase: 'manual',
+      screens: 1,
+      height: 0,
+      message: '正在准备手动长截图'
+    })
 
     const maxHeight = options.maxHeight ?? MAX_HEIGHT
     const maxPixels = options.maxPixels ?? MAX_PIXELS
     const maxFrames = options.maxFrames ?? MANUAL_MAX_FRAMES
-    const captureRect =
-      options.captureRect ?? ((rect: Rect) => fastCapture.capture(rect, 2000))
     const absolute = {
       x: options.display.bounds.x + options.selection.x,
       y: options.display.bounds.y + options.selection.y,
@@ -743,90 +807,159 @@ export class LongCaptureManager {
     const physical = screen.dipToScreenRect(null, absolute)
 
     try {
-      this.setProgress({
-        phase: 'manual',
-        screens: 1,
-        height: 0,
-        message: '请慢慢向下滚动，停一下再继续'
-      })
-      const firstDataUrl = await captureRect(physical)
-      if (!firstDataUrl) throw new Error('无法截取长截图选区')
-      const first = trimCaptureEdgeRow(frameFromDataUrl(firstDataUrl))
+      const firstRaw = await this.manualSource.capture(
+        physical,
+        MANUAL_FIRST_FRAME_TIMEOUT_MS
+      )
+      if (!firstRaw) {
+        throw new Error('无法截取长截图选区；请确认桌面未锁定')
+      }
+      const first = trimCaptureEdgeRow(firstRaw)
       let previous: FrameImage = first
       let previousMatch = cropFrameHorizontal(first, MATCH_EDGE_MARGIN)
-      let lastSeenMatch = previousMatch
-      let lastAttempted: FrameImage | null = null
       let stitcher: LongCaptureStitcher | null = null
       let headerHeight = 0
       let screens = 1
       let limitReached = false
+      let lastOffset = 0
+      let lastAcceptedPrevious: FrameImage | null = null
+      let captureFailures = 0
+      let lastReportKey = ''
 
-      this.setProgress({
+      const currentHeight = (): number => stitcher?.currentHeight ?? first.height
+      const report = (progress: LongCaptureProgress): void => {
+        const key = `${progress.phase}|${progress.screens}|${progress.height}|${progress.message ?? ''}|${progress.error ?? ''}`
+        if (key === lastReportKey) return
+        lastReportKey = key
+        this.setProgress(progress)
+      }
+      const gapMessage = '这一帧没接上，请回滚一点；前面的内容已保留'
+      const idleMessage = '没有检测到滚动，请把鼠标放到选区内'
+
+      report({
         phase: 'manual',
         screens: 1,
         height: first.height,
-        message: '请慢慢向下滚动，停一下再继续'
+        message: '正常滚动即可，不用刻意放慢'
       })
 
       while (!this.cancelled && !this.finishRequested && screens < maxFrames) {
         await this.waitForResume()
         if (this.cancelled || this.finishRequested) break
-        if (this.currentProgress.phase === 'paused') {
-          this.setProgress({
-            phase: 'manual',
-            screens,
-            height: stitcher?.currentHeight ?? first.height,
-            message: '请继续慢慢向下滚动'
-          })
+
+        if (this.undoRequested) {
+          this.undoRequested = false
+          if (stitcher && lastAcceptedPrevious) {
+            const removed = stitcher.undoLast()
+            if (removed > 0) {
+              screens = Math.max(1, screens - 1)
+              previous = lastAcceptedPrevious
+              previousMatch = cropFrameHorizontal(previous, MATCH_EDGE_MARGIN)
+              lastAcceptedPrevious = null
+              lastOffset = 0
+              this.manualPhase = 'manual'
+              report({
+                phase: 'manual',
+                screens,
+                height: stitcher.currentHeight,
+                message: '已回退一屏，继续向下滚动'
+              })
+            }
+          }
+          if (this.paused) continue
         }
-        await delay(MANUAL_CAPTURE_MS)
-        if (this.cancelled || this.finishRequested) break
-        if (this.paused) continue
 
-        const dataUrl = await captureRect(physical)
-        if (!dataUrl) throw new Error('截取长截图帧失败')
-        const current = trimCaptureEdgeRow(frameFromDataUrl(dataUrl))
-        const currentMatch = cropFrameHorizontal(current, MATCH_EDGE_MARGIN)
-
-        if (
-          !framesAreSimilar(lastSeenMatch, currentMatch, {
-            stepX: 4,
-            stepY: 2
-          })
-        ) {
-          lastSeenMatch = currentMatch
+        const frameStarted = Date.now()
+        const raw = await this.manualSource.capture(
+          physical,
+          MANUAL_CAPTURE_TIMEOUT_MS
+        )
+        const captureMs = Date.now() - frameStarted
+        if (!raw) {
+          captureFailures += 1
+          logDiagnostic(
+            'long-capture',
+            `manual capture failed ${captureFailures}`,
+            'warn'
+          )
+          if (captureFailures >= MANUAL_CAPTURE_FAILURE_LIMIT) {
+            throw new Error(
+              '截取长截图帧失败；请确认桌面未锁定或屏幕捕获权限正常'
+            )
+          }
+          await delay(MANUAL_CAPTURE_MS)
           continue
         }
+        captureFailures = 0
+        const current = trimCaptureEdgeRow(raw)
+        if (
+          current.width !== previous.width ||
+          current.height !== previous.height
+        ) {
+          throw new Error('长截图选区尺寸发生变化，请重新框选')
+        }
+        const currentMatch = cropFrameHorizontal(current, MATCH_EDGE_MARGIN)
 
         if (
           framesAreSimilar(previousMatch, currentMatch, {
             stepX: 4,
             stepY: 2
-          }) ||
-          (lastAttempted &&
-            framesAreSimilar(lastAttempted, currentMatch, {
-              stepX: 4,
-              stepY: 2
-            }))
+          })
         ) {
+          report({
+            phase: this.manualPhase === 'gap' ? 'gap' : 'manual',
+            screens,
+            height: currentHeight(),
+            message: this.manualPhase === 'gap' ? gapMessage : idleMessage
+          })
+          const wait = MANUAL_CAPTURE_MS - (Date.now() - frameStarted)
+          if (wait > 0) await delay(wait)
           continue
         }
 
+        const expectedOffset =
+          lastOffset > 0 ? lastOffset : Math.round(previous.height * 0.35)
         const match = findOverlap(
           previousMatch,
           currentMatch,
           stitcher ? headerHeight : undefined,
-          undefined,
+          expectedOffset,
           !stitcher
         )
-        lastAttempted = currentMatch
-        if (!match || match.offset < 8) {
-          this.setProgress({
-            phase: 'manual',
-            screens,
-            height: stitcher?.currentHeight ?? first.height,
-            message: '滚动太快，请慢一点或回滚到重叠位置'
-          })
+
+        if (!match) {
+          const reverse = findOverlap(
+            currentMatch,
+            previousMatch,
+            stitcher ? headerHeight : undefined,
+            expectedOffset,
+            false
+          )
+          if (reverse) {
+            this.manualPhase = 'manual'
+            report({
+              phase: 'manual',
+              screens,
+              height: currentHeight(),
+              message: '检测到回滚，继续向下滚动即可接上'
+            })
+          } else {
+            this.manualPhase = 'gap'
+            report({
+              phase: 'gap',
+              screens,
+              height: currentHeight(),
+              message: gapMessage
+            })
+          }
+          const wait = MANUAL_CAPTURE_MS - (Date.now() - frameStarted)
+          if (wait > 0) await delay(wait)
+          continue
+        }
+
+        if (match.offset < 4) {
+          const wait = MANUAL_CAPTURE_MS - (Date.now() - frameStarted)
+          if (wait > 0) await delay(wait)
           continue
         }
 
@@ -844,23 +977,27 @@ export class LongCaptureManager {
           break
         }
         if (appended.truncated) limitReached = true
+        lastAcceptedPrevious = previous
         previous = current
         previousMatch = currentMatch
-        lastSeenMatch = currentMatch
+        lastOffset = match.offset
         screens += 1
-        this.setProgress({
+        this.manualPhase = 'manual'
+        report({
           phase: 'manual',
           screens,
           height: stitcher.currentHeight,
           message: limitReached
             ? '已达到长截图上限'
-            : `已截取 ${screens} 屏 · 继续慢慢向下滚动`
+            : `已接 ${screens} 屏 · 继续正常滚动`
         })
         logDiagnostic(
           'long-capture',
-          `manual frame ${screens} offset=${match.offset} confidence=${match.confidence.toFixed(3)} header=${headerHeight}`
+          `manual frame ${screens} offset=${match.offset} confidence=${match.confidence.toFixed(3)} header=${headerHeight} capture=${captureMs}ms`
         )
         if (limitReached) break
+        const wait = MANUAL_CAPTURE_MS - (Date.now() - frameStarted)
+        if (wait > 0) await delay(wait)
       }
 
       if (this.cancelled) {
@@ -906,6 +1043,9 @@ export class LongCaptureManager {
       this.running = false
       this.paused = false
       this.finishRequested = false
+      this.manualSession = false
+      this.manualPhase = 'manual'
+      this.undoRequested = false
       this.resumeWaiters = []
       this.progressListener = undefined
     }

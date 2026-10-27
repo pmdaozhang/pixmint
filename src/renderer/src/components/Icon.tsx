@@ -26,6 +26,7 @@ export type IconName =
   | 'palette'
   | 'volume'
   | 'long'
+  | 'longManual'
 
 const paths: Record<IconName, JSX.Element> = {
   move: (
@@ -160,6 +161,12 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <rect x="6" y="3" width="12" height="15" rx="1.6" />
       <path d="M12 7v6M9 11l3 3 3-3M4 21h16" />
+    </>
+  ),
+  longManual: (
+    <>
+      <rect x="7" y="3" width="10" height="17" rx="5" />
+      <path d="M12 7v4M9.5 9.5 12 12l2.5-2.5M4 21h16" />
     </>
   )
 }

@@ -63,8 +63,13 @@ import { installWebContentsSecurity, isTrustedAppUrl } from './security'
 import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 import { disposeUpdater, initUpdater } from './updater'
-import { longCaptureManager } from './long-capture'
+import { LongCaptureManager, longCaptureManager } from './long-capture'
 import { LongCaptureController } from './long-capture-controller'
+import {
+  RawGdiFrameSource,
+  type FrameSource
+} from './long-capture/frame-source'
+import type { FrameImage } from '../shared/long-capture'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -124,6 +129,10 @@ const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
 const isLongCaptureSmoke = process.argv.includes('--smoke-long-capture')
 const isLongCaptureUiSmoke = process.argv.includes('--smoke-long-capture-ui')
 const isLongCaptureManualSmoke = process.argv.includes('--smoke-long-capture-manual')
+const isLongCaptureManualSyntheticSmoke = process.argv.includes(
+  '--smoke-long-capture-manual-synthetic'
+)
+const isRawFrameSourceSmoke = process.argv.includes('--smoke-raw-frame-source')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
@@ -245,8 +254,12 @@ async function handleOverlayComplete(
   payload: OverlayCompletePayload,
   capture: DisplayCapture
 ): Promise<void> {
-  if (payload.action === 'long') {
-    void longCaptureController.start(payload)
+  if (payload.action === 'long' || payload.action === 'longManual') {
+    if (payload.action === 'longManual' || payload.longMode === 'manual') {
+      void longCaptureController.startManual(payload)
+    } else {
+      void longCaptureController.start(payload)
+    }
     return
   }
   const image = imageFromBytes(payload.pngBytes)
@@ -383,6 +396,7 @@ function registerIpc(): void {
   ipcMain.on('long-capture:finish', () => longCaptureController.finish())
   ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
   ipcMain.on('long-capture:manual', () => longCaptureController.manual())
+  ipcMain.on('long-capture:undo', () => longCaptureController.undo())
   ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
   ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
   ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
@@ -1072,6 +1086,314 @@ async function runLongCaptureManualSmoke(): Promise<void> {
   }
 }
 
+/**
+ * 背景：当前桌面会话可能拿不到 GDI 句柄，不能因此跳过手动循环验证。
+ * 设计意图：用合成长页面驱动真实 LongCaptureManager，覆盖连续帧、跳变、回滚、撤销和完成。
+ * 关键约束：帧源完全不读屏幕；只验证采集循环、匹配、拼接和状态机。
+ */
+class SyntheticScrollFrameSource implements FrameSource {
+  readonly name = 'synthetic-scroll'
+  private readonly width = 700
+  private readonly height = 535
+  private readonly headerHeight = 40
+  private readonly pageHeight = 12000
+  private readonly page: Uint8Array
+  private call = 0
+
+  constructor() {
+    this.page = new Uint8Array(this.width * this.pageHeight * 4)
+    for (let y = 0; y < this.pageHeight; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        const hash =
+          Math.imul(y, 374761393) +
+          Math.imul(x, 668265263) +
+          Math.imul(y >> 3, 2246822519)
+        const value = (hash ^ (hash >>> 13)) >>> 0
+        const index = (y * this.width + x) * 4
+        this.page[index] = value & 255
+        this.page[index + 1] = (value >>> 8) & 255
+        this.page[index + 2] = (value >>> 16) & 255
+        this.page[index + 3] = 255
+      }
+    }
+  }
+
+  async capture(): Promise<FrameImage | null> {
+    const offset = this.offsetForCall(this.call)
+    this.call += 1
+    return this.frameAt(offset)
+  }
+
+  dispose(): void {
+    // 合成帧源没有外部资源
+  }
+
+  private offsetForCall(call: number): number {
+    if (call <= 7) return call * 240
+    if (call === 8 || call === 9) return 2580
+    if (call === 10) return 1200
+    if (call === 11) return 1440
+    if (call === 12) return 1680
+    return 1680 + (call - 12) * 240
+  }
+
+  private frameAt(offset: number): FrameImage {
+    const data = new Uint8Array(this.width * this.height * 4)
+    for (let y = 0; y < this.height; y += 1) {
+      for (let x = 0; x < this.width; x += 1) {
+        const index = (y * this.width + x) * 4
+        if (y < this.headerHeight) {
+          data[index] = 24
+          data[index + 1] = 48 + (x % 32)
+          data[index + 2] = 196
+          data[index + 3] = 255
+          continue
+        }
+        const pageRow = Math.min(
+          this.pageHeight - 1,
+          offset + (y - this.headerHeight)
+        )
+        const pageIndex = (pageRow * this.width + x) * 4
+        data[index] = this.page[pageIndex]
+        data[index + 1] = this.page[pageIndex + 1]
+        data[index + 2] = this.page[pageIndex + 2]
+        data[index + 3] = this.page[pageIndex + 3]
+      }
+    }
+    return { width: this.width, height: this.height, data }
+  }
+}
+
+async function runLongCaptureManualSyntheticSmoke(): Promise<void> {
+  const reportPath = join(
+    app.getAppPath(),
+    'test-results',
+    'long-capture-manual-synthetic-smoke.json'
+  )
+  const writeReport = (value: unknown): void => {
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true })
+      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
+    } catch {
+      // smoke 报告失败不应改变测试结果
+    }
+  }
+
+  const manager = new LongCaptureManager(
+    undefined,
+    new SyntheticScrollFrameSource()
+  )
+  const progress: Array<{ phase: string; message?: string; screens: number; height: number }> = []
+  let finished = false
+  try {
+    const display = screen.getPrimaryDisplay()
+    const selection = { x: 100, y: 100, width: 700, height: 535 }
+    const run = manager.startManual({
+      display,
+      selection,
+      maxFrames: 120,
+      onProgress: (value) => {
+        progress.push({
+          phase: value.phase,
+          message: value.message,
+          screens: value.screens,
+          height: value.height
+        })
+      }
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    manager.pause()
+    await new Promise((resolve) => setTimeout(resolve, 260))
+    manager.resume()
+    await new Promise((resolve) => setTimeout(resolve, 740))
+    manager.undo()
+    await new Promise((resolve) => setTimeout(resolve, 1600))
+    manager.finish()
+    const result = await run
+    finished = true
+
+    const messages = progress.map((item) => item.message ?? '')
+    const sawGap =
+      progress.some((item) => item.phase === 'gap') ||
+      messages.some((message) => message.includes('没接上'))
+    const sawUndo = messages.some((message) => message.includes('已回退一屏'))
+    const sawPause = progress.some((item) => item.phase === 'paused')
+    const ok = Boolean(
+      result &&
+        result.height > selection.height &&
+        sawGap &&
+        sawUndo &&
+        sawPause
+    )
+    writeReport({
+      ok,
+      result,
+      sawGap,
+      sawUndo,
+      sawPause,
+      lastProgress: progress.slice(-12)
+    })
+    console.log(
+      'LONG_CAPTURE_MANUAL_SYNTHETIC_RESULT',
+      JSON.stringify({ ok, result, sawGap, sawUndo, sawPause })
+    )
+    manager.deleteResult()
+    app.exit(ok ? 0 : 1)
+  } catch (error) {
+    writeReport({
+      ok: false,
+      stage: 'exception',
+      error: error instanceof Error ? error.message : String(error),
+      lastProgress: progress.slice(-12)
+    })
+    console.error('LONG_CAPTURE_MANUAL_SYNTHETIC_ERROR', error)
+    app.exit(1)
+  } finally {
+    if (!finished) manager.cancel()
+    manager.dispose()
+  }
+}
+
+/**
+ * 背景：Phase 0 只测了 GDI 采集本身，没有测 PowerShell → Node 的原始帧传输。
+ * 设计意图：用真实 sidecar 串行采集，测 10fps 节奏和最大帧率，决定是否需要 WGC。
+ * 关键约束：只读屏幕到内存，不落盘；报告写入 test-results，退出时释放 sidecar。
+ */
+async function runRawFrameSourceSmoke(): Promise<void> {
+  const reportPath = join(
+    app.getAppPath(),
+    'test-results',
+    'raw-frame-source-smoke.json'
+  )
+  const writeReport = (value: unknown): void => {
+    try {
+      mkdirSync(dirname(reportPath), { recursive: true })
+      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
+    } catch {
+      // smoke 报告失败不应改变测试结果
+    }
+  }
+  const percentile = (values: number[], ratio: number): number => {
+    if (values.length === 0) return 0
+    const ordered = [...values].sort((a, b) => a - b)
+    const index = Math.min(
+      ordered.length - 1,
+      Math.max(0, Math.ceil(ratio * ordered.length) - 1)
+    )
+    return ordered[index]
+  }
+
+  const source = new RawGdiFrameSource()
+  const display = screen.getPrimaryDisplay()
+  const width = Math.round(display.size.width * display.scaleFactor)
+  const height = Math.round(display.size.height * display.scaleFactor)
+  const cases = [
+    {
+      name: '700x600-paced',
+      rect: { x: 0, y: 0, width: 700, height: 600 },
+      frames: 40,
+      targetFps: 10
+    },
+    {
+      name: '1080p-paced',
+      rect: {
+        x: 0,
+        y: 0,
+        width: Math.min(1920, width),
+        height: Math.min(1080, height)
+      },
+      frames: 30,
+      targetFps: 10
+    },
+    {
+      name: '700x600-max',
+      rect: { x: 0, y: 0, width: 700, height: 600 },
+      frames: 60,
+      targetFps: 1000
+    },
+    {
+      name: '1080p-max',
+      rect: {
+        x: 0,
+        y: 0,
+        width: Math.min(1920, width),
+        height: Math.min(1080, height)
+      },
+      frames: 30,
+      targetFps: 1000
+    }
+  ]
+
+  writeReport({ ok: false, stage: 'started', display: { width, height } })
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    const results: unknown[] = []
+    for (const item of cases) {
+      for (let index = 0; index < 3; index += 1) {
+        const warm = await source.capture(item.rect, 2000)
+        if (!warm) {
+          throw new Error(`raw frame warmup failed: ${item.name}`)
+        }
+      }
+
+      const times: number[] = []
+      let bytes = 0
+      let failures = 0
+      const started = Date.now()
+      for (let index = 0; index < item.frames; index += 1) {
+        const frameStarted = Date.now()
+        const frame = await source.capture(item.rect, 2000)
+        const elapsed = Date.now() - frameStarted
+        times.push(elapsed)
+        if (!frame) {
+          failures += 1
+        } else {
+          bytes = frame.data.length
+        }
+        const wait = 1000 / item.targetFps - elapsed
+        if (wait > 0) {
+          await new Promise((resolve) => setTimeout(resolve, wait))
+        }
+      }
+      const totalMs = Date.now() - started
+      const caseResult = {
+        name: item.name,
+        width: item.rect.width,
+        height: item.rect.height,
+        frames: item.frames,
+        targetFps: item.targetFps,
+        achievedFps: Number((item.frames / (totalMs / 1000)).toFixed(2)),
+        avgMs: Number(
+          (times.reduce((sum, value) => sum + value, 0) / times.length).toFixed(2)
+        ),
+        p95Ms: Number(percentile(times, 0.95).toFixed(2)),
+        failures,
+        bytes
+      }
+      results.push(caseResult)
+      console.log('RAW_FRAME_SOURCE_CASE', JSON.stringify(caseResult))
+      writeReport({ ok: false, stage: 'running', display: { width, height }, results })
+    }
+    const ok = (results as Array<{ failures: number; bytes: number }>).every(
+      (item) => item.failures === 0 && item.bytes > 0
+    )
+    writeReport({ ok, display: { width, height }, results })
+    console.log('RAW_FRAME_SOURCE_RESULT', JSON.stringify({ ok, results }))
+    app.exit(ok ? 0 : 1)
+  } catch (error) {
+    writeReport({
+      ok: false,
+      stage: 'exception',
+      error: error instanceof Error ? error.message : String(error)
+    })
+    console.error('RAW_FRAME_SOURCE_ERROR', error)
+    app.exit(1)
+  } finally {
+    source.dispose()
+  }
+}
+
 if (
   !isSmokeTest &&
   !isCaptureSmoke &&
@@ -1084,6 +1406,8 @@ if (
   !isLongCaptureSmoke &&
   !isLongCaptureUiSmoke &&
   !isLongCaptureManualSmoke &&
+  !isLongCaptureManualSyntheticSmoke &&
+  !isRawFrameSourceSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
   !isCaptureOnce &&
@@ -1106,6 +1430,8 @@ if (
       !isLongCaptureSmoke &&
       !isLongCaptureUiSmoke &&
       !isLongCaptureManualSmoke &&
+      !isLongCaptureManualSyntheticSmoke &&
+      !isRawFrameSourceSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
       !isCaptureOnce &&
@@ -1138,6 +1464,16 @@ if (
     if (isLongCaptureManualSmoke) {
       initServices()
       void runLongCaptureManualSmoke()
+      return
+    }
+    if (isLongCaptureManualSyntheticSmoke) {
+      initServices()
+      void runLongCaptureManualSyntheticSmoke()
+      return
+    }
+    if (isRawFrameSourceSmoke) {
+      initServices()
+      void runRawFrameSourceSmoke()
       return
     }
     initServices()

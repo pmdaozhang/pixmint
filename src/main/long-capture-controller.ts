@@ -49,22 +49,35 @@ export class LongCaptureController {
     }
   }
 
-  manual(): void {
-    const payload = this.lastPayload
-    if (!payload) return
+  /**
+   * 背景：手动长截图不应只作为自动失败后的兜底，工具栏需要能直接进入。
+   * 设计意图：复用同一个 HUD 和 manager，只是把启动方法换成 startManual。
+   * 关键约束：必须在覆盖层已隐藏后调用；手动模式不需要滚动目标窗口。
+   */
+  async startManual(payload: OverlayCompletePayload): Promise<void> {
+    this.lastPayload = payload
     const display =
       screen.getAllDisplays().find((candidate) => candidate.id === payload.displayId) ??
       screen.getPrimaryDisplay()
-    void this.manager
-      .startManual({
+    this.hud.show(display, payload.selection)
+    this.hud.send(this.manager.getProgress())
+    try {
+      await this.manager.startManual({
         display,
         selection: payload.selection,
         ...this.callbacks()
       })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error)
-        notify(`手动长截图失败：${message}`)
-      })
+    } catch (error) {
+      this.hud.hide()
+      const message = error instanceof Error ? error.message : String(error)
+      notify(`手动长截图失败：${message}`)
+    }
+  }
+
+  manual(): void {
+    const payload = this.lastPayload
+    if (!payload) return
+    void this.startManual(payload)
   }
 
   private callbacks(): {
@@ -94,6 +107,10 @@ export class LongCaptureController {
 
   finish(): void {
     this.manager.finish()
+  }
+
+  undo(): void {
+    this.manager.undo()
   }
 
   cancel(): void {

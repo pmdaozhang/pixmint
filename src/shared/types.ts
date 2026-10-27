@@ -12,7 +12,7 @@ export interface Rect {
 
 export type ThemeSetting = 'system' | 'dark' | 'light'
 export type Language = 'zh-CN' | 'en-US'
-export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr' | 'long'
+export type OverlayAction = 'copy' | 'save' | 'pin' | 'ocr' | 'long' | 'longManual'
 export type Tool = 'move' | 'shape' | 'arrow' | 'mosaic' | 'text' | 'seq'
 export type ShapeKind = 'rect' | 'ellipse'
 export type LineStyle = 'solid' | 'thin' | 'sketch' | 'dotted'
@@ -71,6 +71,7 @@ export interface OverlayInit extends DisplayCapture {
 
 export interface OverlayCompletePayload {
   action: OverlayAction
+  longMode?: 'auto' | 'manual'
   displayId: number
   selection: Rect
   pngBytes: Uint8Array
@@ -322,6 +323,7 @@ export type LongCapturePhase =
   | 'capturing'
   | 'matching'
   | 'manual'
+  | 'gap'
   | 'paused'
   | 'finished'
   | 'error'

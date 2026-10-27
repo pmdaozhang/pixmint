@@ -142,6 +142,7 @@ const api: SnapglassApi = {
     finish: () => ipcRenderer.send('long-capture:finish'),
     cancel: () => ipcRenderer.send('long-capture:cancel'),
     manual: () => ipcRenderer.send('long-capture:manual'),
+    undo: () => ipcRenderer.send('long-capture:undo'),
     onProgress: (callback: (progress: LongCaptureProgress) => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

@@ -137,6 +137,52 @@
     "p95IntervalMs": [81.5, 106.6],
     "note": "One earlier multi-window run produced a requestVideoFrameCallback timeout; one-process-per-config removed the state reuse issue."
   },
+  "transportSynthetic": {
+    "mode": "PIXMINT_RAW_CAPTURE_SYNTHETIC=1",
+    "note": "Validates the real PowerShell/C# sidecar binary stdout protocol without GDI capture. Payload is synthetic; capture itself is covered by the GDI section.",
+    "results": [
+      {
+        "name": "700x600-paced",
+        "frames": 40,
+        "targetFps": 10,
+        "achievedFps": 9.2,
+        "avgMs": 10.13,
+        "p95Ms": 19,
+        "failures": 0,
+        "bytes": 1680000
+      },
+      {
+        "name": "1080p-paced",
+        "frames": 30,
+        "targetFps": 10,
+        "achievedFps": 9.06,
+        "avgMs": 36.27,
+        "p95Ms": 47,
+        "failures": 0,
+        "bytes": 8294400
+      },
+      {
+        "name": "700x600-max",
+        "frames": 60,
+        "targetFps": 1000,
+        "achievedFps": 133.04,
+        "avgMs": 7.52,
+        "p95Ms": 15,
+        "failures": 0,
+        "bytes": 1680000
+      },
+      {
+        "name": "1080p-max",
+        "frames": 30,
+        "targetFps": 1000,
+        "achievedFps": 37.97,
+        "avgMs": 26.33,
+        "p95Ms": 39,
+        "failures": 0,
+        "bytes": 8294400
+      }
+    ]
+  },
   "decision": {
     "primary": "gdi-raw-with-binary-transport",
     "fallback": "electron-desktopcapturer-video-stream",
