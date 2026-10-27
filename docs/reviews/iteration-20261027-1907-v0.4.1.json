@@ -83,7 +83,7 @@
         "name": "e2e_window_long",
         "status": "pass",
         "command": "pnpm e2e:window-long",
-        "detail": "real Edge window, icon-only entry, picker, reselect, 2 screens, 882x1280 preview"
+        "detail": "real Edge window, icon-only entry, picker, reselect, at least 2 screens, final 884x1283 preview"
       },
       {
         "name": "real_user_apps",

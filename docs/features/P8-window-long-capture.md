@@ -60,7 +60,7 @@
 - [x] 八个手柄受窗口内容区约束，最小尺寸和固定对边逻辑通过单测。
 - [x] “重新选择”能重新冻结桌面并打开选择器。
 - [x] 开始后自动滚动至少 2 屏并生成预览图。
-- [x] 预览图实际加载为 882×1280 的 PNG。
+- [x] 预览图实际加载为 884×1283 的 PNG；E2E 在 HUD 显示 2 屏时点击完成，后台此轮最终记录为 3 屏。
 - [x] `pnpm typecheck`、`pnpm test`、`pnpm build` 通过。
 - [x] 既有覆盖层 E2E 通过，工具栏原有操作顺序未变。
 - [x] 新增真实窗口 E2E 通过。
@@ -75,7 +75,7 @@
 - `pnpm build`：main、preload、renderer 全部通过。
 - `node scripts/spike/verify-window-long-capture-demo.cjs`：Demo 的窗口选择、缩放、自动滚动、暂停、预览、错误态和浅色主题全部通过。
 - `node e2e-overlay.cjs`：既有覆盖层 E2E 通过。
-- `pnpm e2e:window-long`：真实 Edge 窗口通过纯图标入口、窗口选择、选区确认、重新选择、自动滚动 2 屏和 882×1280 预览。
+- `pnpm e2e:window-long`：真实 Edge 窗口通过纯图标入口、窗口选择、选区确认、重新选择、至少自动滚动 2 屏，最终生成 884×1283 预览。
 - 实测发现并修复两处窗口目标辅助进程缺陷：Sidecar 协议不匹配、`GetCurrentThreadId` 错声明在 `user32.dll`。
 
 ## 风险

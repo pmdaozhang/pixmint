@@ -26,7 +26,7 @@
 - `pnpm build` 通过。
 - `node scripts/spike/verify-window-long-capture-demo.cjs` 通过。
 - `node e2e-overlay.cjs` 通过。
-- `pnpm e2e:window-long` 通过：真实 Edge 窗口、重新选择、自动滚动 2 屏、882×1280 预览。
+- `pnpm e2e:window-long` 通过：真实 Edge 窗口、重新选择、至少自动滚动 2 屏，最终生成 884×1283 预览。
 - 未实测：微信、PDF、IDE、地图、多显示器组合和 macOS。
 
 ## [0.4.1] - 2026-10-26
