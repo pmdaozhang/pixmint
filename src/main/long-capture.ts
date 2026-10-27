@@ -92,6 +92,7 @@ export class LongCaptureManager {
   private result: LongCaptureResult | null = null
   private resultFilePath = ''
   private savedFilePath = ''
+  private lastEncodeMs = 0
   private progressListener?: (progress: LongCaptureProgress) => void
 
   constructor(driver?: ScrollDriver) {
@@ -104,6 +105,10 @@ export class LongCaptureManager {
 
   getResult(): LongCaptureResult | null {
     return this.result ? { ...this.result } : null
+  }
+
+  getLastEncodeMs(): number {
+    return this.lastEncodeMs
   }
 
   getPreviewInfo(): LongCapturePreviewInfo | null {
@@ -394,7 +399,9 @@ export class LongCaptureManager {
         message: '正在编码长图'
       })
       const frame = stitcher.getFrame()
+      const encodeStarted = Date.now()
       const png = encodePng(frame)
+      this.lastEncodeMs = Date.now() - encodeStarted
       const filePath = join(
         app.getPath('temp'),
         `pixmint-long-${process.pid}-${Date.now()}.png`
@@ -426,7 +433,7 @@ export class LongCaptureManager {
       }
       logDiagnostic(
         'long-capture',
-        `finished ${frame.width}x${frame.height} screens=${screens} bytes=${png.length}`
+        `finished ${frame.width}x${frame.height} screens=${screens} bytes=${png.length} encode=${this.lastEncodeMs}ms`
       )
       return this.result
     } catch (error) {

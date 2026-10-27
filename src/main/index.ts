@@ -851,6 +851,9 @@ async function runLongCaptureSmoke(): Promise<void> {
   const smokePath = join(app.getAppPath(), 'test-results', 'long-capture-smoke.json')
   const progressLog: unknown[] = []
   const targetLog: string[] = []
+  const startedAt = Date.now()
+  const memoryBefore = process.memoryUsage()
+  const maxHeight = Number(process.env.PIXMINT_LONG_MAX_HEIGHT || 0) || undefined
   const writeSmoke = (value: unknown): void => {
     try {
       mkdirSync(dirname(smokePath), { recursive: true })
@@ -869,13 +872,30 @@ async function runLongCaptureSmoke(): Promise<void> {
     const result = await longCaptureManager.start({
       display,
       selection,
+      maxHeight,
       onProgress: (progress) => {
         progressLog.push(progress)
         console.log('LONG_CAPTURE_PROGRESS', JSON.stringify(progress))
       },
       onComplete: (value) => {
-        writeSmoke({ ok: true, result: value, progress: progressLog, targets: targetLog })
-        console.log('LONG_CAPTURE_RESULT', JSON.stringify(value))
+        writeSmoke({
+          ok: true,
+          result: value,
+          progress: progressLog,
+          targets: targetLog,
+          durationMs: Date.now() - startedAt,
+          encodeMs: longCaptureManager.getLastEncodeMs(),
+          memoryBefore,
+          memoryAfter: process.memoryUsage()
+        })
+        console.log(
+          'LONG_CAPTURE_RESULT',
+          JSON.stringify({
+            ...value,
+            durationMs: Date.now() - startedAt,
+            encodeMs: longCaptureManager.getLastEncodeMs()
+          })
+        )
       },
       onError: (message) => {
         writeSmoke({ ok: false, error: message, progress: progressLog, targets: targetLog })

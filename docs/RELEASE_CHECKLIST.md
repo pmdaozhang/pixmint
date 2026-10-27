@@ -32,6 +32,10 @@
 - `node_modules\.bin\electron.cmd . --smoke-long-capture-ui`，确认 HUD 和预览窗口正常
 - `pnpm e2e:overlay`，确认 `E2E_OK`，工具栏不溢出
 - `pnpm e2e:long-capture`，确认入口点击、HUD 控制、预览复制和临时文件清理通过
+- `pnpm e2e:long-capture:edge`，确认 Edge 长网页输出高度大于 1000px
+- `pnpm e2e:long-capture:notepad`，确认记事本长文档输出高度大于 1000px
+- `$env:PIXMINT_LONG_ROWS='1000'; electron . --smoke-long-capture`，确认 20k px 结果、编码耗时和内存
+- `$env:PIXMINT_LONG_MAX_HEIGHT='1200'; electron . --smoke-long-capture`，确认上限停止并保留
 - 对 smoke 输出做像素扫描：除表头外不应出现整行深色横线
 
 ### 真实应用与交互
