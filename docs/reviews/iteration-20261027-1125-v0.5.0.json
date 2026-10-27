@@ -1,7 +1,7 @@
 {
   "version": "0.5.0",
-  "date": "2026-10-27T11:30:00+08:00",
-  "commit": "c010f22",
+  "date": "2026-10-27T11:40:00+08:00",
+  "commit": "ef84435",
   "level": "full",
   "conclusion": "conditional",
   "baseline_created": false,
@@ -10,7 +10,7 @@
   "yellow": [
     {
       "id": "P7-E2E-REAL",
-      "item": "入口点击、真实应用、DPI、UAC、保存/复制、上限提示未实测",
+      "item": "真实应用、DPI、多显示器、UAC、保存对话框、上限提示未实测",
       "dimension": "regression",
       "deadline": "2026-11-03",
       "evidence": "docs/features/P7-long-screenshot.md#实测结果2026-10-27"
@@ -21,24 +21,18 @@
       "dimension": "performance",
       "deadline": "2026-11-10",
       "evidence": "docs/features/P7-long-screenshot.md#性能与取舍预审"
-    },
-    {
-      "id": "P7-E2E-COVERAGE",
-      "item": "长截图专用 E2E 尚未建立，仅 smoke/覆盖层 E2E",
-      "dimension": "testing",
-      "deadline": "2026-11-03",
-      "evidence": "docs/superpowers/plans/P7-long-screenshot.md#7-测试与验证"
     }
   ],
   "green": [
     "stability",
     "architecture",
-    "reversibility"
+    "reversibility",
+    "testing"
   ],
   "metrics": {
     "installerBytes": 119467109,
-    "sourceFiles": 143,
-    "sourceLines": 21017,
+    "sourceFiles": 144,
+    "sourceLines": 21294,
     "testFiles": 23,
     "runtimeDependencies": 6,
     "devDependencies": 12
@@ -104,9 +98,10 @@
         "detail": "FileVersion 0.5.0"
       },
       {
-        "name": "e2e_long_capture_click",
-        "status": "not_run",
-        "reason": "e2e-long-capture.cjs 尚未建立，入口点击、暂停/完成/取消和不可滚动窗口未自动化"
+        "name": "e2e_long_capture",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture",
+        "detail": "entry click, HUD pause/resume/finish/cancel, preview zoom/copy, temp cleanup"
       },
       {
         "name": "dpi_multimonitor",
@@ -141,5 +136,5 @@
     ]
   },
   "exception": null,
-  "notes": "P7 长截图核心链路与 1px 接缝修复已完成，本地 0.5.0 安装包已生成。真实应用、DPI、多显示器、UAC、保存/复制对话框、上限提示和专用 E2E 未实测，因此结论为 conditional；GitHub Release 尚未发布。"
+  "notes": "P7 长截图核心链路、1px 接缝修复和专用 E2E 已完成，本地 0.5.0 安装包已生成。真实应用、DPI、多显示器、UAC、保存对话框、上限提示和 20k px 性能未实测，因此结论为 conditional；GitHub Release 尚未发布。"
 }
