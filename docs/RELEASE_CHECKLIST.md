@@ -20,6 +20,7 @@
 - 更新后确认设置、密钥、历史和诊断日志保留。
 - 本地回归可用 `PIXMINT_UPDATE_URL=http://127.0.0.1:<port>/` 指向 generic 测试源；测试源需同时提供 `latest.yml`、安装包和 `.blockmap`。
 - 已知风险：Windows 安装包未签名会触发 SmartScreen；GitHub 国内下载速度未实测；差分下载命中未实测。
+- 2026-10-27 状态：`v0.5.0` 已发布；0.4.1 → 0.5.0 在线更新验证通过；0.4.1 旧 Release 缺 blockmap，差分自动回退全量下载。
 
 ## 长截图（P7）
 

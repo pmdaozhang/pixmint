@@ -20,6 +20,8 @@
     "e2e:long-capture": "node e2e-long-capture.cjs",
     "e2e:long-capture:edge": "node e2e-long-capture-edge.cjs",
     "e2e:long-capture:notepad": "node e2e-long-capture-notepad.cjs",
+    "e2e:update-online": "node e2e-update-online.cjs",
+    "release:github": "node scripts/release-github.mjs",
     "soak:overlay": "node scripts/soak/overlay-soak.cjs",
     "soak:ocr": "node scripts/soak/ocr-soak.cjs",
     "soak:recording": "node scripts/soak/recording-soak.cjs",

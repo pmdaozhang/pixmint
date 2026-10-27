@@ -150,8 +150,8 @@
 
 - [x] 打包 `Pixmint-Setup-0.5.0.exe`（119,467,109 字节）
 - [x] 验证 `latest.yml`、`.blockmap`（版本 0.5.0，文件名一致）
-- [ ] GitHub Release `v0.5.0`（HTTPS push 连接重置/超时，SSH 无密钥）
-- [ ] 0.4.1 → 0.5.0 应用内更新
+- [x] GitHub Release `v0.5.0`（https://github.com/pmdaozhang/pixmint/releases/tag/v0.5.0）
+- [x] 0.4.1 → 0.5.0 应用内更新（差分因旧版 blockmap 404 回退全量，安装成功）
 
 ## 文件清单
 
