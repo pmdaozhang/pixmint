@@ -13,6 +13,8 @@
 - 普通长截图 smoke：700×3396。
 - 长截图专用 E2E：入口、HUD、暂停/继续/完成/取消、预览、复制、保存路径、不可滚动窗口通过。
 - `pnpm typecheck`、`pnpm test`、`pnpm build` 通过。
+- GitHub Release `v0.5.1` 已发布，安装包、`latest.yml`、`.blockmap` 已上传。
+- 0.5.0 → 0.5.1 在线更新通过；差分下载命中 61 个块，约 1.2MB（1%），安装后 `FileVersion=0.5.1`。
 
 ### 未实测
 

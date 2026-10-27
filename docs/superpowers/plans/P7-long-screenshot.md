@@ -155,7 +155,7 @@
 - [x] 验证 `latest.yml`、`.blockmap`（版本 0.5.0，文件名一致）
 - [x] GitHub Release `v0.5.0`（https://github.com/pmdaozhang/pixmint/releases/tag/v0.5.0）
 - [x] 0.4.1 → 0.5.0 应用内更新（差分因旧版 blockmap 404 回退全量，安装成功）
-- [ ] 0.5.1 GitHub Release 与在线更新
+- [x] 0.5.1 GitHub Release 与在线更新（差分 61 块 / 约 1.2MB / 1%）
 
 ## 文件清单
 
