@@ -1,0 +1,91 @@
+{
+  "version": "0.6.0",
+  "date": "2026-10-27T16:00:00+08:00",
+  "commit": "70543a0",
+  "level": "full",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119469631,
+    "sourceFiles": 148,
+    "sourceLines": 22845,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "23 files, 145 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "manual_smoke",
+        "status": "pass",
+        "command": "electron . --smoke-long-capture-manual",
+        "detail": "700x2934, 9 screens"
+      },
+      {
+        "name": "manual_entry_e2e",
+        "status": "pass",
+        "command": "pnpm e2e:long-capture",
+        "detail": "error HUD -> manual -> cancel cleanup"
+      },
+      {
+        "name": "auto_regression",
+        "status": "pass",
+        "command": "normal / scrollbar / UIA big-wheel smoke",
+        "detail": "all 700x3396"
+      },
+      {
+        "name": "pack",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --config electron-builder.yml --publish never",
+        "detail": "Pixmint-Setup-0.6.0.exe 119469631 bytes"
+      },
+      {
+        "name": "release",
+        "status": "pass",
+        "command": "node scripts/release-github.mjs",
+        "detail": "v0.6.0 published; exe, latest.yml and blockmap uploaded"
+      },
+      {
+        "name": "online_update",
+        "status": "pass",
+        "command": "node e2e-update-online.cjs",
+        "detail": "0.5.2 -> 0.6.0; differential 54 blocks; installed 0.6.0"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.6.0 新增手动滚动长截图。手动 smoke 700×2934、9 屏；E2E 手动入口通过；Release 与 0.5.2 → 0.6.0 差分在线更新均验证通过。用户实际应用需复测。"
+}
