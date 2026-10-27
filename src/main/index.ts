@@ -13,8 +13,9 @@ import {
   shell,
   Tray
 } from 'electron'
-import { mkdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
   DisplayCapture,
@@ -62,6 +63,7 @@ import { installWebContentsSecurity, isTrustedAppUrl } from './security'
 import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 import { disposeUpdater, initUpdater } from './updater'
+import { longCaptureManager } from './long-capture'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -118,6 +120,7 @@ const isOnboardingE2e = process.argv.includes('--e2e-onboarding')
 const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
+const isLongCaptureSmoke = process.argv.includes('--smoke-long-capture')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
@@ -808,6 +811,91 @@ function runPrepareSmoke(): void {
   }, 2600)
 }
 
+async function runLongCaptureSmoke(): Promise<void> {
+  if (app.isPackaged) {
+    console.error('LONG_CAPTURE_SMOKE_PACKAGED_UNSUPPORTED')
+    app.exit(1)
+    return
+  }
+  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
+  const electronPath = join(
+    app.getAppPath(),
+    'node_modules',
+    'electron',
+    'dist',
+    'electron.exe'
+  )
+  const fixture = spawn(electronPath, [fixturePath], { stdio: 'ignore' })
+  const smokePath = join(app.getAppPath(), 'test-results', 'long-capture-smoke.json')
+  const progressLog: unknown[] = []
+  const targetLog: string[] = []
+  const writeSmoke = (value: unknown): void => {
+    try {
+      mkdirSync(dirname(smokePath), { recursive: true })
+      writeFileSync(smokePath, JSON.stringify(value, null, 2), 'utf8')
+    } catch {
+      // smoke 报告写入失败不应改变测试结果
+    }
+  }
+  writeSmoke({ ok: false, stage: 'started', at: new Date().toISOString() })
+  try {
+    // 等独立 fixture 窗口完成创建、定位和首帧绘制。
+    await new Promise((resolve) => setTimeout(resolve, 2200))
+    const display = screen.getPrimaryDisplay()
+    // fixture 外框 y=80，标题栏/菜单约 58px，页面视口从 y=138 开始，高 535。
+    const selection = { x: 100, y: 138, width: 700, height: 535 }
+    const result = await longCaptureManager.start({
+      display,
+      selection,
+      onProgress: (progress) => {
+        progressLog.push(progress)
+        console.log('LONG_CAPTURE_PROGRESS', JSON.stringify(progress))
+      },
+      onComplete: (value) => {
+        writeSmoke({ ok: true, result: value, progress: progressLog, targets: targetLog })
+        console.log('LONG_CAPTURE_RESULT', JSON.stringify(value))
+      },
+      onError: (message) => {
+        writeSmoke({ ok: false, error: message, progress: progressLog, targets: targetLog })
+        console.error('LONG_CAPTURE_ERROR', message)
+      },
+      onTarget: (target) => targetLog.push(target.title)
+    })
+    if (!result || result.height <= selection.height) {
+      writeSmoke({
+        ok: false,
+        stage: 'result',
+        result,
+        progress: progressLog,
+        targets: targetLog
+      })
+      console.error('LONG_CAPTURE_SMOKE_FAIL', JSON.stringify(result))
+      app.exit(1)
+      return
+    }
+    console.log(
+      'LONG_CAPTURE_SMOKE_OK',
+      result.width,
+      result.height,
+      result.bytes,
+      result.filePath
+    )
+    app.exit(0)
+  } catch (error) {
+    writeSmoke({
+      ok: false,
+      stage: 'exception',
+      error: error instanceof Error ? error.message : String(error),
+      progress: progressLog,
+      targets: targetLog
+    })
+    console.error('LONG_CAPTURE_SMOKE_ERROR', error)
+    app.exit(1)
+  } finally {
+    fixture.kill()
+  }
+}
+
 if (
   !isSmokeTest &&
   !isCaptureSmoke &&
@@ -817,6 +905,7 @@ if (
   !isOcrTranslateSmoke &&
   !isPrepareSmoke &&
   !isFastCaptureSmoke &&
+  !isLongCaptureSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
   !isCaptureOnce &&
@@ -836,6 +925,7 @@ if (
       !isOcrTranslateSmoke &&
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
+      !isLongCaptureSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
       !isCaptureOnce &&
@@ -854,6 +944,10 @@ if (
     }
     if (isSoakOcr) {
       void runOcrSoak()
+      return
+    }
+    if (isLongCaptureSmoke) {
+      void runLongCaptureSmoke()
       return
     }
     initServices()

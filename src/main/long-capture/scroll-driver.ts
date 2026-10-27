@@ -148,6 +148,12 @@ public class PixmintScrollHelper {
     return SetCursorPos(x, y) ? "ok" : "error:cursor";
   }
 
+  public static string Cursor() {
+    POINT point;
+    if (!GetCursorPos(out point)) return "error:cursor";
+    return point.X + "," + point.Y;
+  }
+
   static string Escape(string value) {
     return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
   }
@@ -171,6 +177,9 @@ while ($true) {
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'restore') {
       $result = [PixmintScrollHelper]::Restore([int]$parts[2], [int]$parts[3])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 2 -and $parts[1] -eq 'cursor') {
+      $result = [PixmintScrollHelper]::Cursor()
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } else {
       [Console]::Out.WriteLine("$($parts[0])|error:command")
@@ -237,10 +246,13 @@ export class ScrollDriver {
   }
 
   prewarm(): void {
+    void this.warmUp()
+  }
+
+  async warmUp(): Promise<void> {
     this.client.ensureStarted()
-    void this.client.request('ping', 4000).then((payload) => {
-      this.warmed = payload === 'ok'
-    })
+    const payload = await this.client.request('ping', 5000)
+    this.warmed = payload === 'ok'
   }
 
   async findTarget(x: number, y: number): Promise<ScrollTarget | null> {
@@ -267,6 +279,15 @@ export class ScrollDriver {
 
   async restore(x: number, y: number): Promise<void> {
     await this.client.request(`restore,${Math.round(x)},${Math.round(y)}`, 600)
+  }
+
+  async getCursor(): Promise<{ x: number; y: number } | null> {
+    const payload = await this.client.request('cursor', this.warmed ? 800 : 4000)
+    if (!payload || payload === 'error:cursor') return null
+    this.warmed = true
+    const [x, y] = payload.split(',').map(Number)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    return { x, y }
   }
 
   dispose(): void {

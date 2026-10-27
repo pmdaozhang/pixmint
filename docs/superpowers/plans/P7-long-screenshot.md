@@ -68,16 +68,18 @@
 
 ## 4. 主进程长截图会话
 
-- [ ] 新增 `src/main/long-capture.ts`
-- [ ] 输入：`DisplayCapture`、选区、首帧 PNG
-- [ ] 隐藏覆盖层，显示不覆盖选区的进度 HUD
-- [ ] 循环：滚动 → 等待稳定 → `fastCapture.capture(physicalRect)` → 匹配 → 追加
-- [ ] 自适应滚动步长
-- [ ] 连续无变化/低置信度/失焦/上限时停止
-- [ ] 暂停/继续/取消/完成
-- [ ] 临时 PNG 写入 `app.getPath('temp')` 或 userData cache
-- [ ] 诊断日志：窗口类名、句柄、滚动次数、偏移、置信度、帧数、输出尺寸
-- [ ] 退出/取消/关闭预览时清理临时文件
+- [x] 新增 `src/main/long-capture.ts`
+- [x] 输入：`display`、选区；首帧由管理器从屏幕重新采集，保证和后续帧一致
+- [ ] 隐藏覆盖层并显示不覆盖选区的进度 HUD（UI 阶段接入）
+- [x] 循环：滚动 → 等待稳定帧 → `fastCapture.capture(physicalRect)` → 匹配 → 追加
+- [x] 自适应滚动步长（1 格起步，按实测像素/格调整）
+- [x] 连续无变化/低置信度/失焦/上限时停止
+- [x] 暂停/继续/取消/完成
+- [x] 临时 PNG 写入 `app.getPath('temp')`
+- [x] 诊断日志：滚动次数、偏移、置信度、帧数、输出尺寸
+- [x] 退出/取消时恢复鼠标位置，取消时清理临时文件
+- [x] smoke：`--smoke-long-capture` + 独立 always-on-top fixture 窗口
+- [x] smoke 实测：700×3397，行号 1..160 连续，固定表头只出现一次，offset 100/300/62，页面到底后停止
 
 ## 5. 覆盖层与进度 HUD
 

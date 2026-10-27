@@ -18,8 +18,6 @@ export interface OverlapMatchOptions {
   headerHeight?: number
   /** 最少保留的重叠比例，默认 0.22。 */
   minOverlapRatio?: number
-  /** 用于匹配的底部条带比例，默认 0.28。 */
-  stripRatio?: number
   /** 横向采样步长，默认 4。 */
   sampleStepX?: number
   /** 纵向采样步长，默认 2。 */
@@ -60,13 +58,15 @@ export interface StitchAppendResult {
 }
 
 const DEFAULT_MIN_OVERLAP_RATIO = 0.22
-const DEFAULT_STRIP_RATIO = 0.28
 const DEFAULT_SAMPLE_STEP_X = 4
 const DEFAULT_SAMPLE_STEP_Y = 2
 const DEFAULT_CONFIDENCE = 0.86
 const DEFAULT_VERIFICATION_CONFIDENCE = 0.92
 const DEFAULT_MAX_HEADER_RATIO = 0.3
 const BYTES_PER_PIXEL = 4
+const EDGE_COUNT_THRESHOLD = 6
+const HASH_ROW_RATIO = 0.8
+const MIN_INFORMATIVE_RATIO = 0.005
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -95,13 +95,64 @@ function grayAt(data: Uint8Array, index: number): number {
   return (data[index] * 29 + data[index + 1] * 150 + data[index + 2] * 77) >> 8
 }
 
+/**
+ * 行内强边缘像素数。
+ * 只用平均梯度会让横线/空白行也显得“有内容”，这里只统计足够强的文字/图形边缘。
+ */
+function rowEdgeCount(data: Uint8Array, width: number, row: number): number {
+  const base = row * width * BYTES_PER_PIXEL
+  let count = 0
+  for (let x = 2; x < width; x += 2) {
+    const current = base + x * BYTES_PER_PIXEL
+    const previous = current - 2 * BYTES_PER_PIXEL
+    if (Math.abs(grayAt(data, current) - grayAt(data, previous)) > 12) {
+      count += 1
+    }
+  }
+  return count
+}
+
+/**
+ * 量化行哈希。
+ * 每 2 像素取 4 位灰度，能容忍轻微噪声/抗锯齿，但对不同的文字/数字非常敏感。
+ */
+function rowHash(data: Uint8Array, width: number, row: number): number {
+  const base = row * width * BYTES_PER_PIXEL
+  let hash = 2166136261
+  for (let x = 0; x < width; x += 2) {
+    const value = grayAt(data, base + x * BYTES_PER_PIXEL) >> 4
+    hash ^= value
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function buildRowHashes(frame: FrameImage): Array<number | null> {
+  const hashes = new Array<number | null>(frame.height).fill(null)
+  for (let row = 0; row < frame.height; row += 1) {
+    if (rowEdgeCount(frame.data, frame.width, row) >= EDGE_COUNT_THRESHOLD) {
+      hashes[row] = rowHash(frame.data, frame.width, row)
+    }
+  }
+  return hashes
+}
+
 /** 整帧近似相同：用于快速判定“没有滚动”。 */
-function framesLookIdentical(
+export function framesAreSimilar(
   previous: FrameImage,
   next: FrameImage,
-  stepX: number,
-  stepY: number
+  options: {
+    stepX?: number
+    stepY?: number
+    averageThreshold?: number
+    maximumThreshold?: number
+  } = {}
 ): boolean {
+  assertFrame(previous)
+  if (!sameSize(previous, next)) return false
+  assertFrame(next)
+  const stepX = Math.max(1, options.stepX ?? DEFAULT_SAMPLE_STEP_X)
+  const stepY = Math.max(1, options.stepY ?? DEFAULT_SAMPLE_STEP_Y)
   let difference = 0
   let samples = 0
   let maximum = 0
@@ -118,7 +169,11 @@ function framesLookIdentical(
     }
   }
   if (samples === 0) return true
-  return difference / samples < 1.5 && maximum < 8
+  const averageOk = difference / samples < (options.averageThreshold ?? 1.5)
+  if (!averageOk) return false
+  return options.maximumThreshold === undefined
+    ? true
+    : maximum < options.maximumThreshold
 }
 
 /**
@@ -130,8 +185,7 @@ function overlapConfidence(
   next: FrameImage,
   headerHeight: number,
   offset: number,
-  stepX: number,
-  stepY: number
+  stepX: number
 ): number {
   const scrollHeight = previous.height - headerHeight
   const overlapRows = scrollHeight - offset
@@ -141,20 +195,41 @@ function overlapConfidence(
   const nextStart = headerHeight
   let difference = 0
   let samples = 0
-  for (let row = 0; row < overlapRows; row += stepY) {
+  let informativeRows = 0
+  let hashMatchedRows = 0
+  // 完整验证使用更密的采样，并只统计有文字/边缘的行。
+  const verificationStepX = Math.min(2, stepX)
+  for (let row = 0; row < overlapRows; row += 1) {
+    const edgeCount = rowEdgeCount(previous.data, previous.width, previousStart + row)
+    if (edgeCount < EDGE_COUNT_THRESHOLD) continue
+    informativeRows += 1
+    if (
+      rowHash(previous.data, previous.width, previousStart + row) ===
+      rowHash(next.data, next.width, nextStart + row)
+    ) {
+      hashMatchedRows += 1
+    }
     const previousBase = ((previousStart + row) * previous.width) * BYTES_PER_PIXEL
     const nextBase = ((nextStart + row) * next.width) * BYTES_PER_PIXEL
-    for (let x = 0; x < previous.width; x += stepX) {
+    for (let x = 0; x < previous.width; x += verificationStepX) {
       const index = x * BYTES_PER_PIXEL
-      difference += Math.abs(
+      const diff = Math.abs(
         grayAt(previous.data, previousBase + index) -
           grayAt(next.data, nextBase + index)
       )
+      difference += diff
       samples += 1
     }
   }
-  if (samples === 0) return 0
-  return 1 - difference / (samples * 255)
+  if (
+    samples === 0 ||
+    informativeRows < Math.max(2, overlapRows * MIN_INFORMATIVE_RATIO)
+  ) {
+    return 0
+  }
+  const rowRatio = hashMatchedRows / informativeRows
+  if (rowRatio < HASH_ROW_RATIO) return 0
+  return Math.min(rowRatio, 1 - difference / (samples * 255))
 }
 
 /**
@@ -216,7 +291,7 @@ export function matchVerticalOverlap(
 
   const stepX = Math.max(1, options.sampleStepX ?? DEFAULT_SAMPLE_STEP_X)
   const stepY = Math.max(1, options.sampleStepY ?? DEFAULT_SAMPLE_STEP_Y)
-  if (framesLookIdentical(previous, next, stepX, stepY)) return null
+  if (framesAreSimilar(previous, next, { stepX, stepY })) return null
 
   const headerHeight =
     options.headerHeight ??
@@ -228,15 +303,8 @@ export function matchVerticalOverlap(
   if (scrollHeight < 32) return null
 
   const minOverlapRatio = clamp(options.minOverlapRatio ?? DEFAULT_MIN_OVERLAP_RATIO, 0.1, 0.6)
-  const stripRatio = clamp(options.stripRatio ?? DEFAULT_STRIP_RATIO, 0.1, 0.6)
   const minOverlap = Math.max(16, Math.round(scrollHeight * minOverlapRatio))
   if (minOverlap >= scrollHeight) return null
-
-  const stripRows = Math.max(
-    16,
-    Math.min(minOverlap, Math.round(scrollHeight * stripRatio))
-  )
-  if (stripRows > minOverlap) return null
 
   const maxOffset = scrollHeight - minOverlap
   if (maxOffset <= 0) return null
@@ -260,28 +328,23 @@ export function matchVerticalOverlap(
     score: number
   }> = []
 
+  const previousHashes = buildRowHashes(previous)
+  const nextHashes = buildRowHashes(next)
+
   for (let offset = 1; offset <= maxOffset; offset += 1) {
-    const previousStart = previous.height - stripRows
-    const nextStart = previous.height - stripRows - offset
-    if (nextStart < headerHeight) break
-
-    let difference = 0
-    let samples = 0
-    for (let row = 0; row < stripRows; row += stepY) {
-      const previousBase = ((previousStart + row) * previous.width) * BYTES_PER_PIXEL
-      const nextBase = ((nextStart + row) * next.width) * BYTES_PER_PIXEL
-      for (let x = 0; x < previous.width; x += stepX) {
-        const index = x * BYTES_PER_PIXEL
-        difference += Math.abs(
-          grayAt(previous.data, previousBase + index) -
-            grayAt(next.data, nextBase + index)
-        )
-        samples += 1
-      }
+    const overlapRows = scrollHeight - offset
+    if (overlapRows < 2) continue
+    let informative = 0
+    let matched = 0
+    for (let row = 0; row < overlapRows; row += 1) {
+      const previousHash = previousHashes[headerHeight + offset + row]
+      if (previousHash === null) continue
+      informative += 1
+      if (previousHash === nextHashes[headerHeight + row]) matched += 1
     }
-
-    if (samples === 0) continue
-    const confidence = 1 - difference / (samples * 255)
+    if (informative < 2) continue
+    const confidence = matched / informative
+    if (confidence < 0.75) continue
     const distancePenalty =
       0.08 * (Math.abs(offset - preferredOffset) / Math.max(1, scrollHeight))
     const score = confidence - distancePenalty
@@ -290,15 +353,14 @@ export function matchVerticalOverlap(
   }
 
   candidates.sort((a, b) => b.score - a.score)
-  for (const candidate of candidates.slice(0, 8)) {
+  for (const candidate of candidates.slice(0, 16)) {
     if (candidate.confidence < confidenceThreshold) continue
     const verified = overlapConfidence(
       previous,
       next,
       headerHeight,
       candidate.offset,
-      stepX,
-      stepY
+      stepX
     )
     if (verified < verificationThreshold) continue
     return {
