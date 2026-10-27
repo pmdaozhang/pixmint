@@ -175,7 +175,7 @@
 - [x] 0.5.1 首次滚动过大时回滚重试/明确错误
 - [x] 0.5.1 GitHub Release 与在线更新（差分 61 块 / 1%）
 - [x] 0.5.2 UIA ScrollPattern 小步滚动（13.8 倍滚轮测试 700×3396）
-- [ ] 0.5.2 GitHub Release 与在线更新
+- [x] 0.5.2 GitHub Release 与在线更新（差分 51 块）
 
 ## 跨平台验证
 

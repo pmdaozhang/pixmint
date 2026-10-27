@@ -14,6 +14,8 @@
 - 普通长截图 smoke：700×3396。
 - 长截图专用 E2E 通过。
 - `pnpm typecheck`、`pnpm test`（145 项）、`pnpm build` 通过。
+- GitHub Release `v0.5.2` 已发布，安装包、`latest.yml`、`.blockmap` 已上传。
+- 0.5.1 → 0.5.2 在线更新通过；差分下载命中 51 个块，安装后 `FileVersion=0.5.2`。
 
 ### 未实测
 
