@@ -21,7 +21,7 @@
     },
     {
       "id": "Y2-real-content-soak",
-      "dimension": "测试与验证债务",
+      "dimension": "兼容性",
       "item": "real-overlay 300 次使用假背景，真实桌面内容长跑和 ChatGPT 原始页面仍未复测",
       "deadline": "2026-11-10",
       "owner": "Pixmint"
