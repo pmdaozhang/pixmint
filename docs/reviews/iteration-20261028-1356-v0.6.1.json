@@ -1,0 +1,141 @@
+{
+  "version": "0.6.1",
+  "date": "2026-10-28T13:56:00+08:00",
+  "commit": "9eb192b",
+  "level": "light",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [
+    "合并 0.6.0 与 P8 后出现重复 long-capture IPC/类型声明，已去重并启动验证",
+    "长截图最后一步在 99.5% 提前结束，已允许滚到 100% 并追加尾部",
+    "大选区把 HUD 截入长图，已启用 HUD 防截屏保护"
+  ],
+  "yellow": [
+    {
+      "id": "Y1-github-release",
+      "dimension": "升级与分发",
+      "item": "0.6.1 GitHub Release 与 0.6.0→0.6.1 自动更新尚未发布/实测；当前环境缺少 Git/GitHub 凭据",
+      "deadline": "2026-11-10",
+      "owner": "Pixmint"
+    },
+    {
+      "id": "Y2-real-content-soak",
+      "dimension": "测试与验证债务",
+      "item": "real-overlay 300 次使用假背景，真实桌面内容长跑和 ChatGPT 原始页面仍未复测",
+      "deadline": "2026-11-10",
+      "owner": "Pixmint"
+    },
+    {
+      "id": "Y3-f1-real-desktop",
+      "dimension": "功能回归",
+      "item": "测试环境 F1 注册返回 false，需在真实桌面确认截图快捷键未被其他程序占用",
+      "deadline": "2026-11-10",
+      "owner": "Pixmint"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 119483486,
+    "sourceFiles": 161,
+    "sourceLines": 26282,
+    "testFiles": 25,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "25 files, 162 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "detail": "E2E_OK"
+      },
+      {
+        "name": "e2e_pin",
+        "status": "pass",
+        "command": "pnpm e2e:pin",
+        "detail": "PIN_E2E_OK"
+      },
+      {
+        "name": "e2e_recording",
+        "status": "pass",
+        "command": "pnpm e2e:recording",
+        "detail": "RECORDING_E2E_OK"
+      },
+      {
+        "name": "e2e_settings",
+        "status": "pass",
+        "command": "node e2e-settings.cjs",
+        "detail": "SETTINGS_E2E_OK"
+      },
+      {
+        "name": "e2e_window_long",
+        "status": "pass",
+        "command": "pnpm e2e:window-long; node e2e-window-long.cjs --large-selection; --to-bottom; --failure",
+        "detail": "normal/large/to-bottom/failure pass; 10/23/25 screens; HUD not captured"
+      },
+      {
+        "name": "soak_real_overlay",
+        "status": "pass",
+        "command": "PIXMINT_REAL_OVERLAY_CYCLES=300 pnpm soak:real-overlay",
+        "detail": "0 failures; p95 377ms; tab private +18.1MB; fake background"
+      },
+      {
+        "name": "package",
+        "status": "pass",
+        "command": "pnpm exec electron-builder",
+        "detail": "Pixmint-Setup-0.6.1.exe 119483486 bytes; latest.yml/blockmap generated"
+      },
+      {
+        "name": "github_release",
+        "status": "not_run",
+        "command": "electron-builder --publish always",
+        "reason": "缺少 Git/GitHub 凭据，不能上传 Release 资产"
+      },
+      {
+        "name": "auto_update_0_6_0_to_0_6_1",
+        "status": "not_run",
+        "command": "应用内更新",
+        "reason": "0.6.1 Release 尚未发布"
+      },
+      {
+        "name": "real_desktop_content_soak",
+        "status": "not_run",
+        "command": "真实桌面内容 300 次",
+        "reason": "现有 real-overlay 脚本仍使用假背景"
+      },
+      {
+        "name": "f1_real_desktop",
+        "status": "not_run",
+        "command": "真实桌面按 F1",
+        "reason": "测试环境 F1 注册为 false，需真实桌面确认是否被占用"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.6.1 以 0.6.0 为基线合并 P8 长截图、预览窗/托盘改造；安装包已生成。GitHub Release、自动更新和真实桌面内容长跑待后续完成。"
+}
