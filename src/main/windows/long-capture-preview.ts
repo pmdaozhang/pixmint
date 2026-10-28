@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme } from 'electron'
+import { BrowserWindow, screen } from 'electron'
 import { appIcon } from '../app-icon'
 import { loadRoute } from './load'
 
@@ -7,21 +7,28 @@ const silentlyClosed = new WeakSet<BrowserWindow>()
 
 export function createLongCapturePreview(
   preloadPath: string,
-  onClosed: () => void
+  onClosed: () => void,
+  imageWidth = 900
 ): BrowserWindow {
   if (previewWindow && !previewWindow.isDestroyed()) {
     silentlyClosed.add(previewWindow)
     previewWindow.destroy()
   }
 
+  const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
+  const maxWidth = Math.max(720, workArea.width - 80)
+  const width = Math.min(maxWidth, Math.max(760, Math.round(imageWidth) + 96))
+  const height = Math.min(Math.max(560, workArea.height - 160), 700)
   const window = new BrowserWindow({
-    width: 900,
-    height: 700,
-    minWidth: 720,
-    minHeight: 520,
+    width,
+    height,
+    minWidth: 640,
+    minHeight: 480,
+    maxWidth,
     frame: false,
     thickFrame: true,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0d0d' : '#f9f9f9',
+    transparent: true,
+    backgroundColor: '#00000000',
     resizable: true,
     minimizable: true,
     maximizable: true,

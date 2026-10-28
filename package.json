@@ -1,6 +1,6 @@
 {
   "name": "snapglass",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Pixmint - cross-platform screenshot, pin, OCR and recording tool",
   "main": "./out/main/index.js",
@@ -17,6 +17,7 @@
     "e2e:overlay": "node e2e-overlay.cjs",
     "e2e:pin": "node e2e-pin.cjs",
     "e2e:recording": "node e2e-recording.cjs",
+    "e2e:window-long": "node e2e-window-long.cjs",
     "e2e:long-capture": "node e2e-long-capture.cjs",
     "e2e:long-capture:edge": "node e2e-long-capture-edge.cjs",
     "e2e:long-capture:notepad": "node e2e-long-capture-notepad.cjs",

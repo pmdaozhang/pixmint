@@ -16,6 +16,7 @@ const LABELS: Record<LongCapturePhase, string> = {
   capturing: '截取中',
   matching: '拼接中',
   manual: '手动滚动',
+  gap: '需要回滚',
   paused: '已暂停',
   finished: '已完成',
   error: '已停止',
@@ -60,8 +61,9 @@ export function LongCaptureHudApp(): JSX.Element {
   }, [])
 
   const paused = state.phase === 'paused'
+  const gap = state.phase === 'gap'
   const error = state.phase === 'error'
-  const tone = error ? 'error' : paused ? 'paused' : 'active'
+  const tone = error ? 'error' : gap ? 'warning' : paused ? 'paused' : 'active'
   const message =
     state.message ??
     (state.phase === 'idle' ? '正在准备长截图' : '正在处理长截图')
@@ -84,17 +86,19 @@ export function LongCaptureHudApp(): JSX.Element {
           <div className="hud-fill" />
         </div>
         <div className="hud-actions">
+          {!error && !gap && (
+            <button
+              className="hud-btn"
+              onClick={() => {
+                if (paused) window.snapglass.longCapture.resume()
+                else window.snapglass.longCapture.pause()
+              }}
+            >
+              {paused ? '继续' : '暂停'}
+            </button>
+          )}
           {!error && (
             <>
-              <button
-                className="hud-btn"
-                onClick={() => {
-                  if (paused) window.snapglass.longCapture.resume()
-                  else window.snapglass.longCapture.pause()
-                }}
-              >
-                {paused ? '继续' : '暂停'}
-              </button>
               <button
                 className="hud-btn primary"
                 onClick={() => window.snapglass.longCapture.finish()}
@@ -106,9 +110,9 @@ export function LongCaptureHudApp(): JSX.Element {
           {error && (
             <button
               className="hud-btn primary"
-              onClick={() => window.snapglass.longCapture.manual()}
+              onClick={() => window.snapglass.longCapture.retry()}
             >
-              改手动滚动
+              自动重试
             </button>
           )}
           <button

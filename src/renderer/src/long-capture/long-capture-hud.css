@@ -38,6 +38,10 @@ body {
   border-color: color-mix(in srgb, #ff453a 48%, var(--border));
 }
 
+.hud-card[data-tone="warning"] {
+  border-color: color-mix(in srgb, #ffd60a 46%, var(--border));
+}
+
 .hud-head {
   display: flex;
   align-items: center;
@@ -74,6 +78,11 @@ body {
   color: #ff453a;
 }
 
+.hud-card[data-tone="warning"] .hud-pill {
+  background: #2a2410;
+  color: #ffd60a;
+}
+
 .hud-meta {
   margin-top: 6px;
   color: var(--text-2);
@@ -96,6 +105,10 @@ body {
   color: #ff6961;
 }
 
+.hud-card[data-tone="warning"] .hud-message {
+  color: #ffd60a;
+}
+
 .hud-track {
   height: 4px;
   margin-top: 8px;
@@ -113,12 +126,20 @@ body {
 }
 
 .hud-card[data-tone="paused"] .hud-fill {
-  animation-play-state: paused;
+  width: 100%;
+  background: var(--amber, #ffb340);
+  animation: none;
 }
 
 .hud-card[data-tone="error"] .hud-fill {
   width: 100%;
   background: #ff453a;
+  animation: none;
+}
+
+.hud-card[data-tone="warning"] .hud-fill {
+  width: 100%;
+  background: #ffd60a;
   animation: none;
 }
 
@@ -133,6 +154,19 @@ body {
 
 [data-theme="light"] .hud-card[data-tone="error"] .hud-fill {
   background: #d70015;
+}
+
+[data-theme="light"] .hud-card[data-tone="warning"] .hud-pill {
+  background: #fff4d6;
+  color: #8a5a00;
+}
+
+[data-theme="light"] .hud-card[data-tone="warning"] .hud-message {
+  color: #8a5a00;
+}
+
+[data-theme="light"] .hud-card[data-tone="warning"] .hud-fill {
+  background: #8a5a00;
 }
 
 @keyframes hud-slide {

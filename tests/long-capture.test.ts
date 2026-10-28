@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   LongCaptureStitcher,
+  autoScrollTargetPixels,
   cropFrameHorizontal,
   detectStableHeader,
+  isScrollViewStable,
   matchVerticalOverlap,
+  offsetFromScrollDelta,
+  scrollStepPercent,
   trimCaptureEdgeRow,
   type FrameImage
 } from '../src/shared/long-capture'
@@ -148,6 +152,41 @@ describe('detectStableHeader', () => {
   })
 })
 
+describe('UIA position-driven helpers', () => {
+  it('converts scroll percentage delta to pixel offset', () => {
+    expect(offsetFromScrollDelta(600, 10, 20)).toBe(240)
+    expect(offsetFromScrollDelta(600, 8, 20)).toBe(192)
+    expect(offsetFromScrollDelta(600, 0, 20)).toBeNull()
+    expect(offsetFromScrollDelta(600, 10, 100)).toBeNull()
+  })
+
+  it('keeps the scroll step stable when the capture region grows', () => {
+    const smallStep = scrollStepPercent(400, 900, 3.247)
+    const largeStep = scrollStepPercent(1000, 900, 3.247)
+    const smallOffset = offsetFromScrollDelta(900, smallStep, 3.247)
+    const largeOffset = offsetFromScrollDelta(900, largeStep, 3.247)
+
+    expect(smallStep).toBeGreaterThan(0)
+    expect(largeStep).toBeGreaterThan(0)
+    expect(smallOffset).not.toBeNull()
+    expect(largeOffset).not.toBeNull()
+    expect(Math.abs(smallOffset! - autoScrollTargetPixels(400))).toBeLessThanOrEqual(1)
+    expect(Math.abs(largeOffset! - autoScrollTargetPixels(1000))).toBeLessThanOrEqual(1)
+  })
+
+  it('caps large-capture scroll steps at 240px', () => {
+    expect(autoScrollTargetPixels(400)).toBe(112)
+    expect(autoScrollTargetPixels(857)).toBe(240)
+    expect(autoScrollTargetPixels(2000)).toBe(240)
+    expect(scrollStepPercent(1000, 900, 100)).toBe(0)
+  })
+
+  it('rejects a changed scroll viewport', () => {
+    expect(isScrollViewStable(20, 20.1)).toBe(true)
+    expect(isScrollViewStable(20, 21)).toBe(false)
+  })
+})
+
 describe('matchVerticalOverlap', () => {
   it('matches a known scroll offset with a fixed header', () => {
     const page = createPage(400)
@@ -262,6 +301,32 @@ describe('LongCaptureStitcher', () => {
 
     expect(result).toEqual({ appended: 10, truncated: true })
     expect(stitcher.currentHeight).toBe(FRAME_HEIGHT + 10)
+  })
+
+  it('undoes the last appended segment', () => {
+    const page = createPage(400)
+    const first = frameAt(page, 0)
+    const second = frameAt(page, 20)
+    const match = matchVerticalOverlap(first, second, { headerHeight: HEADER_HEIGHT })
+    const stitcher = new LongCaptureStitcher()
+    stitcher.initialize(first, HEADER_HEIGHT)
+    stitcher.append(second, match!)
+
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT + 20)
+    expect(stitcher.undoLast()).toBe(20)
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT)
+    expect(stitcher.getFrame().data.length).toBe(WIDTH * FRAME_HEIGHT * 4)
+    expect(stitcher.undoLast()).toBe(0)
+  })
+
+  it('does not undo below the first frame', () => {
+    const page = createPage(400)
+    const first = frameAt(page, 0)
+    const stitcher = new LongCaptureStitcher()
+    stitcher.initialize(first, HEADER_HEIGHT)
+
+    expect(stitcher.undoLast()).toBe(0)
+    expect(stitcher.currentHeight).toBe(FRAME_HEIGHT)
   })
 
   it('rejects an invalid header height', () => {

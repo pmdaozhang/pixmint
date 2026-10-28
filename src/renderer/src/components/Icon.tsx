@@ -11,6 +11,7 @@ export type IconName =
   | 'translate'
   | 'gif'
   | 'video'
+  | 'long'
   | 'copy'
   | 'pin'
   | 'save'
@@ -98,6 +99,12 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <rect x="3" y="6" width="13" height="12" rx="2.5" />
       <path d="M16 10.5 21 8v8l-5-2.5z" />
+    </>
+  ),
+  long: (
+    <>
+      <rect x="6" y="3" width="12" height="15" rx="1.6" />
+      <path d="M12 7v6M9 11l3 3 3-3M4 21h16" />
     </>
   ),
   copy: (

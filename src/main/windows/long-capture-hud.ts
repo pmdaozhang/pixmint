@@ -90,6 +90,7 @@ export class LongCaptureHud {
     })
     this.window = window
     window.setAlwaysOnTop(true, 'screen-saver')
+    window.setContentProtection(true)
     window.setMenuBarVisibility(false)
     window.on('closed', () => {
       if (this.window === window) this.window = null

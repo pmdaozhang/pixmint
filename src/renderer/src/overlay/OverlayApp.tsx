@@ -553,23 +553,29 @@ export function OverlayApp(): JSX.Element {
   }, [phase, selection, init, autoCopySelection])
 
   const onAction = useCallback(
-    (action: 'ocr' | 'translate' | 'gif' | 'video' | 'long' | 'copy' | 'pin' | 'save' | 'close') => {
-      if (action === 'long') {
-        if (!init || !selection) return
-        window.snapglass.overlay.complete({
-          action: 'long',
-          displayId: init.displayId,
-          selection,
-          pngBytes: new Uint8Array(0)
-        })
-        return
-      }
+    (
+      action:
+        | 'ocr'
+        | 'translate'
+        | 'gif'
+        | 'video'
+        | 'long'
+        | 'copy'
+        | 'pin'
+        | 'save'
+        | 'close'
+    ) => {
       if (action === 'close') {
         window.snapglass.overlay.cancel()
         return
       }
       if (action === 'gif' || action === 'video') {
         openRecorder(action)
+        return
+      }
+      if (action === 'long') {
+        closeSubmenu()
+        exportImage('long')
         return
       }
       if (action === 'ocr') {
@@ -582,7 +588,7 @@ export function OverlayApp(): JSX.Element {
       }
       exportImage(action)
     },
-    [exportImage, openRecorder]
+    [closeSubmenu, exportImage, openRecorder]
   )
 
   useOverlayKeyboard({

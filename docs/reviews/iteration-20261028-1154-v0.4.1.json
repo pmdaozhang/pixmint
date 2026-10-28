@@ -1,0 +1,97 @@
+{
+  "version": "0.4.1",
+  "date": "2026-10-28T11:54:48+08:00",
+  "commit": "65ed0fd",
+  "level": "light",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [
+    "UIA 百分比位移换算漏掉滚动范围因子，已按滚动容器高度修正",
+    "大选区单步位移线性增长，已限制为 80–240px",
+    "长截图启动强制回到顶部，已改为从当前滚动位置开始",
+    "预览窗缩放/适应宽度与“保存 PNG”文案，已移除并统一按钮材质"
+  ],
+  "yellow": [
+    {
+      "id": "Y1-save-dialog",
+      "dimension": "测试与验证债务",
+      "item": "长截图保存系统文件对话框未自动化实测；底层保存逻辑未改，按钮文案/样式已验证",
+      "deadline": "2026-11-10",
+      "owner": "Pixmint"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 119455825,
+    "sourceFiles": 155,
+    "sourceLines": 24808,
+    "testFiles": 24,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "metrics",
+        "status": "pass",
+        "command": "node scripts/review/collect-metrics.mjs --project _snapglass_app --out docs/reviews/metrics.json"
+      },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "detail": "24 files, 156 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "e2e_window_long",
+        "status": "pass",
+        "command": "pnpm e2e:window-long",
+        "detail": "initialPercent=18.564; 4 screens; 1180x1030 preview; copy=pass"
+      },
+      {
+        "name": "e2e_window_long_failure",
+        "status": "pass",
+        "command": "node e2e-window-long.cjs --failure",
+        "detail": "error HUD retry/close pass"
+      },
+      {
+        "name": "e2e_overlay",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "detail": "E2E_OK"
+      },
+      {
+        "name": "demo",
+        "status": "skip",
+        "command": "demos/P11-long-preview-refine.html",
+        "reason": "视觉确认物已更新，本轮以真实 E2E 截图为通过依据"
+      },
+      {
+        "name": "save_dialog",
+        "status": "not_run",
+        "command": "长截图预览“保存”",
+        "reason": "系统原生保存对话框无法稳定自动化；底层保存逻辑未改，列为黄色项"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "本轮为长截图交互精修。核心路径有真实 Edge E2E 证据；真实应用、多显示器/DPI、macOS 和保存系统对话框未复测，不作为本轮通过依据。"
+}

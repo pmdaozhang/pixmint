@@ -26,13 +26,18 @@ import type {
   RecorderMode,
   RecorderStatePatch,
   Settings,
-  VideoDoneMeta
+  VideoDoneMeta,
+  WindowTargetInfo
 } from '../shared/types'
 import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from './image-utils'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
 import { createTray } from './tray'
 import { OverlayManager } from './windows/overlay'
+import { longCaptureManager } from './long-capture'
+import { LongCaptureController } from './long-capture-controller'
+import { WindowTargetService } from './window-target'
+import { WindowLongSelection } from './windows/window-long-selection'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
 import { WindowSnapHelper } from './window-snap'
@@ -138,9 +143,12 @@ let overlayManager: OverlayManager
 let pinManager: PinManager
 let ocrManager: OcrManager
 let recorderManager: RecorderManager
-let longCaptureController: LongCaptureController
 let windowSnap: WindowSnapHelper
 let platformServices: PlatformServices
+let longCaptureController: LongCaptureController
+let windowTargetService: WindowTargetService
+let windowLongSelection: WindowLongSelection
+let activeWindowTarget: WindowTargetInfo | null = null
 let tray: Tray | null = null
 let preloadPath = ''
 let overlayReadyCount = 0
@@ -175,26 +183,17 @@ function registerShortcut(settings: Settings): void {
   } catch {
     notify(`快捷键 ${settings.shortcut} 无效`)
   }
-  try {
-    globalShortcut.register('F2', () => {
-      void startCapture('gif')
-    })
-  } catch {
-    // F2 被占用时不影响主截图快捷键
-  }
-  try {
-    globalShortcut.register('F4', () => {
-      void startCapture('video')
-    })
-  } catch {
-    // F4 被占用时不影响主截图快捷键
-  }
 }
 
-async function startCapture(mode?: RecorderMode): Promise<void> {
+async function startCapture(
+  mode?: RecorderMode,
+  openWindowPicker = false
+): Promise<void> {
   const triggered = Date.now()
   addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot' })
   if (!overlayManager) return
+  windowLongSelection?.hide()
+  activeWindowTarget = null
   ocrManager?.closeAll()
   if (recorderManager?.isRecordingSession()) return
   if (overlayManager.isActive()) {
@@ -228,6 +227,7 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     tray?.closeContextMenu()
     await overlayManager.start(capture, mode)
+    if (openWindowPicker) overlayManager.requestWindowPicker()
     console.log('START_CAPTURE_TOTAL_MS', Date.now() - triggered)
   } catch (error) {
     overlayManager?.hideAll()
@@ -239,6 +239,41 @@ async function startCapture(mode?: RecorderMode): Promise<void> {
       dialog.showErrorBox('截图失败', message)
     }
   }
+}
+
+/**
+ * 背景：窗口长截图选定目标后，需要在真实窗口上确认内容区，而不是在冻结截图里猜。
+ * 设计意图：先隐藏冻结截图，再在目标显示器上打开透明选区层，保留目标窗口真实内容。
+ * 关键约束：选区坐标使用显示器相对 DIP；窗口层只拦截手柄和确认卡，不遮挡内容观察。
+ */
+function beginWindowLongSelection(): void {
+  const target = activeWindowTarget
+  if (!target) return
+  const display =
+    screen.getAllDisplays().find((item) => item.id === target.displayId) ??
+    screen.getPrimaryDisplay()
+  overlayManager.hideAll()
+  setTimeout(() => {
+    if (!activeWindowTarget) return
+    windowLongSelection.show(display)
+  }, 70)
+}
+
+/**
+ * 背景：用户可能从确认页返回窗口列表，也可能按 Esc 结束整次窗口长截图。
+ * 设计意图：统一清理选区层和目标状态，避免旧 hwnd 留在下一次流程。
+ * 关键约束：reselect 必须重新冻结桌面并打开选择器；cancel 不能误触普通截图。
+ */
+function reselectWindowLongTarget(): void {
+  windowLongSelection.hide()
+  activeWindowTarget = null
+  void startCapture(undefined, true)
+}
+
+function cancelWindowLong(): void {
+  windowLongSelection.hide()
+  activeWindowTarget = null
+  longCaptureController.cancel()
 }
 
 async function handleOverlayComplete(
@@ -304,6 +339,10 @@ async function handleOverlayComplete(
       x: capture.bounds.x + payload.selection.x,
       y: capture.bounds.y + payload.selection.y
     })
+    return
+  }
+  if (payload.action === 'long') {
+    void longCaptureController.start(payload)
   }
 }
 
@@ -340,6 +379,48 @@ function registerIpc(): void {
     overlayManager.complete(payload, event.sender.id)
   })
   ipcMain.on('overlay:cancel', () => overlayManager.cancel())
+  ipcMain.handle('window-target:list', () => windowTargetService.list())
+  ipcMain.handle('window-target:select', async (_event, itemId: string) => {
+    activeWindowTarget = await windowTargetService.select(itemId)
+    return activeWindowTarget
+  })
+  ipcMain.handle('window-target:info', () => activeWindowTarget)
+  ipcMain.on('window-long:begin', () => beginWindowLongSelection())
+  ipcMain.on('window-long:cancel', () => cancelWindowLong())
+  ipcMain.on('window-long:reselect', () => reselectWindowLongTarget())
+  ipcMain.on(
+    'window-long:start',
+    (
+      _event,
+      selection: { x: number; y: number; width: number; height: number }
+    ) => {
+      const target = activeWindowTarget
+      if (!target) return
+      const display =
+        screen
+          .getAllDisplays()
+          .find((item) => item.id === target.displayId) ??
+        screen.getPrimaryDisplay()
+      windowLongSelection.hide()
+      setTimeout(() => {
+        if (!activeWindowTarget || activeWindowTarget.hwnd !== target.hwnd) return
+        void longCaptureController.startSelection(display, selection, target.hwnd)
+        activeWindowTarget = null
+      }, 70)
+    }
+  )
+  ipcMain.handle('long-capture:state', () => longCaptureManager.getProgress())
+  ipcMain.on('long-capture:pause', () => longCaptureController.pause())
+  ipcMain.on('long-capture:resume', () => longCaptureController.resume())
+  ipcMain.on('long-capture:finish', () => longCaptureController.finish())
+  ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
+  ipcMain.on('long-capture:manual', () => longCaptureController.manual())
+  ipcMain.on('long-capture:retry', () => longCaptureController.retry())
+  ipcMain.on('long-capture:undo', () => longCaptureController.undo())
+  ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
+  ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
+  ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
+  ipcMain.on('long-capture:close-preview', () => longCaptureController.closePreview())
 
   ipcMain.handle('recorder:begin', (event, payload: RecorderBeginPayload) => {
     const capture = overlayManager.captureFor(event.sender.id)
@@ -506,13 +587,18 @@ function initServices(): void {
   ocrManager = new OcrManager(preloadPath, () => createSettingsWindow(preloadPath))
   windowSnap = new WindowSnapHelper()
   platformServices = createPlatformServices(windowSnap)
+  windowTargetService = new WindowTargetService()
+  windowLongSelection = new WindowLongSelection(preloadPath)
+  longCaptureController = new LongCaptureController(preloadPath, longCaptureManager)
   overlayManager = new OverlayManager(
     preloadPath,
     () => settingsStore.get(),
     (payload, capture) => {
       void handleOverlayComplete(payload, capture)
     },
-    () => {},
+    () => {
+      activeWindowTarget = null
+    },
     (message) => {
       recorderManager?.abortSession()
       if (message) notify(message)
@@ -1186,12 +1272,6 @@ if (
       onCapture: () => {
         void startCapture()
       },
-      onRecordGif: () => {
-        void startCapture('gif')
-      },
-      onRecordVideo: () => {
-        void startCapture('video')
-      },
       onSettings: () => createSettingsWindow(preloadPath),
       onQuit: () => app.quit()
     })
@@ -1244,7 +1324,9 @@ if (
     addBreadcrumb('app', 'before-quit')
     statusToast.hide()
     disposeUpdater()
+    windowLongSelection?.dispose()
     longCaptureController?.dispose()
+    windowTargetService?.dispose()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()
