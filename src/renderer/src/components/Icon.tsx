@@ -163,12 +163,6 @@ const paths: Record<IconName, JSX.Element> = {
       <path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13" />
     </>
   ),
-  long: (
-    <>
-      <rect x="6" y="3" width="12" height="15" rx="1.6" />
-      <path d="M12 7v6M9 11l3 3 3-3M4 21h16" />
-    </>
-  )
 }
 
 export function Icon({ name, size = 17 }: { name: IconName; size?: number }): JSX.Element {

@@ -371,34 +371,3 @@ export interface UpdateState {
   sizeBytes?: number
   reason?: 'no-release'
 }
-
-export type LongCapturePhase =
-  | 'idle'
-  | 'preparing'
-  | 'scrolling'
-  | 'capturing'
-  | 'matching'
-  | 'manual'
-  | 'paused'
-  | 'finished'
-  | 'error'
-  | 'cancelled'
-
-export interface LongCaptureProgress {
-  phase: LongCapturePhase
-  screens: number
-  height: number
-  message?: string
-  error?: string
-}
-
-export interface LongCaptureResult {
-  width: number
-  height: number
-  bytes: number
-  filePath: string
-}
-
-export interface LongCapturePreviewInfo extends LongCaptureResult {
-  mediaUrl: string
-}

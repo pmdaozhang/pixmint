@@ -133,19 +133,6 @@ export interface SnapglassApi {
     flush(): Promise<void>
     exportReport(): Promise<string | null>
   }
-  longCapture: {
-    getState(): Promise<LongCaptureProgress>
-    pause(): void
-    resume(): void
-    finish(): void
-    cancel(): void
-    manual(): void
-    onProgress(callback: (progress: LongCaptureProgress) => void): () => void
-    previewInfo(): Promise<LongCapturePreviewInfo | null>
-    savePreview(): Promise<string | null>
-    copyPreview(): Promise<string>
-    closePreview(): void
-  }
   updater: {
     getState(): Promise<UpdateState>
     check(): Promise<UpdateState>

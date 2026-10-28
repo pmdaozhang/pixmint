@@ -68,8 +68,6 @@ import { installWebContentsSecurity, isTrustedAppUrl } from './security'
 import { withTimeout } from '../shared/async'
 import { startMetricsSampling, stopMetricsSampling } from './metrics'
 import { disposeUpdater, initUpdater } from './updater'
-import { longCaptureManager } from './long-capture'
-import { LongCaptureController } from './long-capture-controller'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -457,17 +455,6 @@ function registerIpc(): void {
   ipcMain.on('recorder:preview-retry', () => recorderManager.previewRetry())
   ipcMain.on('recorder:preview-close', () => recorderManager.previewClose())
   ipcMain.on('recorder:preview-open-folder', () => recorderManager.previewOpenFolder())
-
-  ipcMain.handle('long-capture:state', () => longCaptureManager.getProgress())
-  ipcMain.on('long-capture:pause', () => longCaptureController.pause())
-  ipcMain.on('long-capture:resume', () => longCaptureController.resume())
-  ipcMain.on('long-capture:finish', () => longCaptureController.finish())
-  ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
-  ipcMain.on('long-capture:manual', () => longCaptureController.manual())
-  ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
-  ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
-  ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
-  ipcMain.on('long-capture:close-preview', () => longCaptureController.closePreview())
 
   ipcMain.handle('pin:ready', (event) => pinManager.initFor(event.sender.id))
   ipcMain.on('pin:close', (event) => pinManager.close(event.sender.id))
