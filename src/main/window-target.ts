@@ -7,6 +7,7 @@ import type {
   WindowTargetInfo,
   WindowTargetItem
 } from '../shared/types'
+import { chooseWindowTargetContentRect } from '../shared/window-target-geometry'
 import { logDiagnostic } from './diagnostics'
 import { SidecarClient } from './sidecar/client'
 
@@ -28,6 +29,7 @@ public class PixmintWindowTarget {
 
   [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int command);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
@@ -79,7 +81,11 @@ public class PixmintWindowTarget {
   static RECT ClientRect(IntPtr hWnd) {
     RECT rect;
     GetClientRect(hWnd, out rect);
+    int width = rect.Right - rect.Left;
+    int height = rect.Bottom - rect.Top;
     ClientToScreen(hWnd, ref rect);
+    rect.Right = rect.Left + width;
+    rect.Bottom = rect.Top + height;
     return rect;
   }
 
@@ -119,6 +125,8 @@ public class PixmintWindowTarget {
     MakeDpiAware();
     IntPtr hWnd = new IntPtr(hwnd);
     if (!IsWindow(hWnd)) return "error:window";
+    IntPtr root = GetAncestor(hWnd, 2);
+    if (root != IntPtr.Zero) hWnd = root;
     if (IsIconic(hWnd)) ShowWindow(hWnd, 9);
     ForceForeground(hWnd);
     Thread.Sleep(160);
@@ -130,7 +138,7 @@ public class PixmintWindowTarget {
     StringBuilder cls = new StringBuilder(256);
     GetWindowText(hWnd, title, 256);
     GetClassName(hWnd, cls, 256);
-    return "{\"hwnd\":" + hwnd +
+    return "{\"hwnd\":" + hWnd.ToInt64() +
       ",\"title\":\"" + Escape(title.ToString()) +
       "\",\"class\":\"" + Escape(cls.ToString()) +
       "\",\"windowRect\":{\"x\":" + window.Left +
@@ -242,6 +250,11 @@ export class WindowTargetService {
       if (!name) continue
       if (
         name === 'Pixmint' ||
+        name === 'Status' ||
+        name === 'Program Manager' ||
+        name === 'Windows Input Experience' ||
+        name === 'Microsoft Text Input Application' ||
+        name.includes('NVIDIA GeForce Overlay') ||
         name.includes('长截图') ||
         name.includes('窗口长截图') ||
         name.includes('设置')
@@ -292,26 +305,51 @@ export class WindowTargetService {
       throw new Error('目标窗口信息无效')
     }
     const raw = JSON.parse(payload.slice(start, end + 1)) as RawTarget
+    logDiagnostic(
+      'window-target',
+      `raw hwnd=${raw.hwnd} title=${raw.title || ''} window=${raw.windowRect.x},${raw.windowRect.y},${raw.windowRect.width}x${raw.windowRect.height} client=${raw.clientRect.x},${raw.clientRect.y},${raw.clientRect.width}x${raw.clientRect.height} content=${raw.contentRect.x},${raw.contentRect.y},${raw.contentRect.width}x${raw.contentRect.height}`
+    )
     if (!raw.hwnd || raw.contentRect.width <= 0 || raw.contentRect.height <= 0) {
       throw new Error('无法读取目标窗口内容区')
     }
-    const center = {
-      x: raw.contentRect.x + raw.contentRect.width / 2,
-      y: raw.contentRect.y + raw.contentRect.height / 2
+    const physicalCenter = {
+      x: raw.windowRect.x + raw.windowRect.width / 2,
+      y: raw.windowRect.y + raw.windowRect.height / 2
     }
-    const display = screen.getDisplayNearestPoint(center)
+    // PowerShell 返回物理像素；Electron 的显示器查询使用 DIP，混合 DPI 下不能直接混用。
+    const display = screen.getDisplayNearestPoint(screen.screenToDipPoint(physicalCenter))
+    const displayPhysicalRect = screen.dipToScreenRect(null, display.bounds)
+    const contentPhysicalRect = chooseWindowTargetContentRect({
+      windowRect: raw.windowRect,
+      clientRect: raw.clientRect,
+      contentRect: raw.contentRect,
+      displayRect: displayPhysicalRect
+    })
+    if (!contentPhysicalRect) {
+      logDiagnostic(
+        'window-target',
+        `content outside display hwnd=${raw.hwnd} title=${raw.title || ''} display=${display.id}`,
+        'warn'
+      )
+      throw new Error('目标窗口内容区不在当前屏幕内，请重新选择窗口')
+    }
     const toDip = (rect: Rect): Rect => ({
       x: Math.round(rect.x / display.scaleFactor - display.bounds.x),
       y: Math.round(rect.y / display.scaleFactor - display.bounds.y),
       width: Math.round(rect.width / display.scaleFactor),
       height: Math.round(rect.height / display.scaleFactor)
     })
+    const contentRect = toDip(contentPhysicalRect)
+    logDiagnostic(
+      'window-target',
+      `selected hwnd=${raw.hwnd} title=${raw.title || ''} display=${display.id} scale=${display.scaleFactor} content=${contentRect.x},${contentRect.y},${contentRect.width}x${contentRect.height}`
+    )
     return {
       targetId: itemId,
-      hwnd,
+      hwnd: raw.hwnd,
       title: raw.title || '窗口',
       displayId: display.id,
-      contentRect: toDip(raw.contentRect),
+      contentRect,
       windowRect: toDip(raw.windowRect),
       scaleFactor: display.scaleFactor
     }

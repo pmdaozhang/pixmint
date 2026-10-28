@@ -3,8 +3,6 @@ import { trayIconDataUrl } from './tray-icon'
 
 export interface TrayActions {
   onCapture: () => void
-  onRecordGif: () => void
-  onRecordVideo: () => void
   onSettings: () => void
   onQuit: () => void
 }
@@ -25,8 +23,6 @@ export function createTray(actions: TrayActions): Tray {
   tray.setToolTip(`Pixmint ${app.getVersion()}`)
   const menu = Menu.buildFromTemplate([
     { label: '截图  F1', click: actions.onCapture },
-    { label: 'GIF 录制  F2', click: actions.onRecordGif },
-    { label: '视频录制  F4', click: actions.onRecordVideo },
     { label: '设置', click: actions.onSettings },
     { type: 'separator' },
     { label: '退出 Pixmint', click: actions.onQuit }

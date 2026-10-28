@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T11:01:40.686Z",
+  "generatedAt": "2026-10-28T03:54:44.000Z",
   "project": {
     "name": "snapglass",
     "version": "0.4.1",
@@ -8,30 +8,30 @@
   },
   "git": {
     "branch": "codex/window-long-capture",
-    "commit": "80fb03d",
-    "commitDate": "2026-10-27T11:01:32.000Z",
+    "commit": "65ed0fd",
+    "commitDate": "2026-10-27T11:04:49.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
     "deletions": null
   },
   "source": {
-    "files": 152,
-    "lines": 23814,
-    "testFiles": 23,
+    "files": 155,
+    "lines": 24808,
+    "testFiles": 24,
     "todoCount": 0,
     "largest": [
       {
         "path": "src\\main\\long-capture.ts",
-        "lines": 1175
+        "lines": 1462
       },
       {
         "path": "src\\main\\index.ts",
-        "lines": 1083
+        "lines": 1087
       },
       {
         "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
-        "lines": 861
+        "lines": 849
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",

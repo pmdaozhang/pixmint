@@ -126,7 +126,9 @@ body {
 }
 
 .hud-card[data-tone="paused"] .hud-fill {
-  animation-play-state: paused;
+  width: 100%;
+  background: var(--amber, #ffb340);
+  animation: none;
 }
 
 .hud-card[data-tone="error"] .hud-fill {

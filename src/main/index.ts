@@ -177,20 +177,6 @@ function registerShortcut(settings: Settings): void {
   } catch {
     notify(`快捷键 ${settings.shortcut} 无效`)
   }
-  try {
-    globalShortcut.register('F2', () => {
-      void startCapture('gif')
-    })
-  } catch {
-    // F2 被占用时不影响主截图快捷键
-  }
-  try {
-    globalShortcut.register('F4', () => {
-      void startCapture('video')
-    })
-  } catch {
-    // F4 被占用时不影响主截图快捷键
-  }
 }
 
 async function startCapture(
@@ -343,6 +329,10 @@ async function handleOverlayComplete(
       x: capture.bounds.x + payload.selection.x,
       y: capture.bounds.y + payload.selection.y
     })
+    return
+  }
+  if (payload.action === 'long') {
+    void longCaptureController.start(payload)
   }
 }
 
@@ -1002,12 +992,6 @@ if (
     tray = createTray({
       onCapture: () => {
         void startCapture()
-      },
-      onRecordGif: () => {
-        void startCapture('gif')
-      },
-      onRecordVideo: () => {
-        void startCapture('video')
       },
       onSettings: () => createSettingsWindow(preloadPath),
       onQuit: () => app.quit()

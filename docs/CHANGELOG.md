@@ -12,22 +12,45 @@
 
 - 窗口长截图自动滚动会校验实际滚动目标 hwnd 与用户选择窗口一致。
 - 截图工具栏新增窗口长截图图标，原有操作顺序保持不变。
+- 长截图改为从当前滚动位置开始，不再启动时强制回到页面顶部。
+- 自动长截图单步位移限制在 80–240px，大选区不再随截图高度线性加速。
+- 长截图预览窗移除缩放与适应宽度，只保留复制、保存、关闭；保存文案去掉“PNG”。
+- 预览窗上下栏改为石墨灰，三个操作按钮统一尺寸、底色和边框，次文字对比度提升到 7.48:1。
+- 预览窗阴影从 90px 模糊降为 40px，并增加 48px 透明边距，消除窗口四边硬裁。
+- 长截图 HUD 启用防截屏保护，大选区覆盖 HUD 时也不会把 HUD 截进结果。
+- 长截图不再在 99.5% 提前结束，最后一步滚到 100% 并追加剩余行。
+- 移除长截图起点选择，始终从当前滚动位置自动向下。
+- 移除托盘菜单的 GIF 录制 / 视频录制入口及 F2 / F4 全局快捷键；录制统一从截图工具条进入。
 
 ### Fixed
 
 - 修复窗口目标 PowerShell sidecar 未遵循 `SidecarClient` 协议、导致 `error:command` 的问题。
 - 修复 `GetCurrentThreadId` 错声明在 `user32.dll`、导致窗口信息无法读取的问题。
 - 修复向左/向右拖动选区时整体平移而不是固定对边的问题。
+- 修复 UIA 百分比位移换算漏掉滚动范围因子、导致多屏拼接累积错位的问题。
+- 修复大选区滚动过快、重叠区域不足导致长图重复或错位的问题。
+
+### Removed
+
+- 移除长截图 HUD 的“回退一屏”按钮；底层 undo 接口保留但不再暴露。
 
 ### Verified
 
 - `pnpm typecheck` 通过。
-- `pnpm test` 通过：23 个测试文件、147 个用例。
+- `pnpm test` 通过：24 个测试文件、156 个用例。
 - `pnpm build` 通过。
-- `node scripts/spike/verify-window-long-capture-demo.cjs` 通过。
-- `node e2e-overlay.cjs` 通过。
-- `pnpm e2e:window-long` 通过：真实 Edge 窗口、重新选择、至少自动滚动 2 屏，最终生成 884×1283 预览。
-- 未实测：微信、PDF、IDE、地图、多显示器组合和 macOS。
+- `pnpm e2e:window-long` 通过：测试页先滚到 600px，日志记录 `initialPercent=14.208`、`ViewSize=14.358%`，跑满 10 屏后生成 1180×2129 长图；Section 05–18 顺序连续，无重复或压字；复制按钮实际点击并显示成功提示。
+- 预览窗计算样式验证：`padding=48px`、`box-shadow=0 8px 40px`，阴影完整显示。
+- `node e2e-window-long.cjs --large-selection` 通过：全屏大选区跑到 100%，结果 1880×4930，Section 01–32 连续，最后一节正文完整，HUD 未入图。
+- `node e2e-window-long.cjs --to-bottom` 通过：小选区自动跑到 100%，结果 1180×4182；最后的 12px 已追加。选区底边高于页面视口底边时，Section 32 正文仍在选区外，这是选区几何限制。
+- `node e2e-window-long.cjs --failure` 通过：错误态显示“已停止”，可重试和关闭。
+- `pnpm e2e:overlay` 通过：覆盖层工具栏、框选、标注、复制和保存路径回归正常。
+- `pnpm e2e:recording` 通过：GIF/视频录制、控制条、结果卡、保存落盘；录制仍从截图工具栏进入。
+- `pnpm e2e:pin`、`node e2e-settings.cjs` 通过。
+- `pnpm soak:overlay` 200 次：0 失败，p50 420ms，p95 468ms，private 增长 60.07MB（脚本预算 256MB）。
+- `pnpm soak:memory` 3 次 × 50：private 增长 36.7 / 24.4 / 21.8MB；随后 `soak:real-overlay` 300 次：0 失败，p50 378ms，p95 438ms，tab private 增长 18.3MB（预算 32MB），采样无线性增长，之前的 36.7MB 异常未复现。该脚本仍使用假背景，不能替代真实桌面内容验收。
+- `demos/P11-long-preview-refine.html` 已更新为三套 ≥7:1 次文字对比度与统一按钮材质。
+- 未实测：ChatGPT 原始页面复测、长截图保存的系统文件对话框（底层保存逻辑未改）、微信/PDF/IDE/地图、多显示器与高 DPI 组合、macOS。
 
 ## [0.4.1] - 2026-10-26
 

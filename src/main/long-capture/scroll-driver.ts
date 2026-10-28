@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logDiagnostic } from '../diagnostics'
 import { parseScrollResult, parseScrollTarget, type ScrollResult, type ScrollTarget } from '../../shared/scroll-target'
+import type { Rect } from '../../shared/types'
 import { SidecarClient } from '../sidecar/client'
 
 const SCROLL_SCRIPT = String.raw`
@@ -14,6 +15,7 @@ Add-Type -ReferencedAssemblies Microsoft.CSharp,UIAutomationClient,UIAutomationT
 using System;
 using System.IO;
 using System.Text;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 public class PixmintScrollHelper {
@@ -61,6 +63,7 @@ public class PixmintScrollHelper {
 
   static IntPtr found;
   static RECT foundRect;
+  static long foundArea;
 
   // Skip another Pixmint instance so auto-scroll never targets its own windows.
   static bool IsPixmintProcess(uint pid) {
@@ -84,44 +87,80 @@ public class PixmintScrollHelper {
   public static string Find(int x, int y, uint appPid) {
     MakeDpiAware();
     found = IntPtr.Zero;
+    foundArea = 0;
     EnumWindows(delegate(IntPtr h, IntPtr l) {
-      if (!IsWindowVisible(h) || IsIconic(h)) return true;
-      uint pid;
-      GetWindowThreadProcessId(h, out pid);
-      if (pid == appPid || IsPixmintProcess(pid)) return true;
-      StringBuilder sb = new StringBuilder(256);
-      GetClassName(h, sb, 256);
-      string cls = sb.ToString();
-      if (cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd" ||
-          cls == "Shell_SecondaryTrayWnd" || cls == "Windows.UI.Core.CoreWindow") return true;
-      int cloaked;
-      if (DwmGetWindowAttributeInt(h, 14, out cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
       RECT r;
-      if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0 ||
-          r.Right <= r.Left || r.Bottom <= r.Top) {
-        if (!GetWindowRect(h, out r)) return true;
-      }
-      if (x >= r.Left && x < r.Right && y >= r.Top && y < r.Bottom) {
+      if (IsEligible(h, x, y, appPid, out r)) {
         found = h;
         foundRect = r;
+        foundArea = (long)(r.Right - r.Left) * (long)(r.Bottom - r.Top);
         return false;
       }
       return true;
     }, IntPtr.Zero);
     if (found == IntPtr.Zero) return "null";
-    StringBuilder name = new StringBuilder(256);
-    GetClassName(found, name, 256);
+    return Describe(found, foundRect);
+  }
+
+  static bool IsEligible(IntPtr h, int x, int y, uint appPid, out RECT rect) {
+    rect = new RECT();
+    if (!IsWindowVisible(h) || IsIconic(h)) return false;
+    uint pid;
+    GetWindowThreadProcessId(h, out pid);
+    if (pid == appPid || IsPixmintProcess(pid)) return false;
+    StringBuilder sb = new StringBuilder(256);
+    GetClassName(h, sb, 256);
+    string cls = sb.ToString();
+    if (cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd" ||
+        cls == "Shell_SecondaryTrayWnd" || cls == "Windows.UI.Core.CoreWindow") return false;
     StringBuilder title = new StringBuilder(256);
-    GetWindowText(found, title, 256);
-    bool foreground = GetForegroundWindow() == found;
-    return "{\"hwnd\":" + found.ToInt64() +
+    GetWindowText(h, title, 256);
+    string titleText = title.ToString();
+    if (titleText == "Status" || titleText == "StatusBarWnd" || titleText == "Program Manager" ||
+        titleText.Contains("NVIDIA GeForce Overlay") ||
+        titleText.Contains("Windows Input Experience") ||
+        titleText.Contains("Microsoft Text Input Application") ||
+        titleText.Contains("\u957F\u622A\u56FE")) return false;
+    int cloaked;
+    if (DwmGetWindowAttributeInt(h, 14, out cloaked, sizeof(int)) == 0 && cloaked != 0) return false;
+    RECT r;
+    if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0 ||
+        r.Right <= r.Left || r.Bottom <= r.Top) {
+      if (!GetWindowRect(h, out r)) return false;
+    }
+    if (x < r.Left || x >= r.Right || y < r.Top || y >= r.Bottom) return false;
+    if (r.Right - r.Left < 120 || r.Bottom - r.Top < 120) return false;
+    rect = r;
+    return true;
+  }
+
+  public static string FindByHwnd(long hwnd) {
+    MakeDpiAware();
+    IntPtr target = new IntPtr(hwnd);
+    if (!IsWindow(target) || !IsWindowVisible(target) || IsIconic(target)) return "null";
+    RECT rect;
+    if (DwmGetWindowAttribute(target, 9, out rect, Marshal.SizeOf(typeof(RECT))) != 0 ||
+        rect.Right <= rect.Left || rect.Bottom <= rect.Top) {
+      if (!GetWindowRect(target, out rect)) return "null";
+    }
+    if (rect.Right <= rect.Left || rect.Bottom <= rect.Top) return "null";
+    return Describe(target, rect);
+  }
+
+  static string Describe(IntPtr target, RECT rect) {
+    StringBuilder name = new StringBuilder(256);
+    GetClassName(target, name, 256);
+    StringBuilder title = new StringBuilder(256);
+    GetWindowText(target, title, 256);
+    bool foreground = GetForegroundWindow() == target;
+    return "{\"hwnd\":" + target.ToInt64() +
       ",\"className\":\"" + Escape(name.ToString()) +
       "\",\"title\":\"" + Escape(title.ToString()) +
       "\",\"foreground\":" + (foreground ? "true" : "false") +
-      ",\"rect\":{\"x\":" + foundRect.Left +
-      ",\"y\":" + foundRect.Top +
-      ",\"width\":" + (foundRect.Right - foundRect.Left) +
-      ",\"height\":" + (foundRect.Bottom - foundRect.Top) + "}}";
+      ",\"rect\":{\"x\":" + rect.Left +
+      ",\"y\":" + rect.Top +
+      ",\"width\":" + (rect.Right - rect.Left) +
+      ",\"height\":" + (rect.Bottom - rect.Top) + "}}";
   }
 
   public static string Scroll(long hwnd, int x, int y, int notches) {
@@ -136,6 +175,8 @@ public class PixmintScrollHelper {
     IntPtr h = new IntPtr(hwnd);
     if (!IsWindow(h)) return "error:window";
     if (!ForceForeground(h)) return "error:foreground";
+    POINT original;
+    bool hadCursor = GetCursorPos(out original);
     if (!SetCursorPos(x, y)) return "error:cursor";
     System.Threading.Thread.Sleep(30);
     for (int i = 0; i < count; i++) {
@@ -143,12 +184,15 @@ public class PixmintScrollHelper {
       keybd_event((byte)keyCode, 0, 2, UIntPtr.Zero);
       System.Threading.Thread.Sleep(25);
     }
+    if (hadCursor) SetCursorPos(original.X, original.Y);
     return "ok";
   }
 
   public static string UiaScroll(long hwnd, int x, int y, int steps) {
     IntPtr h = new IntPtr(hwnd);
     if (!IsWindow(h)) return "error:window";
+    POINT original;
+    bool hadCursor = GetCursorPos(out original);
     if (!SetCursorPos(x, y)) return "error:cursor";
     try {
       AutomationElement element = AutomationElement.FromPoint(new System.Windows.Point(x, y));
@@ -163,12 +207,82 @@ public class PixmintScrollHelper {
               pattern.Scroll(ScrollAmount.NoAmount, ScrollAmount.SmallIncrement);
               System.Threading.Thread.Sleep(30);
             }
+            if (hadCursor) SetCursorPos(original.X, original.Y);
             return "ok";
           }
         }
         element = TreeWalker.ControlViewWalker.GetParent(element);
       }
+      if (hadCursor) SetCursorPos(original.X, original.Y);
       return "error:uia-pattern";
+    } catch {
+      if (hadCursor) SetCursorPos(original.X, original.Y);
+      return "error:uia";
+    }
+  }
+
+  public static string ScrollToTop(int x, int y) {
+    return SetScrollPercent(x, y, 0);
+  }
+
+  static ScrollPattern FindPattern(int x, int y) {
+    AutomationElement element = AutomationElement.FromPoint(new System.Windows.Point(x, y));
+    for (int depth = 0; depth < 10 && element != null; depth++) {
+      object patternObject;
+      if (element.TryGetCurrentPattern(ScrollPattern.Pattern, out patternObject)) {
+        ScrollPattern pattern = (ScrollPattern)patternObject;
+        if (pattern.Current.VerticallyScrollable) return pattern;
+      }
+      element = TreeWalker.ControlViewWalker.GetParent(element);
+    }
+    return null;
+  }
+
+  public static string ScrollInfo(int x, int y) {
+    try {
+      AutomationElement element = AutomationElement.FromPoint(new System.Windows.Point(x, y));
+      for (int depth = 0; depth < 10 && element != null; depth++) {
+        object patternObject;
+        if (element.TryGetCurrentPattern(ScrollPattern.Pattern, out patternObject)) {
+          ScrollPattern pattern = (ScrollPattern)patternObject;
+          if (pattern.Current.VerticallyScrollable) {
+            System.Windows.Rect bounds = element.Current.BoundingRectangle;
+            return "{\"percent\":" + pattern.Current.VerticalScrollPercent.ToString("0.###", CultureInfo.InvariantCulture) +
+              ",\"view\":" + pattern.Current.VerticalViewSize.ToString("0.###", CultureInfo.InvariantCulture) +
+              ",\"rect\":{\"x\":" + Math.Round(bounds.X) +
+              ",\"y\":" + Math.Round(bounds.Y) +
+              ",\"width\":" + Math.Round(bounds.Width) +
+              ",\"height\":" + Math.Round(bounds.Height) + "}}";
+          }
+        }
+        element = TreeWalker.ControlViewWalker.GetParent(element);
+      }
+      return "null";
+    } catch {
+      return "error:uia";
+    }
+  }
+
+  public static string SetScrollPercent(int x, int y, double target) {
+    try {
+      ScrollPattern pattern = FindPattern(x, y);
+      if (pattern == null) return "error:uia-pattern";
+      double view = pattern.Current.VerticalViewSize;
+      // Chromium 的 UIA 实现首次设置只排队，第二次才真正提交。
+      pattern.SetScrollPercent(ScrollPattern.NoScroll, target);
+      System.Threading.Thread.Sleep(80);
+      pattern.SetScrollPercent(ScrollPattern.NoScroll, target);
+      double current = pattern.Current.VerticalScrollPercent;
+      for (int attempt = 0; attempt < 20; attempt++) {
+        System.Threading.Thread.Sleep(60);
+        current = pattern.Current.VerticalScrollPercent;
+        if (Math.Abs(current - target) <= 0.75 || target >= 99) {
+          return "ok:" + current.ToString("0.###", CultureInfo.InvariantCulture) +
+            ":" + view.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+      }
+      return "ok:" + current.ToString("0.###", CultureInfo.InvariantCulture) +
+        ":" + view.ToString("0.###", CultureInfo.InvariantCulture);
     } catch {
       return "error:uia";
     }
@@ -178,6 +292,8 @@ public class PixmintScrollHelper {
     IntPtr h = new IntPtr(hwnd);
     if (!IsWindow(h)) return "error:window";
     if (!ForceForeground(h)) return "error:foreground";
+    POINT original;
+    bool hadCursor = GetCursorPos(out original);
     if (!SetCursorPos(x, y)) return "error:cursor";
     System.Threading.Thread.Sleep(20);
     INPUT input = new INPUT();
@@ -186,6 +302,7 @@ public class PixmintScrollHelper {
     input.mi.mouseData = unchecked((uint)delta);
     INPUT[] inputs = new INPUT[] { input };
     uint sent = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+    if (hadCursor) SetCursorPos(original.X, original.Y);
     return sent == 1 ? "ok" : "error:sendinput";
   }
 
@@ -201,7 +318,7 @@ public class PixmintScrollHelper {
     bool attached = false;
     try {
       if (foregroundThread != 0) attached = AttachThreadInput(currentThread, foregroundThread, true);
-      ShowWindow(h, 9);
+      if (IsIconic(h)) ShowWindow(h, 9);
       BringWindowToTop(h);
       SetForegroundWindow(h);
     } finally {
@@ -242,6 +359,9 @@ while ($true) {
     } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'target') {
       $result = [PixmintScrollHelper]::Find([int]$parts[2], [int]$parts[3], $AppPid)
       [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 3 -and $parts[1] -eq 'targetbyhwnd') {
+      $result = [PixmintScrollHelper]::FindByHwnd([long]$parts[2])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'scroll') {
       $result = [PixmintScrollHelper]::Scroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5])
       [Console]::Out.WriteLine("$($parts[0])|$result")
@@ -253,6 +373,16 @@ while ($true) {
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 6 -and $parts[1] -eq 'uiascroll') {
       $result = [PixmintScrollHelper]::UiaScroll([long]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'uiatop') {
+      $result = [PixmintScrollHelper]::ScrollToTop([int]$parts[2], [int]$parts[3])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'uiainfo') {
+      $result = [PixmintScrollHelper]::ScrollInfo([int]$parts[2], [int]$parts[3])
+      [Console]::Out.WriteLine("$($parts[0])|$result")
+    } elseif ($parts.Length -eq 5 -and $parts[1] -eq 'uiasetpct') {
+      $target = [double]::Parse($parts[4], [Globalization.CultureInfo]::InvariantCulture)
+      $result = [PixmintScrollHelper]::SetScrollPercent([int]$parts[2], [int]$parts[3], $target)
       [Console]::Out.WriteLine("$($parts[0])|$result")
     } elseif ($parts.Length -eq 4 -and $parts[1] -eq 'restore') {
       $result = [PixmintScrollHelper]::Restore([int]$parts[2], [int]$parts[3])
@@ -337,10 +467,76 @@ export class ScrollDriver {
   async findTarget(x: number, y: number): Promise<ScrollTarget | null> {
     const payload = await this.client.request(
       `target,${Math.round(x)},${Math.round(y)}`,
-      this.warmed ? 800 : 4000
+      this.warmed ? 2000 : 5000
     )
     this.warmed = true
     return parseScrollTarget(payload)
+  }
+
+  async findTargetByHwnd(hwnd: number): Promise<ScrollTarget | null> {
+    const payload = await this.client.request(
+      `targetbyhwnd,${Math.round(hwnd)}`,
+      this.warmed ? 2000 : 5000
+    )
+    this.warmed = true
+    return parseScrollTarget(payload)
+  }
+
+  async scrollToTop(x: number, y: number): Promise<boolean> {
+    return (await this.setScrollPercent(x, y, 0)) !== null
+  }
+
+  async getScrollInfo(
+    x: number,
+    y: number
+  ): Promise<{ percent: number; view: number; rect: Rect } | null> {
+    const payload = await this.client.request(
+      `uiainfo,${Math.round(x)},${Math.round(y)}`,
+      this.warmed ? 3000 : 6000
+    )
+    this.warmed = true
+    if (!payload || payload === 'null') return null
+    try {
+      const start = payload.indexOf('{')
+      const end = payload.lastIndexOf('}')
+      if (start < 0 || end < start) return null
+      const value = JSON.parse(payload.slice(start, end + 1)) as {
+        percent: number
+        view: number
+        rect: Rect
+      }
+      if (
+        !Number.isFinite(value.percent) ||
+        !Number.isFinite(value.view) ||
+        value.view <= 0 ||
+        !value.rect ||
+        value.rect.width <= 0 ||
+        value.rect.height <= 0
+      ) {
+        return null
+      }
+      return value
+    } catch {
+      return null
+    }
+  }
+
+  async setScrollPercent(
+    x: number,
+    y: number,
+    target: number
+  ): Promise<{ percent: number; view: number } | null> {
+    const payload = await this.client.request(
+      `uiasetpct,${Math.round(x)},${Math.round(y)},${target.toFixed(3)}`,
+      this.warmed ? 4000 : 7000
+    )
+    this.warmed = true
+    if (!payload || !payload.startsWith('ok:')) return null
+    const [, percentText, viewText] = payload.split(':')
+    const percent = Number(percentText)
+    const view = Number(viewText)
+    if (!Number.isFinite(percent) || !Number.isFinite(view) || view <= 0) return null
+    return { percent, view }
   }
 
   async scroll(

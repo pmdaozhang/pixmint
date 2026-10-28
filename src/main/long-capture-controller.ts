@@ -138,9 +138,10 @@ export class LongCaptureController {
       onComplete: () => {
         this.border.hide()
         this.hud.hide()
+        const previewInfo = this.manager.getPreviewInfo()
         createLongCapturePreview(this.preloadPath, () => {
           this.manager.deleteResult()
-        })
+        }, previewInfo?.width)
       }
     }
   }

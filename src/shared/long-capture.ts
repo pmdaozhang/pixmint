@@ -28,6 +28,8 @@ export interface OverlapMatchOptions {
   verificationThreshold?: number
   /** 期望滚动偏移；用于在重复内容中优先选择合理偏移。 */
   expectedOffset?: number
+  /** 期望偏移两侧的搜索范围比例，默认 0.25。 */
+  expectedOffsetTolerance?: number
   /** 自动检测表头时允许的最大高度比例，默认 0.3。 */
   maxHeaderRatio?: number
 }
@@ -55,6 +57,96 @@ export interface LongCaptureStitcherLimits {
 export interface StitchAppendResult {
   appended: number
   truncated: boolean
+}
+
+const AUTO_SCROLL_TARGET_RATIO = 0.28
+const AUTO_SCROLL_MIN_PIXELS = 80
+const AUTO_SCROLL_MAX_PIXELS = 240
+
+/**
+ * 背景：自动长截图的单步位移如果直接跟随选区高度，选区越大滚动越快。
+ * 设计意图：小选区按比例留足重叠，大选区把单步位移限制在固定上限。
+ * 关键约束：返回值必须小于正常选区高度，保证每次都能截到重叠内容。
+ */
+export function autoScrollTargetPixels(frameHeight: number): number {
+  if (!Number.isFinite(frameHeight) || frameHeight <= 0) {
+    return AUTO_SCROLL_MIN_PIXELS
+  }
+  return clamp(
+    Math.round(frameHeight * AUTO_SCROLL_TARGET_RATIO),
+    AUTO_SCROLL_MIN_PIXELS,
+    AUTO_SCROLL_MAX_PIXELS
+  )
+}
+
+/**
+ * 背景：UIA 的滚动百分比对应滚动范围，而不是截图选区高度。
+ * 设计意图：把目标像素位移换算成 UIA 百分比，让不同选区高度保持相近的视觉速度。
+ * 关键约束：viewportHeight 必须是滚动容器可视高度，不是截图帧高度。
+ */
+export function scrollStepPercent(
+  frameHeight: number,
+  viewportHeight: number,
+  viewPercent: number
+): number {
+  if (
+    !Number.isFinite(frameHeight) ||
+    !Number.isFinite(viewportHeight) ||
+    !Number.isFinite(viewPercent) ||
+    frameHeight <= 0 ||
+    viewportHeight <= 0 ||
+    viewPercent <= 0 ||
+    viewPercent >= 100
+  ) {
+    return 0
+  }
+  const scrollRange =
+    (viewportHeight * (100 - viewPercent)) / viewPercent
+  if (!Number.isFinite(scrollRange) || scrollRange <= 0) return 0
+  return clamp(
+    (autoScrollTargetPixels(frameHeight) / scrollRange) * 100,
+    0.2,
+    25
+  )
+}
+
+/**
+ * 背景：UIA 模式用滚动百分比差计算真实像素位移，不能再靠图像重叠猜。
+ * 设计意图：把无效位移和越界位移统一挡在拼接前。
+ * 关键约束：viewportHeight 是滚动容器可视高度；返回 null 时必须停止。
+ */
+export function offsetFromScrollDelta(
+  viewportHeight: number,
+  deltaPercent: number,
+  viewPercent: number
+): number | null {
+  if (
+    !Number.isFinite(viewportHeight) ||
+    !Number.isFinite(deltaPercent) ||
+    !Number.isFinite(viewPercent) ||
+    viewportHeight <= 0 ||
+    deltaPercent <= 0 ||
+    viewPercent <= 0 ||
+    viewPercent >= 100
+  ) {
+    return null
+  }
+  const scrollRange =
+    (viewportHeight * (100 - viewPercent)) / viewPercent
+  if (!Number.isFinite(scrollRange) || scrollRange <= 0) return null
+  const offset = Math.round((scrollRange * deltaPercent) / 100)
+  return offset > 0 ? offset : null
+}
+
+export function isScrollViewStable(
+  previousView: number,
+  nextView: number,
+  tolerance = 0.02
+): boolean {
+  if (!Number.isFinite(previousView) || !Number.isFinite(nextView) || previousView <= 0) {
+    return false
+  }
+  return Math.abs(previousView - nextView) <= previousView * tolerance
 }
 
 const DEFAULT_MIN_OVERLAP_RATIO = 0.22
@@ -282,8 +374,8 @@ function overlapConfidence(
  * 检测两帧顶部共同的固定区域。
  *
  * 固定表头在滚动时会留在原位，因此两帧顶部相同的前缀就是表头高度。
- * 如果整个探测区域都相同，通常是“没有滚动”而不是超长表头，返回 0，
- * 让后续匹配失败并走“目标窗口没有滚动”的错误路径。
+ * 如果整个探测区域都相同，仍按最大探测高度处理；没有滚动会在进入本函数前
+ * 被 framesAreSimilar 拦截，不能把静态表头误判成 0。
  */
 export function detectStableHeader(
   previous: FrameImage,
@@ -293,6 +385,10 @@ export function detectStableHeader(
   assertFrame(previous)
   if (!sameSize(previous, next)) return 0
   assertFrame(next)
+  const stepX = Math.max(1, options.sampleStepX ?? DEFAULT_SAMPLE_STEP_X)
+  if (framesAreSimilar(previous, next, { stepX, stepY: DEFAULT_SAMPLE_STEP_Y })) {
+    return 0
+  }
 
   const maxHeaderRows = Math.max(
     1,
@@ -301,7 +397,6 @@ export function detectStableHeader(
       Math.floor(previous.height * (options.maxHeaderRatio ?? DEFAULT_MAX_HEADER_RATIO))
     )
   )
-  const stepX = Math.max(1, options.sampleStepX ?? DEFAULT_SAMPLE_STEP_X)
   const tolerance = 6
   let stable = 0
 
@@ -317,7 +412,7 @@ export function detectStableHeader(
     stable = y + 1
   }
 
-  return stable >= maxHeaderRows ? 0 : stable
+  return stable
 }
 
 /**
@@ -367,6 +462,26 @@ export function matchVerticalOverlap(
   )
   const preferredOffset =
     options.expectedOffset ?? Math.round(scrollHeight * 0.7)
+  const expectedOffset = options.expectedOffset
+  const expectedTolerance = clamp(
+    options.expectedOffsetTolerance ?? 0.25,
+    0.05,
+    0.5
+  )
+  const searchStart =
+    expectedOffset === undefined
+      ? 1
+      : Math.max(
+          1,
+          Math.floor(expectedOffset - scrollHeight * expectedTolerance)
+        )
+  const searchEnd =
+    expectedOffset === undefined
+      ? maxOffset
+      : Math.min(
+          maxOffset,
+          Math.ceil(expectedOffset + scrollHeight * expectedTolerance)
+        )
 
   const candidates: Array<{
     offset: number
@@ -377,7 +492,7 @@ export function matchVerticalOverlap(
   const previousHashes = buildRowHashes(previous)
   const nextHashes = buildRowHashes(next)
 
-  for (let offset = 1; offset <= maxOffset; offset += 1) {
+  for (let offset = searchStart; offset <= searchEnd; offset += 1) {
     const overlapRows = scrollHeight - offset
     if (overlapRows < 2) continue
     let informative = 0

@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · 长截图预览窗口 Demo</title>
+    <style>
+      :root {
+        --desk: #101116;
+        --desk-2: #1b1d25;
+        --text: #f5f6f8;
+        --muted: #8d929c;
+        --muted-2: #5f6570;
+        --accent: #4388ff;
+        --surface: #17191d;
+        --surface-2: #1d2025;
+        --edge: rgba(255, 255, 255, 0.18);
+        --edge-soft: rgba(255, 255, 255, 0.08);
+        --shadow: 0 32px 100px rgba(0, 0, 0, 0.58);
+        --page: #fbfcfd;
+        --page-text: #1a2029;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+        --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        background: var(--desk);
+        color: var(--text);
+        font-family: var(--sans);
+      }
+
+      button {
+        border: 0;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .desktop {
+        position: relative;
+        min-height: 100vh;
+        overflow: hidden;
+        padding: 28px;
+        background:
+          radial-gradient(circle at 9% 12%, rgba(255, 86, 168, 0.42), transparent 24%),
+          radial-gradient(circle at 92% 7%, rgba(67, 136, 255, 0.44), transparent 28%),
+          radial-gradient(circle at 72% 94%, rgba(255, 174, 74, 0.25), transparent 28%),
+          linear-gradient(145deg, #181922, #090a0e 70%);
+      }
+
+      .desktop::before,
+      .desktop::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(10px);
+        pointer-events: none;
+      }
+
+      .desktop::before {
+        width: 360px;
+        height: 360px;
+        left: -110px;
+        bottom: -120px;
+        background: rgba(255, 59, 145, 0.28);
+      }
+
+      .desktop::after {
+        width: 310px;
+        height: 310px;
+        right: -80px;
+        top: 34%;
+        background: rgba(47, 112, 255, 0.24);
+      }
+
+      .backdrop-copy {
+        position: absolute;
+        top: 180px;
+        left: 48px;
+        width: 290px;
+        color: rgba(255, 255, 255, 0.24);
+        font-size: 11px;
+        line-height: 1.8;
+        transform: rotate(-4deg);
+        pointer-events: none;
+      }
+
+      .backdrop-copy strong {
+        color: rgba(255, 255, 255, 0.38);
+        font-size: 16px;
+      }
+
+      .page-head {
+        position: relative;
+        z-index: 3;
+        width: min(1180px, calc(100vw - 56px));
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 28px;
+      }
+
+      .kicker {
+        color: #7fb2ff;
+        font: 600 10px/1 var(--mono);
+        letter-spacing: 0.12em;
+      }
+
+      h1 {
+        margin: 8px 0 0;
+        font-size: 27px;
+        line-height: 1.1;
+        letter-spacing: -0.035em;
+      }
+
+      .page-head p {
+        max-width: 590px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .demo-controls {
+        display: flex;
+        gap: 4px;
+        padding: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 11px;
+        background: rgba(18, 20, 26, 0.72);
+        backdrop-filter: blur(18px);
+      }
+
+      .demo-controls button {
+        height: 29px;
+        padding: 0 10px;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted-2);
+        font: 9.5px/1 var(--mono);
+      }
+
+      .demo-controls button:hover,
+      .demo-controls button.on {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text);
+      }
+
+      .desktop-stage {
+        position: relative;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        min-height: calc(100vh - 150px);
+        padding: 28px 0 50px;
+      }
+
+      .preview-window {
+        width: min(980px, calc(100vw - 100px));
+        height: 680px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--edge);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        transition:
+          background 180ms,
+          border-color 180ms;
+      }
+
+      .preview-window[data-variant="light"] {
+        --surface: #f4f5f7;
+        --surface-2: #ffffff;
+        --edge: rgba(0, 0, 0, 0.16);
+        --edge-soft: rgba(0, 0, 0, 0.08);
+        --shadow: 0 30px 85px rgba(0, 0, 0, 0.42);
+        color: #171b22;
+      }
+
+      .preview-window[data-variant="clear"] {
+        --surface: transparent;
+        --surface-2: rgba(20, 22, 27, 0.88);
+        --edge: rgba(255, 255, 255, 0.18);
+        --edge-soft: rgba(255, 255, 255, 0.1);
+        --shadow: 0 22px 70px rgba(0, 0, 0, 0.38);
+      }
+
+      .preview-window[data-variant="clear"] .window-content {
+        background: transparent;
+      }
+
+      .titlebar {
+        min-height: 48px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 10px 0 14px;
+        border-bottom: 1px solid var(--edge-soft);
+        background: var(--surface-2);
+        -webkit-app-region: drag;
+      }
+
+      .title-mark {
+        width: 23px;
+        height: 23px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        background: rgba(67, 136, 255, 0.18);
+        color: #8eb9ff;
+      }
+
+      .title-mark svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .preview-window[data-variant="light"] .title-mark {
+        background: #e5f0ff;
+        color: #1765df;
+      }
+
+      .title-copy {
+        min-width: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 9px;
+      }
+
+      .title-copy strong {
+        font-size: 12px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .title-copy span {
+        color: var(--muted);
+        font: 9px/1 var(--mono);
+        white-space: nowrap;
+      }
+
+      .toolbar {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        -webkit-app-region: no-drag;
+      }
+
+      .tool-btn,
+      .icon-btn {
+        height: 28px;
+        min-width: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--edge-soft);
+        border-radius: 7px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .tool-btn {
+        padding: 0 8px;
+      }
+
+      .tool-btn:hover,
+      .icon-btn:hover {
+        border-color: var(--edge);
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--text);
+      }
+
+      .preview-window[data-variant="light"] .tool-btn:hover,
+      .preview-window[data-variant="light"] .icon-btn:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      .tool-btn.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .tool-btn.primary:hover {
+        background: #5c97ff;
+      }
+
+      .icon-btn.close:hover {
+        border-color: transparent;
+        background: rgba(255, 69, 58, 0.9);
+        color: #fff;
+      }
+
+      .window-content {
+        flex: 1;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        background: transparent;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+      }
+
+      .window-content::-webkit-scrollbar {
+        width: 9px;
+      }
+
+      .window-content::-webkit-scrollbar-thumb {
+        border: 3px solid transparent;
+        border-radius: 999px;
+        background-clip: padding-box;
+        background-color: rgba(255, 255, 255, 0.22);
+      }
+
+      .preview-window[data-variant="light"] .window-content::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.22);
+      }
+
+      .long-image {
+        width: 100%;
+        min-height: 1400px;
+        padding: 28px 72px 96px;
+        background: var(--page);
+        color: var(--page-text);
+        transition: background 180ms;
+      }
+
+      .preview-window[data-variant="clear"] .long-image {
+        border-radius: 0;
+      }
+
+      .shot-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e1e5eb;
+      }
+
+      .shot-head h2 {
+        margin: 0;
+        font-size: 19px;
+        letter-spacing: -0.02em;
+      }
+
+      .shot-head span {
+        color: #8a919c;
+        font: 9px/1 var(--mono);
+      }
+
+      .shot-section {
+        padding: 23px 0;
+        border-bottom: 1px solid #e1e5eb;
+      }
+
+      .shot-section h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .shot-section p {
+        margin: 0;
+        color: #566170;
+        font-size: 11.5px;
+        line-height: 1.8;
+      }
+
+      .shot-code {
+        margin-top: 10px;
+        padding: 11px 13px;
+        border: 1px solid #dde2e9;
+        border-radius: 7px;
+        background: #f0f2f6;
+        color: #4c5665;
+        font: 9.5px/1.7 var(--mono);
+      }
+
+      .statusbar {
+        height: 30px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 0 13px;
+        border-top: 1px solid var(--edge-soft);
+        background: var(--surface-2);
+        color: var(--muted-2);
+        font: 9.5px/1 var(--mono);
+      }
+
+      .variant-note {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.38);
+        font: 9.5px/1 var(--mono);
+        white-space: nowrap;
+      }
+
+      @media (max-width: 760px) {
+        .desktop {
+          padding: 18px;
+        }
+
+        .page-head {
+          width: 100%;
+          display: block;
+        }
+
+        .demo-controls {
+          width: max-content;
+          margin-top: 14px;
+        }
+
+        .preview-window {
+          width: calc(100vw - 36px);
+          height: 74vh;
+        }
+
+        .long-image {
+          padding: 22px 28px 70px;
+        }
+
+        .title-copy span {
+          display: none;
+        }
+
+        .toolbar .tool-btn:not(.primary):not(.copy) {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="desktop">
+      <div class="backdrop-copy">
+        <strong>Desktop content</strong><br />
+        这些文字故意放在窗口后面，用来检查边界是否清楚。<br />
+        长截图预览不应该依赖桌面背景才能看见边框。
+      </div>
+
+      <header class="page-head">
+        <div>
+          <div class="kicker">Pixmint / 长截图预览</div>
+          <h1>先看清边界，再看长图</h1>
+          <p>去掉棋盘格和透明空洞。预览窗口用完整纸面、细边框和柔和阴影建立清晰层级。</p>
+        </div>
+        <div class="demo-controls" id="controls">
+          <button data-variant="graphite" class="on">石墨纸面</button>
+          <button data-variant="light">浅色纸面</button>
+          <button data-variant="clear">旧版透明</button>
+        </div>
+      </header>
+
+      <section class="desktop-stage">
+        <div class="preview-window" id="preview" data-variant="graphite">
+          <header class="titlebar">
+            <span class="title-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="3" width="12" height="15" rx="1.6" />
+                <path d="M12 7v6M9 11l3 3 3-3M4 21h16" />
+              </svg>
+            </span>
+            <div class="title-copy">
+              <strong>长截图预览</strong>
+              <span>820 × 3,164 · 186 KB</span>
+            </div>
+            <div class="toolbar">
+              <button class="icon-btn" title="缩小">−</button>
+              <button class="tool-btn" title="缩放比例">100%</button>
+              <button class="icon-btn" title="放大">+</button>
+              <button class="tool-btn" title="适应宽度">适应宽度</button>
+              <button class="tool-btn copy" title="复制">复制</button>
+              <button class="tool-btn primary" title="保存 PNG">保存 PNG</button>
+              <button class="icon-btn close" title="关闭">×</button>
+            </div>
+          </header>
+
+          <div class="window-content" id="content">
+            <div class="long-image">
+              <div class="shot-head">
+                <h2>长截图预览</h2>
+                <span>2026-10-28 · 固定表头已合并</span>
+              </div>
+              <section class="shot-section">
+                <h3>01 · 窗口边界</h3>
+                <p>预览窗口现在有完整表面、细边框和外阴影。即使背后是明亮或杂乱的桌面，也能清楚看出窗口从哪里开始、到哪里结束。</p>
+              </section>
+              <section class="shot-section">
+                <h3>02 · 内容区</h3>
+                <p>长图不再铺棋盘格背景。图片直接占据内容区，只在右侧保留垂直滚动。没有横向滚动条，也不需要左右拖动查看。</p>
+                <div class="shot-code">overflow-x: hidden; image-width: 100%;</div>
+              </section>
+              <section class="shot-section">
+                <h3>03 · 顶部与底部</h3>
+                <p>顶部只保留窗口标题、缩放/复制/保存操作；底部只保留尺寸、文件大小和状态。减少一层独立工具栏，让边界更干净。</p>
+              </section>
+              <section class="shot-section">
+                <h3>04 · 亮暗模式</h3>
+                <p>石墨纸面适合暗色桌面，浅色纸面适合明亮环境。两者都保持高对比边框，不依赖背景来判断窗口边界。</p>
+              </section>
+              <section class="shot-section">
+                <h3>05 · 长内容</h3>
+                <p>垂直滚动保持在内容区内部，标题栏和状态栏固定不动。滚动长图时，窗口边界始终稳定，不会跟着图片移动。</p>
+              </section>
+              <section class="shot-section">
+                <h3>06 · 透明方案对比</h3>
+                <p>切换到旧版透明可以看到问题：窗口内容区没有完整表面，边界在复杂桌面背景下会消失。正式版不建议继续使用这个方案。</p>
+              </section>
+              <section class="shot-section">
+                <h3>07 · 内容尾部</h3>
+                <p>这是长图的尾部，用来检查滚动到底时状态栏和窗口边框是否仍然清晰。</p>
+              </section>
+            </div>
+          </div>
+
+          <footer class="statusbar">
+            <span>820 × 3,164 · 186 KB</span>
+            <span>固定表头已合并 · 无重复行</span>
+          </footer>
+        </div>
+        <div class="variant-note" id="variant-note">石墨纸面 · 推荐默认</div>
+      </section>
+    </main>
+
+    <script>
+      const preview = document.getElementById("preview")
+      const controls = document.getElementById("controls")
+      const note = document.getElementById("variant-note")
+      const labels = {
+        graphite: "石墨纸面 · 推荐默认",
+        light: "浅色纸面 · 明亮环境",
+        clear: "旧版透明 · 边界容易消失"
+      }
+
+      controls.addEventListener("click", (event) => {
+        const button = event.target.closest("button")
+        if (!button) return
+        preview.dataset.variant = button.dataset.variant
+        note.textContent = labels[button.dataset.variant]
+        controls.querySelectorAll("button").forEach((item) => {
+          item.classList.toggle("on", item === button)
+        })
+      })
+    </script>
+  </body>
+</html>

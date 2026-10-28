@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   LongCaptureStitcher,
+  autoScrollTargetPixels,
   cropFrameHorizontal,
   detectStableHeader,
+  isScrollViewStable,
   matchVerticalOverlap,
+  offsetFromScrollDelta,
+  scrollStepPercent,
   trimCaptureEdgeRow,
   type FrameImage
 } from '../src/shared/long-capture'
@@ -145,6 +149,41 @@ describe('detectStableHeader', () => {
     const page = createPage(400)
     const frame = frameAt(page, 0)
     expect(detectStableHeader(frame, frame)).toBe(0)
+  })
+})
+
+describe('UIA position-driven helpers', () => {
+  it('converts scroll percentage delta to pixel offset', () => {
+    expect(offsetFromScrollDelta(600, 10, 20)).toBe(240)
+    expect(offsetFromScrollDelta(600, 8, 20)).toBe(192)
+    expect(offsetFromScrollDelta(600, 0, 20)).toBeNull()
+    expect(offsetFromScrollDelta(600, 10, 100)).toBeNull()
+  })
+
+  it('keeps the scroll step stable when the capture region grows', () => {
+    const smallStep = scrollStepPercent(400, 900, 3.247)
+    const largeStep = scrollStepPercent(1000, 900, 3.247)
+    const smallOffset = offsetFromScrollDelta(900, smallStep, 3.247)
+    const largeOffset = offsetFromScrollDelta(900, largeStep, 3.247)
+
+    expect(smallStep).toBeGreaterThan(0)
+    expect(largeStep).toBeGreaterThan(0)
+    expect(smallOffset).not.toBeNull()
+    expect(largeOffset).not.toBeNull()
+    expect(Math.abs(smallOffset! - autoScrollTargetPixels(400))).toBeLessThanOrEqual(1)
+    expect(Math.abs(largeOffset! - autoScrollTargetPixels(1000))).toBeLessThanOrEqual(1)
+  })
+
+  it('caps large-capture scroll steps at 240px', () => {
+    expect(autoScrollTargetPixels(400)).toBe(112)
+    expect(autoScrollTargetPixels(857)).toBe(240)
+    expect(autoScrollTargetPixels(2000)).toBe(240)
+    expect(scrollStepPercent(1000, 900, 100)).toBe(0)
+  })
+
+  it('rejects a changed scroll viewport', () => {
+    expect(isScrollViewStable(20, 20.1)).toBe(true)
+    expect(isScrollViewStable(20, 21)).toBe(false)
   })
 })
 

@@ -13,7 +13,6 @@ import { RecorderBar } from './RecorderBar'
 import { RecorderSession } from './RecorderSession'
 import { RESIZE_DIRS } from './selection-geometry'
 import { Toolbar } from './Toolbar'
-import { WindowTargetPicker } from './WindowTargetPicker'
 import { useOverlayImageSession } from './useOverlayImageSession'
 import { useOverlayKeyboard } from './useOverlayKeyboard'
 import { useOverlaySelection } from './useOverlaySelection'
@@ -59,7 +58,6 @@ export function OverlayApp(): JSX.Element {
     useState<RecorderOptions>(DEFAULT_RECORDER_OPTIONS)
   const [recordPhase, setRecordPhase] = useState<RecordPhase>('idle')
   const [countdownNumber, setCountdownNumber] = useState(0)
-  const [windowPickerOpen, setWindowPickerOpen] = useState(false)
   // 倒计时结束后先撤掉冻结截图，等合成器提交两帧再真正开录，避免首帧录进截图界面。
   const [captureClean, setCaptureClean] = useState(false)
   const {
@@ -141,7 +139,6 @@ export function OverlayApp(): JSX.Element {
     autoCopiedRef.current = false
     setToast('')
     setError('')
-    setWindowPickerOpen(false)
     const media = window.matchMedia('(prefers-color-scheme: dark)').matches
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
@@ -162,7 +159,6 @@ export function OverlayApp(): JSX.Element {
     pendingRecordModeRef.current = null
     setToast('')
     setError('')
-    setWindowPickerOpen(false)
     autoCopiedRef.current = false
     const media = window.matchMedia('(prefers-color-scheme: dark)').matches
     const theme =
@@ -184,7 +180,6 @@ export function OverlayApp(): JSX.Element {
     pendingRecordModeRef.current = null
     setToast('')
     setError('')
-    setWindowPickerOpen(false)
     autoCopiedRef.current = false
   }, [cancelSnap, resetRecorderState, resetSelection])
 
@@ -196,9 +191,6 @@ export function OverlayApp(): JSX.Element {
     const off = window.snapglass.overlay.onInit(applyInit)
     const offPrepare = window.snapglass.overlay.onPrepare(applyPrepare)
     const offReset = window.snapglass.overlay.onReset(applyReset)
-    const offPick = window.snapglass.windowTarget.onPickRequest(() =>
-      setWindowPickerOpen(true)
-    )
     window.snapglass.overlay.rendererReady()
     window.snapglass.overlay
       .ready()
@@ -221,7 +213,6 @@ export function OverlayApp(): JSX.Element {
       off()
       offPrepare()
       offReset()
-      offPick()
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
@@ -584,7 +575,7 @@ export function OverlayApp(): JSX.Element {
       }
       if (action === 'long') {
         closeSubmenu()
-        setWindowPickerOpen(true)
+        exportImage('long')
         return
       }
       if (action === 'ocr') {
@@ -599,8 +590,6 @@ export function OverlayApp(): JSX.Element {
     },
     [closeSubmenu, exportImage, openRecorder]
   )
-
-  const closeWindowPicker = useCallback(() => setWindowPickerOpen(false), [])
 
   useOverlayKeyboard({
     phase,
@@ -846,7 +835,6 @@ export function OverlayApp(): JSX.Element {
           />
         </div>
       )}
-      <WindowTargetPicker open={windowPickerOpen} onClose={closeWindowPicker} />
       {options.tool === 'mosaic' && options.mosaicMode === 'brush' && phase === 'editing' && (
         <div
           ref={brushCursorRef}

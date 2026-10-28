@@ -13,6 +13,10 @@ import {
   LongCaptureStitcher,
   matchVerticalOverlap,
   type OverlapMatch,
+  autoScrollTargetPixels,
+  offsetFromScrollDelta,
+  scrollStepPercent,
+  isScrollViewStable,
   trimCaptureEdgeRow,
   type FrameImage
 } from '../shared/long-capture'
@@ -27,13 +31,13 @@ import { notify } from './image-utils'
 const MAX_HEIGHT = 30_000
 const MAX_PIXELS = 30_000_000
 const MAX_FRAMES = 80
-const SETTLE_MS = 180
-const STABLE_DELAY_MS = 70
-const STABLE_ATTEMPTS = 6
-const START_NOTCHES = 1
-const MAX_NOTCHES = 12
-const START_WHEEL_DELTA = START_NOTCHES * 120
-const MIN_WHEEL_DELTA = 60
+const SETTLE_MS = 260
+const STABLE_DELAY_MS = 90
+const STABLE_ATTEMPTS = 8
+const START_NOTCHES = 1 / 6
+const MAX_NOTCHES = 6
+const START_WHEEL_DELTA = Math.round(START_NOTCHES * 120)
+const MIN_WHEEL_DELTA = 20
 const MAX_WHEEL_DELTA = MAX_NOTCHES * 120
 const MATCH_EDGE_MARGIN = 24
 const MAX_UIA_STEPS = 40
@@ -65,6 +69,20 @@ type CaptureRectFn = (rect: Rect) => Promise<string | null>
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function saveDebugFrame(name: string, frame: FrameImage): void {
+  if (process.env.PIXMINT_LONG_DEBUG !== '1') return
+  try {
+    const filePath = join(
+      app.getPath('temp'),
+      `pixmint-long-debug-${process.pid}-${name}.png`
+    )
+    writeFileSync(filePath, encodePng(frame))
+    logDiagnostic('long-capture', `debug frame ${name} ${filePath}`)
+  } catch {
+    // 调试帧保存失败不影响长截图主流程
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -282,6 +300,157 @@ export class LongCaptureManager {
     this.manualSource.dispose()
   }
 
+  /**
+   * 背景：Chromium/Electron 页面暴露 UIA ScrollPattern，但虚拟列表会让像素重叠失效。
+   * 设计意图：用 UIA 百分比作为真实位置，按已知位移拼接；只向下滚，不做回滚。
+   * 关键约束：百分比读回必须稳定，容器高度变化超过 2% 时停止，不输出错误拼接图。
+   */
+  private async capturePositionDriven(args: {
+    options: LongCaptureStartOptions
+    captureRect: CaptureRectFn
+    physical: Rect
+    centerX: number
+    centerY: number
+    percent: number
+    view: number
+    containerRect: Rect
+    maxHeight: number
+    maxPixels: number
+    maxFrames: number
+  }): Promise<LongCaptureResult | null> {
+    const {
+      options,
+      captureRect,
+      physical,
+      centerX,
+      centerY,
+      containerRect,
+      maxHeight,
+      maxPixels,
+      maxFrames
+    } = args
+    const top = Math.max(physical.y, containerRect.y)
+    const bottom = Math.min(
+      physical.y + physical.height,
+      containerRect.y + containerRect.height
+    )
+    const visibleWidth = physical.width
+    const visibleHeight = Math.max(0, bottom - top)
+    const captureBounds =
+      visibleWidth >= 40 && visibleHeight >= 40
+        ? {
+            x: physical.x,
+            y: top,
+            width: visibleWidth,
+            height: visibleHeight
+          }
+        : physical
+
+    const firstDataUrl = await captureRect(captureBounds)
+    if (!firstDataUrl) throw new Error('无法截取长截图选区')
+    const first = trimCaptureEdgeRow(frameFromDataUrl(firstDataUrl))
+    const stitcher = new LongCaptureStitcher({ maxHeight, maxPixels })
+    stitcher.initialize(first, 0)
+
+    let percent = clamp(args.percent, 0, 100)
+    let view = args.view
+    let screens = 1
+    const viewportHeight = Math.max(1, Math.round(containerRect.height))
+    logDiagnostic(
+      'long-capture',
+      `uia start percent=${percent.toFixed(3)} view=${view.toFixed(3)} viewport=${viewportHeight}`
+    )
+    this.setProgress({
+      phase: 'capturing',
+      screens,
+      height: first.height,
+      message: '已截取 1 屏'
+    })
+
+    for (let index = 0; index < maxFrames; index += 1) {
+      await this.waitForResume()
+      if (this.cancelled) {
+        this.cleanupResultFile()
+        this.setProgress({
+          phase: 'cancelled',
+          screens: 0,
+          height: 0,
+          message: '长截图已取消'
+        })
+        return null
+      }
+      if (this.finishRequested) break
+
+      const stepPercent = scrollStepPercent(first.height, viewportHeight, view)
+      if (stepPercent <= 0) break
+      const targetPercent = Math.min(100, percent + stepPercent)
+      if (targetPercent - percent < 0.2) break
+      const changed = await this.driver.setScrollPercent(
+        centerX,
+        centerY,
+        targetPercent
+      )
+      if (!changed) break
+      await delay(SETTLE_MS)
+      const frame = await this.captureStableFrame(captureRect, captureBounds)
+      if (!frame) throw new Error('截取长截图帧失败')
+      const deltaPercent = changed.percent - percent
+      if (deltaPercent < 0.05) break
+      if (!isScrollViewStable(view, changed.view)) {
+        throw new Error('页面高度在滚动中变化，长截图已停止')
+      }
+      const offset = offsetFromScrollDelta(
+        viewportHeight,
+        deltaPercent,
+        changed.view
+      )
+      if (!offset) break
+      if (offset >= frame.height) {
+        throw new Error('滚动幅度超过截图区域，请重新框选')
+      }
+
+      const appended = stitcher.append(frame, {
+        offset,
+        overlap: frame.height - offset,
+        newRows: offset,
+        confidence: 1,
+        headerHeight: 0
+      })
+      if (appended.appended === 0) break
+      percent = changed.percent
+      view = changed.view
+      screens += 1
+      this.setProgress({
+        phase: 'capturing',
+        screens,
+        height: stitcher.currentHeight,
+        message: `已截取 ${screens} 屏`
+      })
+      logDiagnostic(
+        'long-capture',
+        `uia frame ${screens} percent=${percent.toFixed(3)} view=${view.toFixed(3)} viewport=${viewportHeight} step=${stepPercent.toFixed(3)} offset=${offset}`
+      )
+      if (appended.truncated) break
+    }
+
+    if (this.cancelled) {
+      this.cleanupResultFile()
+      this.setProgress({
+        phase: 'cancelled',
+        screens: 0,
+        height: 0,
+        message: '长截图已取消'
+      })
+      return null
+    }
+    return await this.publishResult(
+      stitcher,
+      screens,
+      '长截图已完成',
+      options.onComplete
+    )
+  }
+
   private async publishResult(
     stitcher: LongCaptureStitcher,
     screens: number,
@@ -362,7 +531,6 @@ export class LongCaptureManager {
     const centerX = physical.x + physical.width / 2
     const centerY = physical.y + physical.height / 2
     await this.driver.warmUp()
-    const cursor = await this.driver.getCursor()
 
     try {
       this.setProgress({
@@ -372,16 +540,44 @@ export class LongCaptureManager {
         message: '正在准备长截图'
       })
 
-      const target = await this.driver.findTarget(centerX, centerY)
-      if (!target) throw new Error('没有找到可滚动窗口，请确认选区落在窗口内容上')
-      if (options.expectedHwnd && target.hwnd !== options.expectedHwnd) {
-        throw new Error('滚动目标与所选窗口不一致，请重新选择窗口')
+      const target = options.expectedHwnd
+        ? await this.driver.findTargetByHwnd(options.expectedHwnd)
+        : await this.driver.findTarget(centerX, centerY)
+      if (!target) {
+        throw new Error(
+          options.expectedHwnd
+            ? '所选窗口已关闭或无法激活，请重新选择窗口'
+            : '没有找到可滚动窗口，请确认选区落在窗口内容上'
+        )
       }
       logDiagnostic(
         'long-capture',
         `auto target hwnd=${target.hwnd} class=${target.className} title=${target.title}`
       )
       options.onTarget?.(target)
+
+      const scrollInfo = await this.driver.getScrollInfo(centerX, centerY)
+      logDiagnostic(
+        'long-capture',
+        scrollInfo
+          ? `uia scroll container percent=${scrollInfo.percent} view=${scrollInfo.view}`
+          : 'uia scroll container unavailable; fallback wheel'
+      )
+      if (scrollInfo) {
+        return await this.capturePositionDriven({
+          options,
+          captureRect,
+          physical,
+          centerX,
+          centerY,
+          percent: scrollInfo.percent,
+          view: scrollInfo.view,
+          containerRect: scrollInfo.rect,
+          maxHeight,
+          maxPixels,
+          maxFrames
+        })
+      }
 
       const firstDataUrl = await captureRect(physical)
       if (!firstDataUrl) throw new Error('无法截取长截图选区')
@@ -399,6 +595,7 @@ export class LongCaptureManager {
       let noMatchCount = 0
       let limitReached = false
       let overlapLost = false
+      let overlapRetryCount = 0
 
       for (let index = 0; index < maxFrames; index += 1) {
         await this.waitForResume()
@@ -406,7 +603,7 @@ export class LongCaptureManager {
 
         const currentHeight = stitcher?.currentHeight ?? first.height
         const scrollHeight = Math.max(1, previous.height - headerHeight)
-        const targetOffset = Math.round(scrollHeight * 0.7)
+        const targetOffset = autoScrollTargetPixels(scrollHeight)
         this.setProgress({
           phase: 'scrolling',
           screens,
@@ -429,6 +626,10 @@ export class LongCaptureManager {
             centerX,
             centerY,
             steps
+          )
+          logDiagnostic(
+            'long-capture',
+            `auto uia scroll steps=${steps} ok=${uia.ok} error=${uia.error ?? ''}`
           )
           if (uia.ok) {
             appliedScrollSteps = steps
@@ -460,7 +661,9 @@ export class LongCaptureManager {
         }
 
         await delay(SETTLE_MS)
-        const still = await this.driver.findTarget(centerX, centerY)
+        const still = options.expectedHwnd
+          ? await this.driver.findTargetByHwnd(target.hwnd)
+          : await this.driver.findTarget(centerX, centerY)
         if (!still || still.hwnd !== target.hwnd) {
           throw new Error('目标窗口已切换，长截图已停止')
         }
@@ -492,6 +695,8 @@ export class LongCaptureManager {
 
         if (!match) {
           noMatchCount += 1
+          saveDebugFrame(`previous-${screens}`, previous)
+          saveDebugFrame(`next-${screens}`, next)
           const unchanged = framesAreSimilar(previousMatch, nextMatch, {
             stepX: 4,
             stepY: 2
@@ -499,8 +704,85 @@ export class LongCaptureManager {
           if (unchanged) {
             wheelDelta = Math.min(MAX_WHEEL_DELTA, wheelDelta + 60)
           } else if (stitcher) {
-            overlapLost = true
-            break
+            if (overlapRetryCount >= 2) {
+              logDiagnostic(
+                'long-capture',
+                `overlap retry limit reached screens=${screens}`
+              )
+              overlapLost = true
+              break
+            }
+            overlapRetryCount += 1
+            // 后续屏接不上时先回滚到上一帧，再减半步长重试；不能直接停止。
+            const back = await this.driver.scrollDelta(
+              target,
+              centerX,
+              centerY,
+              wheelDelta
+            )
+            let retried = false
+            if (back.ok) {
+              await delay(SETTLE_MS)
+              const backFrame = await this.captureStableFrame(captureRect, physical)
+              if (
+                backFrame &&
+                framesAreSimilar(
+                  previousMatch,
+                  cropFrameHorizontal(backFrame, MATCH_EDGE_MARGIN),
+                  { stepX: 4, stepY: 2 }
+                )
+              ) {
+                wheelDelta = Math.max(
+                  MIN_WHEEL_DELTA,
+                  Math.round(wheelDelta / 2)
+                )
+                const retryScroll = await this.driver.scrollDelta(
+                  target,
+                  centerX,
+                  centerY,
+                  -wheelDelta
+                )
+                if (retryScroll.ok) {
+                  await delay(SETTLE_MS)
+                  const retryFrame = await this.captureStableFrame(
+                    captureRect,
+                    physical
+                  )
+                  if (retryFrame) {
+                    const retryMatchFrame = cropFrameHorizontal(
+                      retryFrame,
+                      MATCH_EDGE_MARGIN
+                    )
+                    const retryMatch = findOverlap(
+                      previousMatch,
+                      retryMatchFrame,
+                      headerHeight,
+                      Math.round(scrollHeight * 0.16),
+                      true
+                    )
+                    if (retryMatch) {
+                      next = retryFrame
+                      nextMatch = retryMatchFrame
+                      match = retryMatch
+                      appliedScrollSteps = wheelDelta
+                      retried = true
+                      logDiagnostic(
+                        'long-capture',
+                        `overlap retry wheelDelta=${wheelDelta} offset=${retryMatch.offset}`
+                      )
+                    }
+                  }
+                }
+              }
+            }
+            if (!retried) {
+              logDiagnostic(
+                'long-capture',
+                `overlap lost screens=${screens} wheelDelta=${wheelDelta} expected=${targetOffset} height=${scrollHeight}`
+              )
+              overlapLost = true
+              break
+            }
           } else if (noMatchCount === 1) {
             // 首屏一次滚轮滚过选区大部分高度时，回滚到起点并用半格滚轮重试。
             const back = await this.driver.scrollDelta(
@@ -717,7 +999,7 @@ export class LongCaptureManager {
         return null
       }
 
-    if (overlapLost && stitcher) {
+    if (overlapLost && stitcher && !this.finishRequested) {
       const message = '自动滚动没有接上，请调整选区或重试'
       this.setProgress({
         phase: 'error',
@@ -767,9 +1049,6 @@ export class LongCaptureManager {
       }
       return null
     } finally {
-      if (cursor) {
-        await this.driver.restore(cursor.x, cursor.y).catch(() => undefined)
-      }
       this.running = false
       this.paused = false
       this.finishRequested = false
@@ -869,7 +1148,7 @@ export class LongCaptureManager {
         phase: 'manual',
         screens: 1,
         height: first.height,
-        message: '正常滚动即可，不用刻意放慢'
+        message: '若页面已下移，请先回到顶部，再正常向下滚动'
       })
 
       while (!this.cancelled && !this.finishRequested && screens < maxFrames) {
@@ -1152,7 +1431,15 @@ export class LongCaptureManager {
   }
 
   private setProgress(progress: LongCaptureProgress): void {
-    this.currentProgress = { ...progress }
+    const next =
+      this.paused &&
+      progress.phase !== 'paused' &&
+      progress.phase !== 'error' &&
+      progress.phase !== 'finished' &&
+      progress.phase !== 'cancelled'
+        ? { ...progress, phase: 'paused' as const, message: '长截图已暂停' }
+        : progress
+    this.currentProgress = { ...next }
     try {
       this.progressListener?.(this.currentProgress)
     } catch {

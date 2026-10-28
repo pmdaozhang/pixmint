@@ -1,0 +1,1816 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapGlass · Capture Dock Icon Study</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #08090c;
+      --page-2: #0c0e13;
+      --ink: #f4f6fa;
+      --ink-soft: #c7ccd6;
+      --muted: #8d95a3;
+      --muted-2: #606978;
+      --hairline: rgba(255, 255, 255, 0.09);
+      --hairline-strong: rgba(255, 255, 255, 0.15);
+      --surface: rgba(255, 255, 255, 0.035);
+      --surface-hover: rgba(255, 255, 255, 0.06);
+      --glass: rgba(18, 20, 26, 0.79);
+      --glass-solid: #17191f;
+      --glass-border: rgba(255, 255, 255, 0.16);
+      --glass-highlight: rgba(255, 255, 255, 0.22);
+      --icon: #a9b0be;
+      --icon-strong: #f7f9ff;
+      --icon-muted: #6c7482;
+      --accent: #6fb0ff;
+      --accent-soft: rgba(111, 176, 255, 0.14);
+      --accent-line: rgba(137, 190, 255, 0.34);
+      --primary: #2f83f5;
+      --primary-hi: #4c98ff;
+      --danger: #ff837a;
+      --danger-soft: rgba(255, 105, 94, 0.12);
+      --shadow: 0 26px 70px rgba(0, 0, 0, 0.48), 0 5px 16px rgba(0, 0, 0, 0.24);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+        "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      --mono: "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+      --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+    }
+
+    [data-theme="light"] {
+      color-scheme: light;
+      --page: #f1efea;
+      --page-2: #e8e5df;
+      --ink: #161a22;
+      --ink-soft: #343a46;
+      --muted: #626a78;
+      --muted-2: #8b919b;
+      --hairline: rgba(18, 22, 30, 0.1);
+      --hairline-strong: rgba(18, 22, 30, 0.18);
+      --surface: rgba(255, 255, 255, 0.52);
+      --surface-hover: rgba(255, 255, 255, 0.82);
+      --glass: rgba(249, 250, 252, 0.8);
+      --glass-solid: #f8f9fb;
+      --glass-border: rgba(18, 22, 30, 0.13);
+      --glass-highlight: rgba(255, 255, 255, 0.9);
+      --icon: #596171;
+      --icon-strong: #161a22;
+      --icon-muted: #979da7;
+      --accent: #1d76e8;
+      --accent-soft: rgba(29, 118, 232, 0.1);
+      --accent-line: rgba(29, 118, 232, 0.32);
+      --primary: #2f83f5;
+      --primary-hi: #1d76e8;
+      --danger: #d9473d;
+      --danger-soft: rgba(217, 71, 61, 0.09);
+      --shadow: 0 30px 70px rgba(44, 40, 34, 0.18), 0 5px 16px rgba(44, 40, 34, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--page);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(70% 50% at 10% 0%, rgba(87, 139, 255, 0.08), transparent 64%),
+        radial-gradient(55% 40% at 95% 18%, rgba(255, 139, 106, 0.06), transparent 60%),
+        var(--page);
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    ::selection {
+      background: rgba(111, 176, 255, 0.32);
+    }
+
+    .page {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 30px clamp(20px, 4vw, 56px) 76px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 38px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.055em;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      width: 25px;
+      height: 25px;
+      color: var(--ink);
+    }
+
+    .brand i {
+      color: var(--muted-2);
+      font-style: normal;
+      font-weight: 400;
+      padding: 0 1px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .meta {
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .theme-toggle {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--muted);
+      transition:
+        background 0.16s var(--ease),
+        color 0.16s var(--ease),
+        border-color 0.16s var(--ease),
+        transform 0.16s var(--ease);
+    }
+
+    .theme-toggle:hover {
+      background: var(--surface-hover);
+      border-color: var(--hairline-strong);
+      color: var(--ink);
+    }
+
+    .theme-toggle:active {
+      transform: scale(0.93);
+    }
+
+    .theme-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .theme-toggle .sun {
+      display: none;
+    }
+
+    [data-theme="light"] .theme-toggle .sun {
+      display: block;
+    }
+
+    [data-theme="light"] .theme-toggle .moon {
+      display: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.76fr) minmax(0, 2.24fr);
+      gap: clamp(30px, 4.5vw, 66px);
+      align-items: center;
+      padding: clamp(56px, 7vw, 92px) 0 0;
+    }
+
+    .hero-copy {
+      padding-bottom: 4px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 18px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 9px;
+      line-height: 1.4;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 16px;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.55;
+    }
+
+    h1 {
+      max-width: 420px;
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(40px, 3.7vw, 58px);
+      font-weight: 620;
+      line-height: 0.99;
+      letter-spacing: -0.055em;
+    }
+
+    h1 .line2 {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    h1 .quiet {
+      color: var(--muted-2);
+      font-weight: 440;
+    }
+
+    h1 .accent {
+      color: var(--accent);
+      font-weight: 480;
+    }
+
+    .lede {
+      max-width: 360px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.85;
+      letter-spacing: 0.005em;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      max-width: 356px;
+      margin-top: 34px;
+      border-top: 1px solid var(--hairline);
+      padding-top: 16px;
+    }
+
+    .principle {
+      min-width: 0;
+    }
+
+    .principle + .principle {
+      border-left: 1px solid var(--hairline);
+      padding-left: 14px;
+    }
+
+    .principle b {
+      display: block;
+      color: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 550;
+      letter-spacing: -0.02em;
+    }
+
+    .principle span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted-2);
+      font-size: 9.5px;
+      line-height: 1.4;
+      letter-spacing: 0.03em;
+    }
+
+    .stage {
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      margin: 0;
+      min-height: 576px;
+      aspect-ratio: 1.6 / 1;
+      overflow: hidden;
+      border: 1px solid var(--hairline);
+      border-radius: 24px;
+      background: #0c111b;
+      box-shadow:
+        0 40px 100px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(5, 8, 14, 0.08), transparent 24%, transparent 68%, rgba(5, 8, 14, 0.26)),
+        radial-gradient(120% 100% at 50% 50%, transparent 44%, rgba(4, 7, 12, 0.16) 100%);
+    }
+
+    .wallpaper {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(42% 55% at 18% 24%, rgba(99, 154, 255, 0.8), transparent 68%),
+        radial-gradient(34% 45% at 82% 22%, rgba(255, 140, 112, 0.62), transparent 70%),
+        radial-gradient(48% 60% at 72% 88%, rgba(41, 201, 190, 0.54), transparent 72%),
+        linear-gradient(135deg, #121928 0%, #243251 46%, #1b2438 72%, #10141c 100%);
+    }
+
+    .wallpaper::before {
+      content: "";
+      position: absolute;
+      top: -30%;
+      right: -8%;
+      width: 66%;
+      height: 152%;
+      border-radius: 52% 48% 40% 60% / 44% 38% 62% 56%;
+      background:
+        linear-gradient(142deg, rgba(255, 255, 255, 0.55), rgba(156, 198, 255, 0.06) 52%, rgba(44, 121, 255, 0.2)),
+        conic-gradient(from 220deg, rgba(255, 255, 255, 0.3), transparent 26%, rgba(255, 180, 148, 0.26) 47%, transparent 70%);
+      filter: blur(2px);
+      opacity: 0.68;
+      transform: rotate(-17deg);
+      mix-blend-mode: screen;
+    }
+
+    .wallpaper::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: linear-gradient(120deg, transparent 2%, #000 50%, transparent 96%);
+    }
+
+    .stage-chrome {
+      position: absolute;
+      top: 20px;
+      left: 22px;
+      right: 22px;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: rgba(244, 248, 255, 0.72);
+      font-size: 10px;
+    }
+
+    .stage-chrome-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .traffic {
+      display: flex;
+      gap: 5px;
+    }
+
+    .traffic i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.34);
+    }
+
+    .traffic i:first-child {
+      background: rgba(255, 137, 116, 0.8);
+    }
+
+    .stage-title {
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+    }
+
+    .stage-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 24px;
+      padding: 0 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      background: rgba(8, 12, 20, 0.28);
+      color: rgba(244, 248, 255, 0.74);
+      font-size: 9.5px;
+      backdrop-filter: blur(12px);
+    }
+
+    .stage-state::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #7db6ff;
+      box-shadow: 0 0 8px rgba(111, 176, 255, 0.8);
+    }
+
+    .selection {
+      position: absolute;
+      z-index: 5;
+      top: 12.5%;
+      left: 17%;
+      width: 66%;
+      height: 62%;
+      border: 1px solid rgba(126, 185, 255, 0.58);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .selection .corner {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-color: #a8d2ff;
+      border-style: solid;
+      filter: drop-shadow(0 0 3px rgba(48, 122, 224, 0.55));
+    }
+
+    .selection .corner.tl {
+      top: -1px;
+      left: -1px;
+      border-width: 2px 0 0 2px;
+    }
+
+    .selection .corner.tr {
+      top: -1px;
+      right: -1px;
+      border-width: 2px 2px 0 0;
+    }
+
+    .selection .corner.bl {
+      bottom: -1px;
+      left: -1px;
+      border-width: 0 0 2px 2px;
+    }
+
+    .selection .corner.br {
+      bottom: -1px;
+      right: -1px;
+      border-width: 0 2px 2px 0;
+    }
+
+    .selection-label {
+      position: absolute;
+      top: -27px;
+      left: -1px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 20px;
+      padding: 0 7px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 5px;
+      background: rgba(7, 11, 18, 0.54);
+      color: rgba(228, 240, 255, 0.84);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      backdrop-filter: blur(12px);
+    }
+
+    .selection-label i {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #79b5ff;
+      font-style: normal;
+    }
+
+    .art-card {
+      position: absolute;
+      z-index: 4;
+      top: 18%;
+      left: 24.5%;
+      width: 51%;
+      height: 51.5%;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 16px;
+      background: #e9e3d8;
+      box-shadow: 0 30px 70px rgba(3, 8, 17, 0.42);
+      transform: rotate(-1.2deg);
+    }
+
+    .art-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 29px;
+      padding: 0 11px;
+      border-bottom: 1px solid rgba(20, 24, 30, 0.1);
+      background: rgba(255, 252, 246, 0.64);
+      color: rgba(27, 31, 38, 0.54);
+      font-family: var(--mono);
+      font-size: 7.5px;
+      letter-spacing: 0.04em;
+    }
+
+    .art-bar .traffic i {
+      width: 5px;
+      height: 5px;
+      background: rgba(24, 29, 37, 0.18);
+    }
+
+    .art-bar .traffic i:first-child {
+      background: #f08273;
+    }
+
+    .art-image {
+      position: relative;
+      height: calc(100% - 29px);
+      overflow: hidden;
+      background:
+        radial-gradient(52% 68% at 66% 38%, rgba(255, 255, 255, 0.92), transparent 72%),
+        radial-gradient(66% 88% at 73% 42%, rgba(255, 164, 134, 0.8), transparent 70%),
+        radial-gradient(48% 65% at 39% 72%, rgba(42, 192, 189, 0.74), transparent 74%),
+        linear-gradient(135deg, #e9dfcf, #c4d7d6 54%, #e3b9a4);
+    }
+
+    .art-image::before {
+      content: "";
+      position: absolute;
+      top: 8%;
+      left: 22%;
+      width: 54%;
+      height: 88%;
+      border-radius: 50% 50% 46% 54% / 42% 53% 47% 58%;
+      background:
+        linear-gradient(146deg, rgba(255, 255, 255, 0.88), rgba(255, 173, 143, 0.44) 38%, rgba(86, 169, 185, 0.62) 67%, rgba(255, 255, 255, 0.18)),
+        conic-gradient(from 300deg, rgba(255, 255, 255, 0.7), transparent 22%, rgba(255, 193, 149, 0.52) 42%, transparent 63%, rgba(74, 155, 175, 0.55));
+      filter: blur(0.4px);
+      box-shadow:
+        inset 12px 8px 28px rgba(255, 255, 255, 0.66),
+        24px 30px 44px rgba(47, 80, 82, 0.22);
+      transform: rotate(11deg);
+    }
+
+    .art-image::after {
+      content: "04";
+      position: absolute;
+      right: 16px;
+      bottom: 7px;
+      color: rgba(26, 31, 38, 0.36);
+      font-family: var(--mono);
+      font-size: 44px;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.08em;
+    }
+
+    .art-copy {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .art-copy span {
+      color: rgba(29, 36, 42, 0.58);
+      font-family: var(--mono);
+      font-size: 7.5px;
+      letter-spacing: 0.14em;
+    }
+
+    .art-copy b {
+      color: rgba(27, 32, 38, 0.84);
+      font-size: 12px;
+      font-weight: 580;
+      letter-spacing: -0.01em;
+    }
+
+    .dock-position {
+      position: absolute;
+      z-index: 20;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      max-width: calc(100% - 30px);
+    }
+
+    .tooldock {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 46px;
+      padding: 5px 6px;
+      border: 1px solid var(--glass-border);
+      border-radius: 15px;
+      background: var(--glass);
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 var(--glass-highlight),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16);
+      backdrop-filter: blur(28px) saturate(1.55);
+      -webkit-backdrop-filter: blur(28px) saturate(1.55);
+      white-space: nowrap;
+    }
+
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .sep {
+      width: 1px;
+      height: 17px;
+      margin: 0 4px;
+      background: var(--hairline-strong);
+      opacity: 0.78;
+      flex: none;
+    }
+
+    .tool-button {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--icon);
+      transition:
+        background 0.14s var(--ease),
+        border-color 0.14s var(--ease),
+        color 0.14s var(--ease),
+        transform 0.14s var(--ease);
+    }
+
+    .tool-button .icon {
+      width: 19px;
+      height: 19px;
+    }
+
+    .tool-button:hover {
+      background: var(--surface-hover);
+      color: var(--icon-strong);
+    }
+
+    .tool-button:active {
+      transform: scale(0.91);
+    }
+
+    .tool-button.is-active {
+      border-color: var(--accent-line);
+      background: var(--accent-soft);
+      color: var(--icon-strong);
+    }
+
+    .tool-button.is-active::before {
+      content: "";
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      width: 11px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--accent);
+      transform: translateX(-50%);
+      box-shadow: 0 0 8px rgba(111, 176, 255, 0.5);
+    }
+
+    .tool-button[data-action="close"]:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .tool-button:disabled {
+      opacity: 0.28;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .tool-button.primary {
+      border-color: rgba(255, 255, 255, 0.2);
+      background: linear-gradient(180deg, var(--primary-hi), var(--primary));
+      color: #ffffff;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        0 3px 10px rgba(33, 103, 211, 0.32);
+    }
+
+    .tool-button.primary:hover {
+      background: linear-gradient(180deg, #62a6ff, #3589fb);
+      color: #ffffff;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        0 4px 14px rgba(33, 103, 211, 0.42);
+    }
+
+    .tool-button::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 11px);
+      z-index: 40;
+      padding: 6px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      background: rgba(12, 14, 19, 0.94);
+      color: #f2f5fa;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+      font-size: 10px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 3px);
+      transition:
+        opacity 0.12s var(--ease),
+        transform 0.12s var(--ease);
+    }
+
+    .tool-button:hover::after,
+    .tool-button:focus-visible::after {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .stage-toast {
+      position: absolute;
+      top: 54px;
+      right: 22px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 30px;
+      padding: 0 11px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 9px;
+      background: rgba(12, 15, 21, 0.68);
+      color: rgba(240, 247, 255, 0.9);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      font-size: 10px;
+      backdrop-filter: blur(18px) saturate(1.4);
+      opacity: 0;
+      transform: translateY(-5px);
+      pointer-events: none;
+      transition:
+        opacity 0.2s var(--ease),
+        transform 0.2s var(--ease);
+    }
+
+    .stage-toast.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .stage-toast::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #78b4ff;
+      box-shadow: 0 0 8px rgba(111, 176, 255, 0.8);
+    }
+
+    .section {
+      margin-top: clamp(70px, 8vw, 104px);
+      padding-top: 22px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 26px;
+    }
+
+    .section-kicker {
+      margin: 0 0 9px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .section h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(23px, 2.4vw, 31px);
+      font-weight: 580;
+      line-height: 1.16;
+      letter-spacing: -0.035em;
+    }
+
+    .section-note {
+      max-width: 330px;
+      margin: 0 0 2px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.65;
+      text-align: right;
+    }
+
+    .glyph-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .glyph-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 13px;
+      align-items: center;
+      min-height: 92px;
+      padding: 14px;
+      overflow: hidden;
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.032), transparent 52%),
+        var(--surface);
+      transition:
+        border-color 0.18s var(--ease),
+        background 0.18s var(--ease),
+        transform 0.18s var(--ease);
+    }
+
+    .glyph-card:hover {
+      border-color: var(--accent-line);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.05), transparent 52%),
+        var(--surface-hover);
+      transform: translateY(-2px);
+    }
+
+    .glyph-stage {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--hairline);
+      border-radius: 13px;
+      background: var(--page-2);
+      color: var(--icon);
+      transition:
+        color 0.18s var(--ease),
+        border-color 0.18s var(--ease);
+    }
+
+    .glyph-card:hover .glyph-stage {
+      border-color: var(--accent-line);
+      color: var(--accent);
+    }
+
+    .glyph-stage .icon {
+      width: 27px;
+      height: 27px;
+    }
+
+    .glyph-card h3 {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 11.5px;
+      font-weight: 580;
+      letter-spacing: 0.005em;
+    }
+
+    .glyph-card p {
+      margin: 5px 0 0;
+      color: var(--muted-2);
+      font-size: 9.5px;
+      line-height: 1.5;
+      letter-spacing: 0.005em;
+    }
+
+    .glyph-index {
+      position: absolute;
+      top: 9px;
+      right: 10px;
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.04em;
+      opacity: 0.58;
+    }
+
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 26px;
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .rule {
+      padding: 24px 26px 25px 0;
+    }
+
+    .rule + .rule {
+      border-left: 1px solid var(--hairline);
+      padding-left: 26px;
+    }
+
+    .rule-index {
+      display: block;
+      margin-bottom: 18px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+    }
+
+    .rule h3 {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 590;
+      letter-spacing: -0.01em;
+    }
+
+    .rule p {
+      max-width: 335px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.75;
+    }
+
+    .state-layout {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .state-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 136px;
+      gap: 15px;
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    .state-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: var(--icon);
+    }
+
+    .state-visual .icon {
+      width: 22px;
+      height: 22px;
+    }
+
+    .state-card[data-state="hover"] .state-visual {
+      background: var(--surface-hover);
+      color: var(--icon-strong);
+    }
+
+    .state-card[data-state="active"] .state-visual {
+      border-color: var(--accent-line);
+      background: var(--accent-soft);
+      color: var(--icon-strong);
+    }
+
+    .state-card[data-state="active"] .state-visual::after {
+      content: "";
+      position: absolute;
+      width: 10px;
+      height: 2px;
+      margin-top: 25px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .state-card[data-state="disabled"] .state-visual {
+      color: var(--icon);
+      opacity: 0.27;
+    }
+
+    .state-card span {
+      color: var(--muted-2);
+      font-size: 9px;
+      letter-spacing: 0.04em;
+    }
+
+    .contrast-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 136px;
+      padding: 18px;
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      background:
+        radial-gradient(100% 120% at 100% 0%, rgba(111, 176, 255, 0.08), transparent 58%),
+        var(--surface);
+    }
+
+    .contrast-card .label {
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .contrast-card strong {
+      display: block;
+      margin-top: 6px;
+      color: var(--ink-soft);
+      font-size: 26px;
+      font-weight: 520;
+      letter-spacing: -0.045em;
+    }
+
+    .contrast-card strong small {
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .contrast-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 9.5px;
+      line-height: 1.6;
+    }
+
+    .contrast-bars {
+      display: flex;
+      gap: 4px;
+      margin: 11px 0 12px;
+    }
+
+    .contrast-bars i {
+      display: block;
+      width: 19px;
+      height: 5px;
+      border-radius: 2px;
+      background: var(--icon);
+      opacity: calc(0.24 + var(--i) * 0.16);
+    }
+
+    .foot {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 30px;
+      margin-top: 64px;
+      padding-top: 20px;
+      border-top: 1px solid var(--hairline);
+      color: var(--muted-2);
+      font-size: 9.5px;
+      line-height: 1.65;
+    }
+
+    .foot p {
+      max-width: 600px;
+      margin: 0;
+    }
+
+    .foot code {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 9px;
+    }
+
+    .foot-sign {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .icon {
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      overflow: visible;
+    }
+
+    @media (max-width: 1120px) {
+      .hero {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .hero-copy {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.75fr);
+        column-gap: 40px;
+        align-items: end;
+      }
+
+      .eyebrow,
+      h1 {
+        grid-column: 1;
+      }
+
+      .lede,
+      .principles {
+        grid-column: 2;
+      }
+
+      .lede {
+        grid-row: 1 / span 2;
+        align-self: end;
+        margin-top: 0;
+      }
+
+      .principles {
+        align-self: start;
+        margin-top: 20px;
+      }
+
+      .glyph-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .page {
+        padding-inline: 16px;
+      }
+
+      .topbar .meta {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 48px;
+      }
+
+      .hero-copy {
+        display: block;
+      }
+
+      .lede {
+        margin-top: 20px;
+      }
+
+      .principles {
+        max-width: 100%;
+      }
+
+      .stage {
+        min-height: 480px;
+        aspect-ratio: 1.26 / 1;
+      }
+
+      .selection {
+        left: 10%;
+        width: 80%;
+      }
+
+      .art-card {
+        left: 17%;
+        width: 66%;
+      }
+
+      .dock-position {
+        bottom: 16px;
+        max-width: calc(100% - 12px);
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+      }
+
+      .dock-position::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tooldock {
+        width: max-content;
+      }
+
+      .glyph-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .rules {
+        grid-template-columns: 1fr;
+      }
+
+      .rule {
+        padding: 20px 0;
+      }
+
+      .rule + .rule {
+        border-top: 1px solid var(--hairline);
+        border-left: 0;
+        padding-left: 0;
+      }
+
+      .state-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 580px) {
+      .section-head {
+        display: block;
+      }
+
+      .section-note {
+        margin-top: 10px;
+        text-align: left;
+      }
+
+      .glyph-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .state-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .selection-label {
+        display: none;
+      }
+
+      .stage {
+        min-height: 430px;
+      }
+
+      .art-card {
+        left: 13%;
+        width: 74%;
+      }
+
+      .foot {
+        display: block;
+      }
+
+      .foot-sign {
+        margin-top: 12px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    @media (prefers-reduced-transparency: reduce) {
+      .tooldock,
+      .stage-state,
+      .selection-label,
+      .stage-toast {
+        background: var(--glass-solid);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+    }
+
+    @media (prefers-contrast: more) {
+      .tooldock,
+      .glyph-card,
+      .state-card,
+      .contrast-card {
+        border-color: var(--ink);
+      }
+
+      .tool-button {
+        color: var(--icon-strong);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand" aria-label="SnapGlass Capture Dock">
+        <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M11 6.5H7.5A1.5 1.5 0 0 0 6 8v18a1.5 1.5 0 0 0 1.5 1.5h17A1.5 1.5 0 0 0 26 26V8a1.5 1.5 0 0 0-1.5-1.5H21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M11 6.5a5 5 0 0 1 10 0M11 6.5v3M21 6.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="4" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="16" cy="18" r="1.15" fill="currentColor"/>
+        </svg>
+        <span>SnapGlass <i>/</i> Capture Dock</span>
+      </div>
+      <div class="topbar-right">
+        <span class="meta">Apple HIG · Icon Study / 01</span>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换浅色或深色外观">
+          <svg class="moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M19.5 14.4A7.8 7.8 0 0 1 9.6 4.5 8.2 8.2 0 1 0 19.5 14.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+          <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.6" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M12 2.8v2.2M12 19v2.2M2.8 12H5M19 12h2.2M5.5 5.5l1.5 1.5M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Capture toolbar · 16 glyphs</p>
+        <h1>轻一点，<br><span class="line2"><span class="quiet">更</span><span class="accent">准一点。</span></span></h1>
+        <p class="lede">
+          一套只属于截图工作的图标语言。以取景框为骨架，用切角、断点和一枚实心信号点，让每个动作都有自己的识别方式。
+        </p>
+        <div class="principles" aria-label="图标参数">
+          <div class="principle"><b>24</b><span>光学网格</span></div>
+          <div class="principle"><b>1.6</b><span>统一描边</span></div>
+          <div class="principle"><b>3</b><span>动作分组</span></div>
+        </div>
+      </div>
+
+      <figure class="stage" aria-label="截图工具底部工具栏样式演示">
+        <div class="wallpaper" aria-hidden="true"></div>
+        <div class="stage-chrome">
+          <div class="stage-chrome-left">
+            <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="stage-title">Aurora study / 04</span>
+          </div>
+          <span class="stage-state" id="currentTool">箭头 / 标注</span>
+        </div>
+
+        <div class="selection" aria-hidden="true">
+          <span class="selection-label"><i></i>834 × 522</span>
+          <span class="corner tl"></span>
+          <span class="corner tr"></span>
+          <span class="corner bl"></span>
+          <span class="corner br"></span>
+        </div>
+
+        <div class="art-card" aria-hidden="true">
+          <div class="art-bar">
+            <span class="traffic"><i></i><i></i><i></i></span>
+            <span>LUMEN / GLASS 04</span>
+            <span>100%</span>
+          </div>
+          <div class="art-image">
+            <div class="art-copy">
+              <span>SOFT REFRACTION</span>
+              <b>Glass, warm light.</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-position">
+          <div class="tooldock" role="toolbar" aria-label="截图编辑工具栏" aria-orientation="horizontal">
+            <div class="tool-group" role="group" aria-label="标注工具">
+              <button class="tool-button" type="button" data-tool data-label="移动选区" aria-label="移动选区" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-move"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-tool data-label="矩形 / 椭圆" aria-label="矩形或椭圆" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shape"></use></svg>
+              </button>
+              <button class="tool-button is-active" type="button" data-tool data-label="线条 / 箭头" aria-label="线条或箭头" aria-pressed="true">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-tool data-label="马赛克" aria-label="马赛克" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mosaic"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-tool data-label="文字" aria-label="文字" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-text"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-tool data-label="序号" aria-label="序号" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seq"></use></svg>
+              </button>
+            </div>
+
+            <span class="sep" aria-hidden="true"></span>
+
+            <div class="tool-group" role="group" aria-label="历史与辅助">
+              <button class="tool-button" type="button" data-label="撤销 · Ctrl Z" aria-label="撤销" disabled>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-undo"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-label="重做 · Ctrl Shift Z" aria-label="重做" disabled>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-redo"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="ocr" data-label="识别文字" aria-label="识别文字">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-ocr"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="translate" data-label="识别并翻译" aria-label="识别并翻译">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-translate"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="gif" data-label="录制 GIF" aria-label="录制 GIF">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gif"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="video" data-label="录制视频" aria-label="录制视频">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-video"></use></svg>
+              </button>
+            </div>
+
+            <span class="sep" aria-hidden="true"></span>
+
+            <div class="tool-group" role="group" aria-label="输出与关闭">
+              <button class="tool-button" type="button" data-action="close" data-label="关闭" aria-label="关闭">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-close"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="pin" data-label="钉图" aria-label="钉图">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pin"></use></svg>
+              </button>
+              <button class="tool-button" type="button" data-action="save" data-label="保存" aria-label="保存">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-save"></use></svg>
+              </button>
+              <button class="tool-button primary" type="button" data-action="copy" data-label="复制图像" aria-label="复制图像">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-copy"></use></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-toast" id="stageToast" role="status" aria-live="polite">已复制到剪贴板</div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="glyphTitle">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">The family</p>
+          <h2 id="glyphTitle">十六枚图标，各有自己的重心。</h2>
+        </div>
+        <p class="section-note">
+          共同骨架保证一眼同族；每枚图标保留一个独立的识别点，避免落回通用线性图标的模板感。
+        </p>
+      </div>
+
+      <div class="glyph-grid">
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-move"></use></svg></div>
+          <div><h3>移动选区</h3><p>四角取景框 + 中心锚点</p></div>
+          <span class="glyph-index">01</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shape"></use></svg></div>
+          <div><h3>形状</h3><p>切角矩形 + 偏心椭圆</p></div>
+          <span class="glyph-index">02</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg></div>
+          <div><h3>箭头</h3><p>单笔曲线 + 直角箭羽</p></div>
+          <span class="glyph-index">03</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-mosaic"></use></svg></div>
+          <div><h3>马赛克</h3><p>错位像素 + 实空交替</p></div>
+          <span class="glyph-index">04</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-text"></use></svg></div>
+          <div><h3>文字</h3><p>倾斜顶栏 + 断点收笔</p></div>
+          <span class="glyph-index">05</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seq"></use></svg></div>
+          <div><h3>序号</h3><p>切角票签 + 几何数字</p></div>
+          <span class="glyph-index">06</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-undo"></use></svg></div>
+          <div><h3>撤销</h3><p>回卷路径 + 端点信号</p></div>
+          <span class="glyph-index">07</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-redo"></use></svg></div>
+          <div><h3>重做</h3><p>镜像回卷 + 同一信号点</p></div>
+          <span class="glyph-index">08</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-ocr"></use></svg></div>
+          <div><h3>识别文字</h3><p>扫描角标 + 三级文本</p></div>
+          <span class="glyph-index">09</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-translate"></use></svg></div>
+          <div><h3>翻译</h3><p>A ↔ 文 双向交换</p></div>
+          <span class="glyph-index">10</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gif"></use></svg></div>
+          <div><h3>录制 GIF</h3><p>切角帧 + 循环标记</p></div>
+          <span class="glyph-index">11</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-video"></use></svg></div>
+          <div><h3>录制视频</h3><p>镜头体 + 录制瞳点</p></div>
+          <span class="glyph-index">12</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-close"></use></svg></div>
+          <div><h3>关闭</h3><p>双斜线 + 低权重副笔</p></div>
+          <span class="glyph-index">13</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pin"></use></svg></div>
+          <div><h3>钉图</h3><p>悬浮图钉 + 针尖光点</p></div>
+          <span class="glyph-index">14</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-save"></use></svg></div>
+          <div><h3>保存</h3><p>捕获托盘 + 下沉箭头</p></div>
+          <span class="glyph-index">15</span>
+        </article>
+        <article class="glyph-card">
+          <div class="glyph-stage"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-copy"></use></svg></div>
+          <div><h3>复制图像</h3><p>双取景框 + 错位层叠</p></div>
+          <span class="glyph-index">16</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="rulesTitle">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Design grammar</p>
+          <h2 id="rulesTitle">不是十六个图标，是一套取景语法。</h2>
+        </div>
+        <p class="section-note">
+          先保证识别，再让细节承担个性。每枚图标在 18px 下仍保留轮廓差异。
+        </p>
+      </div>
+
+      <div class="rules">
+        <article class="rule">
+          <span class="rule-index">01 / FRAME</span>
+          <h3>取景框是共同骨架</h3>
+          <p>角标、边界和断点来自截图时的选框。它们把图标从“通用工具”拉回到这个产品本身，也让一组动作看起来像同一件工具。</p>
+        </article>
+        <article class="rule">
+          <span class="rule-index">02 / NOTCH</span>
+          <h3>每个封闭形状留一个缺口</h3>
+          <p>45° 切角或短断点，是这套图标的签名。它不抢识别，却能让边缘出现轻微的不对称，避免机械的圆角矩形。</p>
+        </article>
+        <article class="rule">
+          <span class="rule-index">03 / SIGNAL</span>
+          <h3>一枚实心点，提示动作落点</h3>
+          <p>移动的锚点、撤销的端点、录制的瞳点。实心信号点只在真正需要强调的位置出现，用量克制，所以更醒目。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="statesTitle">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">States & contrast</p>
+          <h2 id="statesTitle">状态清楚，颜色克制。</h2>
+        </div>
+        <p class="section-note">
+          选中态不只依赖颜色：背景、描边和底部 2px 信号线同时变化，照顾色觉差异。
+        </p>
+      </div>
+
+      <div class="state-layout">
+        <div class="state-grid" aria-label="按钮状态示例">
+          <div class="state-card" data-state="default">
+            <span class="state-visual"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg></span>
+            <span>默认</span>
+          </div>
+          <div class="state-card" data-state="hover">
+            <span class="state-visual"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg></span>
+            <span>悬停</span>
+          </div>
+          <div class="state-card" data-state="active">
+            <span class="state-visual"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg></span>
+            <span>选中</span>
+          </div>
+          <div class="state-card" data-state="disabled">
+            <span class="state-visual"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow"></use></svg></span>
+            <span>禁用</span>
+          </div>
+        </div>
+
+        <aside class="contrast-card">
+          <div>
+            <span class="label">Default icon contrast</span>
+            <strong>8.07:1 <small>dark</small></strong>
+            <div class="contrast-bars" aria-hidden="true">
+              <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i><i style="--i: 3"></i><i style="--i: 4"></i>
+            </div>
+            <strong>5.91:1 <small>light</small></strong>
+          </div>
+          <p>默认图标对工具栏表面的 WCAG 对比度。主按钮白图标对蓝色底为 3.69:1，满足图形元素 3:1 门槛。</p>
+        </aside>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>
+        依据 <code>icons.md › Best practices</code>、<code>toolbars.md › Best practices</code>、
+        <code>buttons.md › Best practices</code> 与 <code>accessibility.md › Vision</code>：
+        统一 24 网格与描边、最多三组动作、保留按下态、用形状与位置共同表达选中。
+      </p>
+      <span class="foot-sign">SNAPGLASS · ICON STUDY 01</span>
+    </footer>
+  </main>
+
+  <svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-move" viewBox="0 0 24 24">
+        <path d="M8.3 4.2H6A1.8 1.8 0 0 0 4.2 6v2.3M4.2 15.7V18A1.8 1.8 0 0 0 6 19.8h2.3M15.7 19.8H18a1.8 1.8 0 0 0 1.8-1.8v-2.3M19.8 8.3V6A1.8 1.8 0 0 0 18 4.2h-2.3"/>
+        <circle cx="12" cy="12" r="4.35" opacity=".28"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-shape" viewBox="0 0 24 24">
+        <path d="M4.25 7.15v5.55a2.95 2.95 0 0 0 2.95 2.95h4.85l3.35-3.35V7.15a2.95 2.95 0 0 0-2.95-2.95H7.2a2.95 2.95 0 0 0-2.95 2.95Z"/>
+        <ellipse cx="15.25" cy="15.15" rx="4.55" ry="4.05" transform="rotate(-17 15.25 15.15)"/>
+        <path d="M13.4 6.25h-2.2" opacity=".42"/>
+      </symbol>
+
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M4.55 18.55c2.8-1.15 4.45-3.35 5.95-5.95 2.2-3.8 4.8-5.85 8.7-5.85"/>
+        <path d="M14.65 6.75h4.55v4.55"/>
+        <circle cx="4.55" cy="18.55" r="1.15" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-mosaic" viewBox="0 0 24 24">
+        <rect x="4.15" y="4.15" width="5.05" height="5.05" rx="1.05"/>
+        <rect x="10.05" y="4.15" width="5.05" height="5.05" rx="1.05" fill="currentColor" stroke="none" opacity=".9"/>
+        <rect x="15.95" y="4.15" width="3.9" height="3.9" rx=".95" fill="currentColor" stroke="none" opacity=".42"/>
+        <rect x="4.15" y="10.05" width="5.05" height="5.05" rx="1.05" fill="currentColor" stroke="none" opacity=".9"/>
+        <rect x="10.05" y="10.05" width="5.05" height="5.05" rx="1.05"/>
+        <rect x="15.95" y="9.75" width="3.9" height="3.9" rx=".95"/>
+        <rect x="4.15" y="15.95" width="3.9" height="3.9" rx=".95" opacity=".55"/>
+        <rect x="10.05" y="15.95" width="5.05" height="5.05" rx="1.05" fill="currentColor" stroke="none" opacity=".42"/>
+      </symbol>
+
+      <symbol id="i-text" viewBox="0 0 24 24">
+        <path d="M5.05 6.15 18.7 5.05M11.8 5.62v12.15M9.15 17.88h5.25"/>
+        <circle cx="18.7" cy="5.05" r=".95" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-seq" viewBox="0 0 24 24">
+        <path d="M5.75 5.1h9.6l3.9 3.9v9.25a1.45 1.45 0 0 1-1.45 1.45H5.75a1.45 1.45 0 0 1-1.45-1.45V6.55A1.45 1.45 0 0 1 5.75 5.1Z"/>
+        <path d="m10.45 9.55 1.85-1.6v8.05M10.55 15.95h4.15"/>
+        <circle cx="18.15" cy="9.1" r="1.05" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-undo" viewBox="0 0 24 24">
+        <path d="m9.15 7.2-4.4 4.4 4.4 4.4"/>
+        <path d="M4.75 11.6h8.75c3.35 0 5.65 1.95 5.65 5.15v1.05"/>
+        <circle cx="19.15" cy="17.8" r="1.05" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-redo" viewBox="0 0 24 24">
+        <path d="m14.85 7.2 4.4 4.4-4.4 4.4"/>
+        <path d="M19.25 11.6H10.5c-3.35 0-5.65 1.95-5.65 5.15v1.05"/>
+        <circle cx="4.85" cy="17.8" r="1.05" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-ocr" viewBox="0 0 24 24">
+        <path d="M8.05 4.05H5.7A1.65 1.65 0 0 0 4.05 5.7v2.35M15.95 4.05h2.35a1.65 1.65 0 0 1 1.65 1.65v2.35M19.95 15.95v2.35a1.65 1.65 0 0 1-1.65 1.65h-2.35M8.05 19.95H5.7a1.65 1.65 0 0 1-1.65-1.65v-2.35"/>
+        <path d="M8.15 9.35h7.7M8.15 12.75h5.25M8.15 16.15h2.35"/>
+        <circle cx="16.15" cy="16.15" r="1.15" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-translate" viewBox="0 0 24 24">
+        <path d="M3.75 16.35 6.9 7.15l3.15 9.2M4.9 13.05h4"/>
+        <path d="M14.75 8.2h5.5M17.5 8.2v7.95M15.05 10.25c1.05 2.05 2.65 3.85 4.65 5.2M20.15 10.25c-1.05 2.05-2.65 3.85-4.65 5.2"/>
+        <path d="M9.7 11.1h2.4M11.05 9.85l1.25 1.25-1.25 1.25" opacity=".62"/>
+      </symbol>
+
+      <symbol id="i-gif" viewBox="0 0 24 24">
+        <path d="M5.15 6.35A2.2 2.2 0 0 1 7.35 4.15h8.1l4.4 4.4v9.1a2.2 2.2 0 0 1-2.2 2.2H7.35a2.2 2.2 0 0 1-2.2-2.2V6.35Z"/>
+        <path d="M15.45 4.15v4.4h4.4" opacity=".45"/>
+        <text x="11.85" y="14.55" text-anchor="middle" fill="currentColor" stroke="none" font-family="SF Mono, Cascadia Code, Consolas, monospace" font-size="6.15" font-weight="800" letter-spacing=".35">GIF</text>
+        <circle cx="8.25" cy="8.1" r=".85" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-video" viewBox="0 0 24 24">
+        <path d="M4.05 8.35a2.25 2.25 0 0 1 2.25-2.25h6.85l3.6 3.6v6.05a2.25 2.25 0 0 1-2.25 2.25H6.3a2.25 2.25 0 0 1-2.25-2.25V8.35Z"/>
+        <path d="m16.35 10.35 3.6-2.3v8l-3.6-2.3"/>
+        <circle cx="8.45" cy="10.05" r="1.25" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="M6.35 6.35 17.65 17.65"/>
+        <path d="M17.65 6.35 6.35 17.65" opacity=".68"/>
+      </symbol>
+
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M8.15 5.05h7.7M9.4 5.25 8.5 11.4l-2.2 1.8h11.4l-2.2-1.8-.9-6.15"/>
+        <path d="M12 13.2v6.15"/>
+        <path d="M5.65 13.2h12.7" opacity=".45"/>
+        <circle cx="12" cy="20.15" r="1.05" fill="currentColor" stroke="none"/>
+      </symbol>
+
+      <symbol id="i-save" viewBox="0 0 24 24">
+        <path d="M12 4.15v8.55M8.8 9.65l3.2 3.2 3.2-3.2"/>
+        <path d="M4.55 15.35v2.2a2.3 2.3 0 0 0 2.3 2.3h10.3a2.3 2.3 0 0 0 2.3-2.3v-2.2"/>
+        <path d="M20.15 8.15h.35a1.3 1.3 0 0 1 1.3 1.3v1.75" opacity=".32"/>
+      </symbol>
+
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <path d="M9.15 7.35V6.1a2.1 2.1 0 0 1 2.1-2.1h5.05l2.3 2.3v7.25a2.1 2.1 0 0 1-2.1 2.1h-1.35" opacity=".5"/>
+        <path d="M5.7 8.05h8.55a2.05 2.05 0 0 1 2.05 2.05v7.15a2.05 2.05 0 0 1-2.05 2.05H5.7a2.05 2.05 0 0 1-2.05-2.05v-7.15A2.05 2.05 0 0 1 5.7 8.05Z"/>
+        <circle cx="14.8" cy="10.4" r=".95" fill="currentColor" stroke="none"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const themeToggle = document.getElementById('themeToggle');
+      const currentTool = document.getElementById('currentTool');
+      const toast = document.getElementById('stageToast');
+      let toastTimer = 0;
+
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.dataset.theme = systemPrefersDark ? 'dark' : 'light';
+
+      themeToggle.addEventListener('click', () => {
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+        themeToggle.setAttribute(
+          'aria-label',
+          root.dataset.theme === 'dark' ? '切换为浅色外观' : '切换为深色外观'
+        );
+      });
+
+      const toolButtons = Array.from(document.querySelectorAll('.tool-button[data-tool]'));
+      toolButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          toolButtons.forEach((item) => {
+            const selected = item === button;
+            item.classList.toggle('is-active', selected);
+            item.setAttribute('aria-pressed', String(selected));
+          });
+          const label = button.getAttribute('data-label') || '标注';
+          currentTool.textContent = `${label.replace(' / ', ' / ')} / 标注`;
+        });
+      });
+
+      document.querySelectorAll('.tool-button[data-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const action = button.getAttribute('data-action');
+          if (action !== 'copy') return;
+          window.clearTimeout(toastTimer);
+          toast.classList.add('is-visible');
+          toastTimer = window.setTimeout(() => toast.classList.remove('is-visible'), 1600);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

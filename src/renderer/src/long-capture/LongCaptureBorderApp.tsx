@@ -21,27 +21,20 @@ export function LongCaptureBorderApp(): JSX.Element {
   }, [])
 
   const params = readParams()
-  const width = Math.max(1, Number(params.get('w')) || 1)
-  const height = Math.max(1, Number(params.get('h')) || 1)
-  const side = Math.max(2, Number(params.get('side')) || 8)
-  const top = Math.max(24, Number(params.get('top')) || 30)
+  const part = params.get('part') ?? 'label'
   const mode = params.get('mode') === 'manual' ? '手动滚动' : '自动滚动'
 
+  if (part !== 'label') {
+    return (
+      <div className={`long-border-part ${part}`} data-part={part}>
+        <span />
+      </div>
+    )
+  }
+
   return (
-    <div className="long-border-root">
-      <div
-        className="long-border-frame"
-        style={{
-          left: side - 2,
-          top: top - 2,
-          width: width + 4,
-          height: height + 4
-        }}
-      />
-      <div
-        className="long-border-label"
-        style={{ left: side, top: 5 }}
-      >
+    <div className="long-border-root" data-part="label">
+      <div className="long-border-label">
         <span className="long-border-dot" />
         长截图区域 · {mode}
       </div>
