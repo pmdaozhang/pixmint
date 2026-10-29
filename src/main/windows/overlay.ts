@@ -58,17 +58,6 @@ export class OverlayManager {
     return this.active
   }
 
-  /**
-   * 背景：窗口长截图的“重新选择”需要回到已冻结的截图界面并直接展开窗口列表。
-   * 设计意图：只向当前持有截图会话的渲染层发事件，避免预热窗口残留选择状态。
-   * 关键约束：调用前必须已经启动覆盖层；没有活动会话时保持静默。
-   */
-  requestWindowPicker(): void {
-    for (const [id, entry] of this.entries) {
-      if (this.captures.has(id)) this.send(entry, 'window-target:open-picker')
-    }
-  }
-
   captureFor(webContentsId: number): DisplayCapture | undefined {
     return this.captures.get(webContentsId)
   }

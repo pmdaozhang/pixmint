@@ -15,12 +15,9 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
-  LongCapturePreviewInfo,
-  LongCaptureProgress,
-  WindowTargetInfo,
-  WindowTargetItem,
   UpdateState,
-  VideoDoneMeta
+  VideoDoneMeta,
+  WordCardEntry
 } from './types'
 
 export interface SnapglassApi {
@@ -36,33 +33,6 @@ export interface SnapglassApi {
                 autoCopy(pngBytes: Uint8Array): void
     complete(payload: OverlayCompletePayload): void
     cancel(): void
-  }
-  longCapture: {
-    getState(): Promise<LongCaptureProgress>
-    pause(): void
-    resume(): void
-    finish(): void
-    cancel(): void
-    manual(): void
-    retry(): void
-    undo(): void
-    onProgress(callback: (progress: LongCaptureProgress) => void): () => void
-    previewInfo(): Promise<LongCapturePreviewInfo | null>
-    savePreview(): Promise<string | null>
-    copyPreview(): Promise<string>
-    closePreview(): void
-  }
-  windowTarget: {
-    list(): Promise<WindowTargetItem[]>
-    select(itemId: string): Promise<WindowTargetInfo>
-    info(): Promise<WindowTargetInfo | null>
-    onPickRequest(callback: () => void): () => void
-  }
-  windowLong: {
-    begin(): void
-    start(selection: Rect): void
-    cancel(): void
-    reselect(): void
   }
   pin: {
     ready(): Promise<PinInit | null>
@@ -93,6 +63,9 @@ export interface SnapglassApi {
   }
   translation: {
     translate(text: string, target?: 'zh-CN' | 'en-US'): Promise<string>
+  }
+  dictionary: {
+    lookup(word: string): Promise<WordCardEntry | null>
   }
   clipboard: {
     writeText(text: string): Promise<void>

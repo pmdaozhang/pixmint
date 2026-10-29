@@ -60,28 +60,32 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     throw new Error('toolbar is not right-aligned with the selection')
   }
 
-  const moveToolClass = await window
-    .locator('.tb[title="移动选区"]')
-    .getAttribute('class')
   const shapeToolClass = await window
     .locator('.tb[title="矩形 / 椭圆"]')
     .getAttribute('class')
+  const activeToolCount = await window.locator('.tb.on').count()
   const moveCursor = await window
     .locator('.anno-canvas')
     .evaluate((element) => getComputedStyle(element).cursor)
   const rootCursor = await window
     .locator('.overlay-root')
     .evaluate((element) => getComputedStyle(element).cursor)
+  const longCaptureButtons = await window
+    .locator('.tb[title="窗口长截图"], .tb[aria-label="窗口长截图"]')
+    .count()
   console.log(
     'DEFAULT_TOOL',
-    moveToolClass,
+    activeToolCount,
     shapeToolClass,
     'CURSOR',
     moveCursor,
     'ROOT_CURSOR',
-    rootCursor
+    rootCursor,
+    'LONG_CAPTURE_BUTTONS',
+    longCaptureButtons
   )
-  if (!moveToolClass?.includes('on') || shapeToolClass?.includes('on')) {
+  if (longCaptureButtons !== 0) throw new Error('long capture entry should be removed')
+  if (activeToolCount !== 0 || shapeToolClass?.includes('on')) {
     throw new Error('overlay should default to the move tool')
   }
   if (moveCursor !== 'grab') {

@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'zh-CN',
   launchAtLogin: false,
   onboardingCompleted: false,
+  onboardingVersion: 0,
   translationProvider: 'free',
   translationEndpoint: 'https://api.openai.com/v1',
   translationModel: 'gpt-4o-mini',
@@ -36,16 +37,19 @@ const TARGETS: Settings['translationTarget'][] = ['zh-CN', 'en-US']
  */
 export function normalizeSettings(input: unknown): Settings {
   const source = isRecord(input) ? input : {}
+  const onboardingCompleted = booleanOr(
+    source.onboardingCompleted,
+    DEFAULT_SETTINGS.onboardingCompleted
+  )
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     shortcut: stringOr(source.shortcut, DEFAULT_SETTINGS.shortcut, 64),
     theme: enumOr(source.theme, THEMES, DEFAULT_SETTINGS.theme),
     language: enumOr(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
     launchAtLogin: booleanOr(source.launchAtLogin, DEFAULT_SETTINGS.launchAtLogin),
-    onboardingCompleted: booleanOr(
-      source.onboardingCompleted,
-      DEFAULT_SETTINGS.onboardingCompleted
-    ),
+    onboardingCompleted,
+    // 旧版本只有布尔标记：已完成视为第 1 版引导，未完成视为 0，升级后能再看到一次新版引导。
+    onboardingVersion: integerOr(source.onboardingVersion, onboardingCompleted ? 1 : 0, 0, 99),
     translationProvider: enumOr(
       source.translationProvider,
       PROVIDERS,
@@ -125,6 +129,12 @@ function stringOr(value: unknown, fallback: string, maxLength: number): string {
 
 function booleanOr(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
+}
+
+function integerOr(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return fallback
+  if (value < min || value > max) return fallback
+  return value
 }
 
 function enumOr<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {

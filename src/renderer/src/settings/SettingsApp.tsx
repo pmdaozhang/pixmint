@@ -391,13 +391,15 @@ export function SettingsApp(): JSX.Element {
               </div>
             </div>
           )}
-          <div className={`update-note ${updateView.noteTone === 'error' ? 'err' : ''}`}>
-            <Icon name={updateView.noteTone === 'error' ? 'close' : 'check'} size={13} />
-            <span>{updateView.note}</span>
-          </div>
+          {updateView.note && (
+            <div className={`update-note ${updateView.noteTone === 'error' ? 'err' : ''}`}>
+              <Icon name={updateView.noteTone === 'error' ? 'close' : 'check'} size={13} />
+              <span>{updateView.note}</span>
+            </div>
+          )}
         </section>
 
-        {diagnostics && (
+        {diagnostics && import.meta.env.DEV && (
           <section className="card">
             <div className="card-title">
               <Icon name="folder" size={16} />

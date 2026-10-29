@@ -14,7 +14,6 @@ import {
   Tray
 } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
@@ -26,18 +25,13 @@ import type {
   RecorderMode,
   RecorderStatePatch,
   Settings,
-  VideoDoneMeta,
-  WindowTargetInfo
+  VideoDoneMeta
 } from '../shared/types'
 import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from './image-utils'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
 import { createTray } from './tray'
 import { OverlayManager } from './windows/overlay'
-import { longCaptureManager } from './long-capture'
-import { LongCaptureController } from './long-capture-controller'
-import { WindowTargetService } from './window-target'
-import { WindowLongSelection } from './windows/window-long-selection'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
 import { WindowSnapHelper } from './window-snap'
@@ -49,6 +43,7 @@ import { StatusToast } from './windows/status-toast'
 import { FAKE_SCREEN_PNG } from './test-fixture'
 import { recognizeImageDataUrl } from './ocr'
 import { translateText } from '../shared/translation'
+import { lookupDictionary } from './dictionary'
 import { RecorderManager } from './recording'
 import { enableSafeMode, hasUncleanSession, safeModeRequested } from './safe-mode'
 import { addBreadcrumb } from './breadcrumbs'
@@ -117,6 +112,8 @@ const isSmokeTest = process.argv.includes('--smoke-test')
 const isCaptureSmoke = process.argv.includes('--smoke-capture')
 const isOverlaySmoke = process.argv.includes('--smoke-overlay')
 const isShowSettings = process.argv.includes('--show-settings')
+/** 当前引导版本；升级后低于该值时展示一次新版引导。 */
+const ONBOARDING_VERSION = 2
 const isOcrSmoke = process.argv.includes('--smoke-ocr')
 const isOverlayOcrSmoke = process.argv.includes('--smoke-overlay-ocr')
 const isSettingsE2e = process.argv.includes('--e2e-settings')
@@ -124,9 +121,6 @@ const isOnboardingE2e = process.argv.includes('--e2e-onboarding')
 const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
-const isLongCaptureSmoke = process.argv.includes('--smoke-long-capture')
-const isLongCaptureUiSmoke = process.argv.includes('--smoke-long-capture-ui')
-const isLongCaptureManualSmoke = process.argv.includes('--smoke-long-capture-manual')
 const ocrFileArgIndex = process.argv.indexOf('--smoke-ocr-file')
 const statusToast = new StatusToast()
 const ocrFileSmokePath = ocrFileArgIndex >= 0 ? process.argv[ocrFileArgIndex + 1] ?? '' : ''
@@ -143,10 +137,6 @@ let ocrManager: OcrManager
 let recorderManager: RecorderManager
 let windowSnap: WindowSnapHelper
 let platformServices: PlatformServices
-let longCaptureController: LongCaptureController
-let windowTargetService: WindowTargetService
-let windowLongSelection: WindowLongSelection
-let activeWindowTarget: WindowTargetInfo | null = null
 let tray: Tray | null = null
 let preloadPath = ''
 let overlayReadyCount = 0
@@ -183,15 +173,10 @@ function registerShortcut(settings: Settings): void {
   }
 }
 
-async function startCapture(
-  mode?: RecorderMode,
-  openWindowPicker = false
-): Promise<void> {
+async function startCapture(mode?: RecorderMode): Promise<void> {
   const triggered = Date.now()
   addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot' })
   if (!overlayManager) return
-  windowLongSelection?.hide()
-  activeWindowTarget = null
   ocrManager?.closeAll()
   if (recorderManager?.isRecordingSession()) return
   if (overlayManager.isActive()) {
@@ -225,7 +210,6 @@ async function startCapture(
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     tray?.closeContextMenu()
     await overlayManager.start(capture, mode)
-    if (openWindowPicker) overlayManager.requestWindowPicker()
     console.log('START_CAPTURE_TOTAL_MS', Date.now() - triggered)
   } catch (error) {
     overlayManager?.hideAll()
@@ -239,49 +223,10 @@ async function startCapture(
   }
 }
 
-/**
- * 背景：窗口长截图选定目标后，需要在真实窗口上确认内容区，而不是在冻结截图里猜。
- * 设计意图：先隐藏冻结截图，再在目标显示器上打开透明选区层，保留目标窗口真实内容。
- * 关键约束：选区坐标使用显示器相对 DIP；窗口层只拦截手柄和确认卡，不遮挡内容观察。
- */
-function beginWindowLongSelection(): void {
-  const target = activeWindowTarget
-  if (!target) return
-  const display =
-    screen.getAllDisplays().find((item) => item.id === target.displayId) ??
-    screen.getPrimaryDisplay()
-  overlayManager.hideAll()
-  setTimeout(() => {
-    if (!activeWindowTarget) return
-    windowLongSelection.show(display)
-  }, 70)
-}
-
-/**
- * 背景：用户可能从确认页返回窗口列表，也可能按 Esc 结束整次窗口长截图。
- * 设计意图：统一清理选区层和目标状态，避免旧 hwnd 留在下一次流程。
- * 关键约束：reselect 必须重新冻结桌面并打开选择器；cancel 不能误触普通截图。
- */
-function reselectWindowLongTarget(): void {
-  windowLongSelection.hide()
-  activeWindowTarget = null
-  void startCapture(undefined, true)
-}
-
-function cancelWindowLong(): void {
-  windowLongSelection.hide()
-  activeWindowTarget = null
-  longCaptureController.cancel()
-}
-
 async function handleOverlayComplete(
   payload: OverlayCompletePayload,
   capture: DisplayCapture
 ): Promise<void> {
-  if (payload.action === 'long') {
-    void longCaptureController.start(payload)
-    return
-  }
   const image = imageFromBytes(payload.pngBytes)
   if (image.isEmpty()) return
   addBreadcrumb('action', payload.action, {
@@ -339,9 +284,6 @@ async function handleOverlayComplete(
     })
     return
   }
-  if (payload.action === 'long') {
-    void longCaptureController.start(payload)
-  }
 }
 
 function registerIpc(): void {
@@ -377,48 +319,6 @@ function registerIpc(): void {
     overlayManager.complete(payload, event.sender.id)
   })
   ipcMain.on('overlay:cancel', () => overlayManager.cancel())
-  ipcMain.handle('window-target:list', () => windowTargetService.list())
-  ipcMain.handle('window-target:select', async (_event, itemId: string) => {
-    activeWindowTarget = await windowTargetService.select(itemId)
-    return activeWindowTarget
-  })
-  ipcMain.handle('window-target:info', () => activeWindowTarget)
-  ipcMain.on('window-long:begin', () => beginWindowLongSelection())
-  ipcMain.on('window-long:cancel', () => cancelWindowLong())
-  ipcMain.on('window-long:reselect', () => reselectWindowLongTarget())
-  ipcMain.on(
-    'window-long:start',
-    (
-      _event,
-      selection: { x: number; y: number; width: number; height: number }
-    ) => {
-      const target = activeWindowTarget
-      if (!target) return
-      const display =
-        screen
-          .getAllDisplays()
-          .find((item) => item.id === target.displayId) ??
-        screen.getPrimaryDisplay()
-      windowLongSelection.hide()
-      setTimeout(() => {
-        if (!activeWindowTarget || activeWindowTarget.hwnd !== target.hwnd) return
-        void longCaptureController.startSelection(display, selection, target.hwnd)
-        activeWindowTarget = null
-      }, 70)
-    }
-  )
-  ipcMain.handle('long-capture:state', () => longCaptureManager.getProgress())
-  ipcMain.on('long-capture:pause', () => longCaptureController.pause())
-  ipcMain.on('long-capture:resume', () => longCaptureController.resume())
-  ipcMain.on('long-capture:finish', () => longCaptureController.finish())
-  ipcMain.on('long-capture:cancel', () => longCaptureController.cancel())
-  ipcMain.on('long-capture:manual', () => longCaptureController.manual())
-  ipcMain.on('long-capture:retry', () => longCaptureController.retry())
-  ipcMain.on('long-capture:undo', () => longCaptureController.undo())
-  ipcMain.handle('long-capture:preview-info', () => longCaptureController.previewInfo())
-  ipcMain.handle('long-capture:save-preview', () => longCaptureController.savePreview())
-  ipcMain.handle('long-capture:copy-preview', () => longCaptureController.copyPreview())
-  ipcMain.on('long-capture:close-preview', () => longCaptureController.closePreview())
 
   ipcMain.handle('recorder:begin', (event, payload: RecorderBeginPayload) => {
     const capture = overlayManager.captureFor(event.sender.id)
@@ -564,6 +464,9 @@ function registerIpc(): void {
   ipcMain.handle('clipboard:write-text', (_event, text: string) => {
     clipboard.writeText(String(text))
   })
+  ipcMain.handle('dictionary:lookup', (_event, word: string) =>
+    lookupDictionary(String(word ?? ''))
+  )
 }
 
 function initServices(): void {
@@ -574,18 +477,13 @@ function initServices(): void {
   ocrManager = new OcrManager(preloadPath, () => createSettingsWindow(preloadPath))
   windowSnap = new WindowSnapHelper()
   platformServices = createPlatformServices(windowSnap)
-  windowTargetService = new WindowTargetService()
-  windowLongSelection = new WindowLongSelection(preloadPath)
-  longCaptureController = new LongCaptureController(preloadPath, longCaptureManager)
   overlayManager = new OverlayManager(
     preloadPath,
     () => settingsStore.get(),
     (payload, capture) => {
       void handleOverlayComplete(payload, capture)
     },
-    () => {
-      activeWindowTarget = null
-    },
+    () => {},
     (message) => {
       recorderManager?.abortSession()
       if (message) notify(message)
@@ -597,7 +495,6 @@ function initServices(): void {
     hideRecordingOverlay: (id) => overlayManager.hideRecordingOverlay(id),
     hideOverlay: () => overlayManager.hideAll()
   })
-  longCaptureController = new LongCaptureController(preloadPath, longCaptureManager)
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
     if (!isTrustedAppUrl(contents.getURL())) {
       callback(false)
@@ -613,11 +510,7 @@ function initServices(): void {
   protocol.handle('snapglass-media', (request) => {
     const url = new URL(request.url)
     const filePath = decodeURIComponent(url.searchParams.get('path') ?? '')
-    if (
-      !filePath ||
-      (!recorderManager.isAllowedFile(filePath) &&
-        !longCaptureManager.isAllowedFile(filePath))
-    ) {
+    if (!filePath || !recorderManager.isAllowedFile(filePath)) {
       return new Response('Not found', { status: 404 })
     }
     return net.fetch(pathToFileURL(filePath).toString())
@@ -647,9 +540,12 @@ function initServices(): void {
 
 function openStartupWindow(): void {
   if (!preloadPath) return
-  if (!settingsStore.get().onboardingCompleted) {
+  if (settingsStore.get().onboardingVersion < ONBOARDING_VERSION) {
     createOnboardingWindow(preloadPath)
-    settingsStore.update({ onboardingCompleted: true })
+    settingsStore.update({
+      onboardingCompleted: true,
+      onboardingVersion: ONBOARDING_VERSION
+    })
     return
   }
   createSettingsWindow(preloadPath)
@@ -908,242 +804,6 @@ function runPrepareSmoke(): void {
   }, 2600)
 }
 
-async function runLongCaptureSmoke(): Promise<void> {
-  if (app.isPackaged) {
-    console.error('LONG_CAPTURE_SMOKE_PACKAGED_UNSUPPORTED')
-    app.exit(1)
-    return
-  }
-  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
-  const electronPath = join(
-    app.getAppPath(),
-    'node_modules',
-    'electron',
-    'dist',
-    'electron.exe'
-  )
-  const fixture = spawn(electronPath, [fixturePath], { stdio: 'ignore' })
-  const smokePath = join(app.getAppPath(), 'test-results', 'long-capture-smoke.json')
-  const progressLog: unknown[] = []
-  const targetLog: string[] = []
-  const startedAt = Date.now()
-  const memoryBefore = process.memoryUsage()
-  const maxHeight = Number(process.env.PIXMINT_LONG_MAX_HEIGHT || 0) || undefined
-  const writeSmoke = (value: unknown): void => {
-    try {
-      mkdirSync(dirname(smokePath), { recursive: true })
-      writeFileSync(smokePath, JSON.stringify(value, null, 2), 'utf8')
-    } catch {
-      // smoke 报告写入失败不应改变测试结果
-    }
-  }
-  writeSmoke({ ok: false, stage: 'started', at: new Date().toISOString() })
-  try {
-    // 等独立 fixture 窗口完成创建、定位和首帧绘制。
-    await new Promise((resolve) => setTimeout(resolve, 2200))
-    const display = screen.getPrimaryDisplay()
-    // fixture 外框 y=80，标题栏/菜单约 58px，页面视口从 y=138 开始，高 535。
-    const selection = { x: 100, y: 138, width: 700, height: 535 }
-    const result = await longCaptureManager.start({
-      display,
-      selection,
-      maxHeight,
-      onProgress: (progress) => {
-        progressLog.push(progress)
-        console.log('LONG_CAPTURE_PROGRESS', JSON.stringify(progress))
-      },
-      onComplete: (value) => {
-        writeSmoke({
-          ok: true,
-          result: value,
-          progress: progressLog,
-          targets: targetLog,
-          durationMs: Date.now() - startedAt,
-          encodeMs: longCaptureManager.getLastEncodeMs(),
-          memoryBefore,
-          memoryAfter: process.memoryUsage()
-        })
-        console.log(
-          'LONG_CAPTURE_RESULT',
-          JSON.stringify({
-            ...value,
-            durationMs: Date.now() - startedAt,
-            encodeMs: longCaptureManager.getLastEncodeMs()
-          })
-        )
-      },
-      onError: (message) => {
-        writeSmoke({ ok: false, error: message, progress: progressLog, targets: targetLog })
-        console.error('LONG_CAPTURE_ERROR', message)
-      },
-      onTarget: (target) => targetLog.push(target.title)
-    })
-    if (!result || result.height <= selection.height) {
-      writeSmoke({
-        ok: false,
-        stage: 'result',
-        result,
-        progress: progressLog,
-        targets: targetLog
-      })
-      console.error('LONG_CAPTURE_SMOKE_FAIL', JSON.stringify(result))
-      app.exit(1)
-      return
-    }
-    console.log(
-      'LONG_CAPTURE_SMOKE_OK',
-      result.width,
-      result.height,
-      result.bytes,
-      result.filePath
-    )
-    app.exit(0)
-  } catch (error) {
-    writeSmoke({
-      ok: false,
-      stage: 'exception',
-      error: error instanceof Error ? error.message : String(error),
-      progress: progressLog,
-      targets: targetLog
-    })
-    console.error('LONG_CAPTURE_SMOKE_ERROR', error)
-    app.exit(1)
-  } finally {
-    fixture.kill()
-  }
-}
-
-async function runLongCaptureSmokeUi(): Promise<void> {
-  if (app.isPackaged) {
-    console.error('LONG_CAPTURE_UI_SMOKE_PACKAGED_UNSUPPORTED')
-    app.exit(1)
-    return
-  }
-  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
-  const electronPath = join(
-    app.getAppPath(),
-    'node_modules',
-    'electron',
-    'dist',
-    'electron.exe'
-  )
-  const fixture = spawn(electronPath, [fixturePath], { stdio: 'ignore' })
-  const reportPath = join(
-    app.getAppPath(),
-    'test-results',
-    'long-capture-ui-smoke.json'
-  )
-  const writeReport = (value: unknown): void => {
-    try {
-      mkdirSync(dirname(reportPath), { recursive: true })
-      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
-    } catch {
-      // smoke 报告失败不应改变测试结果
-    }
-  }
-  writeReport({ ok: false, stage: 'started' })
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 2200))
-    const display = screen.getPrimaryDisplay()
-    const selection = { x: 100, y: 138, width: 700, height: 535 }
-    await longCaptureController.start({
-      action: 'long',
-      displayId: display.id,
-      selection,
-      pngBytes: new Uint8Array(0)
-    })
-    const result = longCaptureManager.getResult()
-    writeReport({ ok: Boolean(result), result })
-    // 给 Playwright 留出截取 HUD/预览的时间。
-    await new Promise((resolve) => setTimeout(resolve, 8000))
-    app.exit(result ? 0 : 1)
-  } catch (error) {
-    writeReport({
-      ok: false,
-      stage: 'exception',
-      error: error instanceof Error ? error.message : String(error)
-    })
-    console.error('LONG_CAPTURE_UI_SMOKE_ERROR', error)
-    app.exit(1)
-  } finally {
-    fixture.kill()
-  }
-}
-
-async function runLongCaptureManualSmoke(): Promise<void> {
-  if (app.isPackaged) {
-    console.error('LONG_CAPTURE_MANUAL_SMOKE_PACKAGED_UNSUPPORTED')
-    app.exit(1)
-    return
-  }
-  const fixturePath = join(app.getAppPath(), 'scripts', 'long-capture-fixture.cjs')
-  const electronPath = join(
-    app.getAppPath(),
-    'node_modules',
-    'electron',
-    'dist',
-    'electron.exe'
-  )
-  const fixture = spawn(electronPath, [fixturePath], {
-    stdio: 'ignore',
-    env: { ...process.env, PIXMINT_LONG_FIXTURE_AUTO_SCROLL: '1' }
-  })
-  const reportPath = join(
-    app.getAppPath(),
-    'test-results',
-    'long-capture-manual-smoke.json'
-  )
-  const writeReport = (value: unknown): void => {
-    try {
-      mkdirSync(dirname(reportPath), { recursive: true })
-      writeFileSync(reportPath, JSON.stringify(value, null, 2), 'utf8')
-    } catch {
-      // smoke 报告失败不应改变测试结果
-    }
-  }
-  writeReport({ ok: false, stage: 'started' })
-  let finishTimer: ReturnType<typeof setTimeout> | null = null
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 2200))
-    const display = screen.getPrimaryDisplay()
-    const selection = { x: 100, y: 138, width: 700, height: 535 }
-    const progress: unknown[] = []
-    finishTimer = setTimeout(() => longCaptureManager.finish(), 11000)
-    const result = await longCaptureManager.startManual({
-      display,
-      selection,
-      onProgress: (value) => {
-        progress.push(value)
-        console.log('LONG_CAPTURE_MANUAL_PROGRESS', JSON.stringify(value))
-      }
-    })
-    if (finishTimer) clearTimeout(finishTimer)
-    writeReport({ ok: Boolean(result), result, progress })
-    if (!result || result.height <= selection.height) {
-      console.error('LONG_CAPTURE_MANUAL_SMOKE_FAIL', JSON.stringify(result))
-      app.exit(1)
-      return
-    }
-    console.log(
-      'LONG_CAPTURE_MANUAL_SMOKE_OK',
-      result.width,
-      result.height,
-      result.bytes
-    )
-    app.exit(0)
-  } catch (error) {
-    writeReport({
-      ok: false,
-      stage: 'exception',
-      error: error instanceof Error ? error.message : String(error)
-    })
-    console.error('LONG_CAPTURE_MANUAL_SMOKE_ERROR', error)
-    app.exit(1)
-  } finally {
-    if (finishTimer) clearTimeout(finishTimer)
-    fixture.kill()
-  }
-}
 
 if (
   !isSmokeTest &&
@@ -1154,9 +814,6 @@ if (
   !isOcrTranslateSmoke &&
   !isPrepareSmoke &&
   !isFastCaptureSmoke &&
-  !isLongCaptureSmoke &&
-  !isLongCaptureUiSmoke &&
-  !isLongCaptureManualSmoke &&
   !isOcrFileSmoke &&
   !isSoakOcr &&
   !isCaptureOnce &&
@@ -1176,9 +833,6 @@ if (
       !isOcrTranslateSmoke &&
       !isPrepareSmoke &&
       !isFastCaptureSmoke &&
-      !isLongCaptureSmoke &&
-      !isLongCaptureUiSmoke &&
-      !isLongCaptureManualSmoke &&
       !isOcrFileSmoke &&
       !isSoakOcr &&
       !isCaptureOnce &&
@@ -1197,20 +851,6 @@ if (
     }
     if (isSoakOcr) {
       void runOcrSoak()
-      return
-    }
-    if (isLongCaptureSmoke) {
-      void runLongCaptureSmoke()
-      return
-    }
-    if (isLongCaptureUiSmoke) {
-      initServices()
-      void runLongCaptureSmokeUi()
-      return
-    }
-    if (isLongCaptureManualSmoke) {
-      initServices()
-      void runLongCaptureManualSmoke()
       return
     }
     initServices()
@@ -1266,7 +906,9 @@ if (
       setTimeout(() => tray?.popUpContextMenu(), 500)
     }
     notify('Pixmint 已启动，右键托盘图标打开设置')
-    if (isShowSettings || !settingsStore.get().onboardingCompleted) openStartupWindow()
+    if (isShowSettings || settingsStore.get().onboardingVersion < ONBOARDING_VERSION) {
+      openStartupWindow()
+    }
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
     const displayInfo = {
       id: display.id,
@@ -1311,9 +953,6 @@ if (
     addBreadcrumb('app', 'before-quit')
     statusToast.hide()
     disposeUpdater()
-    windowLongSelection?.dispose()
-    longCaptureController?.dispose()
-    windowTargetService?.dispose()
     globalShortcut.unregisterAll()
     pinManager?.destroyAll()
     ocrManager?.destroyAll()

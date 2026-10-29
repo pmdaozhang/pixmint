@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- 首次引导扩展为 5 页：GIF、视频、OCR/翻译，加上原有快捷键与划线两页。
+- OCR 翻译单词卡：英文单词显示英式/美式音标、词性和前 3 条常用释义。
+- 内置 ECDICT 常用 3 万词子集（2.81MB），音标走 dictionaryapi.dev 并本地缓存，失败时回退单套音标。
+- 3 段循环动画：GIF 选区录制、视频框选录制、OCR 框选翻译。
+- 视频页使用本地 8.2 秒无缝循环录屏素材，不依赖网络。
+- 设置新增 `onboardingVersion`，升级后可再看到一次新版引导。
+- `e2e-onboarding.cjs` 引导全流程 E2E。
+
+### Changed
+
+- 启动引导判断从 `onboardingCompleted` 布尔值改为引导版本比较。
+- 旧设置迁移：`onboardingCompleted: true` 且无版本号时视为版本 1。
+
+### Fixed
+
+- OCR：单行窄选区（实测 303×20）在 PP-OCR 返回空结果时不再直接报“未识别到文字”，会统一放大后回退 Windows OCR。
+- 截图工具栏首次出现延迟约 80ms：改为覆盖层首次显示时预绘制工具栏（实测首次/第二次 173.1ms / 172.6ms）。
+- 工具栏移除十字按钮，改为隐式移动工具；其他工具点击选中、再次点击取消并回到移动状态。
+- 诊断模块只在开发版显示，正式构建隐藏。
+- 设置“关于与更新”移除“更新功能仅在打包版 Windows 中启用”提示行，卡片高度随内容收缩。
+
+### Removed
+
+- 长截图功能下线：移除工具栏入口、引导页、窗口长截图流程、长截图 IPC、预览/HUD 窗口和专用 smoke 入口。
+- 删除长截图源文件、单测、E2E、Demo、fixture 和专用文档。
+
+### Verified
+
+- `pnpm typecheck`、`pnpm test`（25 文件 / 163 用例）、`pnpm build` 通过。
+- E2E：5 页标题、GIF 光标误差 0.003px、视频 8.204s 播放中、OCR 居中 0/0、完成标记写入版本 2。
+- 回归：覆盖层、钉图、录制、设置、OCR、OCR 翻译、工具栏切换/延迟 E2E 通过；覆盖层断言长截图按钮数量为 0。
+- 发布门禁 `node scripts/review/release-gate.mjs --project _snapglass_app` 通过；报告 `docs/reviews/iteration-20261029-1148-v0.6.1.md`。
+
 ## [0.6.1] - 2026-10-28
 
 ### Added

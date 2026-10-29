@@ -271,7 +271,7 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
-        note: '更新功能仅在打包版 Windows 中启用'
+        note: ''
       }
     case 'idle':
     default:

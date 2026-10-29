@@ -11,10 +11,6 @@ import type {
   RecorderStatePatch,
   Settings,
   DiagnosticsInfo,
-  LongCapturePreviewInfo,
-  LongCaptureProgress,
-  WindowTargetInfo,
-  WindowTargetItem,
   UpdateState,
   VideoDoneMeta
 } from '../shared/types'
@@ -49,48 +45,6 @@ const api: SnapglassApi = {
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')
   },
-  longCapture: {
-    getState: () => ipcRenderer.invoke('long-capture:state'),
-    pause: () => ipcRenderer.send('long-capture:pause'),
-    resume: () => ipcRenderer.send('long-capture:resume'),
-    finish: () => ipcRenderer.send('long-capture:finish'),
-    cancel: () => ipcRenderer.send('long-capture:cancel'),
-    manual: () => ipcRenderer.send('long-capture:manual'),
-    retry: () => ipcRenderer.send('long-capture:retry'),
-    undo: () => ipcRenderer.send('long-capture:undo'),
-    onProgress: (callback: (progress: LongCaptureProgress) => void) => {
-      const listener = (
-        _event: Electron.IpcRendererEvent,
-        progress: LongCaptureProgress
-      ) => callback(progress)
-      ipcRenderer.on('long-capture:progress', listener)
-      return () => ipcRenderer.removeListener('long-capture:progress', listener)
-    },
-    previewInfo: () =>
-      ipcRenderer.invoke('long-capture:preview-info') as Promise<LongCapturePreviewInfo | null>,
-    savePreview: () => ipcRenderer.invoke('long-capture:save-preview'),
-    copyPreview: () => ipcRenderer.invoke('long-capture:copy-preview'),
-    closePreview: () => ipcRenderer.send('long-capture:close-preview')
-  },
-  windowTarget: {
-    list: () => ipcRenderer.invoke('window-target:list') as Promise<WindowTargetItem[]>,
-    select: (itemId: string) =>
-      ipcRenderer.invoke('window-target:select', itemId) as Promise<WindowTargetInfo>,
-    info: () =>
-      ipcRenderer.invoke('window-target:info') as Promise<WindowTargetInfo | null>,
-    onPickRequest: (callback: () => void) => {
-      const listener = (): void => callback()
-      ipcRenderer.on('window-target:open-picker', listener)
-      return () => ipcRenderer.removeListener('window-target:open-picker', listener)
-    }
-  },
-  windowLong: {
-    begin: () => ipcRenderer.send('window-long:begin'),
-    start: (selection: { x: number; y: number; width: number; height: number }) =>
-      ipcRenderer.send('window-long:start', selection),
-    cancel: () => ipcRenderer.send('window-long:cancel'),
-    reselect: () => ipcRenderer.send('window-long:reselect')
-  },
   pin: {
     ready: () => ipcRenderer.invoke('pin:ready'),
     close: () => ipcRenderer.send('pin:close'),
@@ -122,6 +76,9 @@ const api: SnapglassApi = {
   translation: {
     translate: (text: string, target?: 'zh-CN' | 'en-US') =>
       ipcRenderer.invoke('translation:translate', text, target)
+  },
+  dictionary: {
+    lookup: (word: string) => ipcRenderer.invoke('dictionary:lookup', word)
   },
   clipboard: {
     writeText: (text: string) => ipcRenderer.invoke('clipboard:write-text', text)

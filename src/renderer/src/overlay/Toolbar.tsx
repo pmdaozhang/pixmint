@@ -25,7 +25,6 @@ interface Props {
       | 'translate'
       | 'gif'
       | 'video'
-      | 'long'
       | 'copy'
       | 'pin'
       | 'save'
@@ -354,13 +353,6 @@ export function Toolbar({
     <div className="tooldock glass-2">
       <div className="row1">
         <ToolButton
-          tool="move"
-          current={options.tool}
-          icon={<Icon name="move" />}
-          label="移动选区"
-          onClick={onToolClick}
-        />
-        <ToolButton
           tool="shape"
           current={options.tool}
           icon={<Icon name="shape" />}
@@ -423,14 +415,6 @@ export function Toolbar({
             </button>
             <button className="tb" title="录制视频" onClick={() => onAction('video')}>
               <Icon name="video" />
-            </button>
-            <button
-              className="tb tb-long"
-              title="窗口长截图"
-              aria-label="窗口长截图"
-              onClick={() => onAction('long')}
-            >
-              <Icon name="long" />
             </button>
             <span className="div" />
             <button className="act" onClick={() => onAction('close')}>

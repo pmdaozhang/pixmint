@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import type { SnapglassApi } from '../../shared/api'
 
 declare module '*.css'

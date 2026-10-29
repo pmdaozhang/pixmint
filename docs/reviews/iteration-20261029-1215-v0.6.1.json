@@ -1,0 +1,104 @@
+{
+  "version": "0.6.1",
+  "date": "2026-10-29T12:15:00+08:00",
+  "commit": "4ea3764",
+  "level": "light",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119483486,
+    "sourceFiles": 129,
+    "sourceLines": 19817,
+    "testFiles": 22,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "22 files / 131 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "overlay-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "result": "LONG_CAPTURE_BUTTONS=0; E2E_OK"
+      },
+      {
+        "name": "onboarding-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:onboarding",
+        "result": "5 pages; E2E_ONBOARDING_OK"
+      },
+      {
+        "name": "pin-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:pin",
+        "result": "PIN_E2E_OK"
+      },
+      {
+        "name": "recording-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:recording",
+        "result": "RECORDING_E2E_OK"
+      },
+      {
+        "name": "settings-e2e",
+        "status": "pass",
+        "command": "node e2e-settings.cjs",
+        "result": "SETTINGS_E2E_OK"
+      },
+      {
+        "name": "ocr-e2e",
+        "status": "pass",
+        "command": "node e2e-ocr.cjs",
+        "result": "OCR_E2E_OK"
+      },
+      {
+        "name": "ocr-translate-e2e",
+        "status": "pass",
+        "command": "node e2e-ocr-translate.cjs",
+        "result": "TRANSLATE_WINDOW_E2E_OK"
+      },
+      {
+        "name": "toolbar-toggle-e2e",
+        "status": "pass",
+        "command": "node e2e-toolbar-toggle.cjs",
+        "result": "TOOLBAR_TOGGLE_OK"
+      },
+      {
+        "name": "toolbar-latency-e2e",
+        "status": "pass",
+        "command": "node e2e-overlay-toolbar-latency.cjs",
+        "result": "first=194.1ms; second=154.8ms"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "长截图源码、测试、E2E、Demo 和专用文档已删除。自动更新、多显示器混合 DPI、真实桌面 F1 本轮未复测。"
+}

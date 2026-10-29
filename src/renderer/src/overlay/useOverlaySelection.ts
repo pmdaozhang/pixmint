@@ -261,7 +261,10 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
         return
       }
       if (toolOptions.tool === tool) {
-        setSubmenuOpen((open) => !open)
+        // 第二次点击同一个工具 = 取消选中，回到默认的移动/十字状态。
+        annotationRef.current?.cancelInteraction()
+        setToolOptions((previous) => ({ ...previous, tool: 'move' }))
+        setSubmenuOpen(false)
         return
       }
       annotationRef.current?.cancelInteraction()

@@ -61,6 +61,17 @@ describe('settings utils', () => {
     expect(result.translationProvider).toBe('deepl')
   })
 
+  it('infers onboarding version for legacy settings files', () => {
+    // 0.6.1 及更早只写 onboardingCompleted，没有版本号
+    expect(normalizeSettings({ onboardingCompleted: true }).onboardingVersion).toBe(1)
+    expect(normalizeSettings({ onboardingCompleted: false }).onboardingVersion).toBe(0)
+    expect(normalizeSettings({}).onboardingVersion).toBe(0)
+    expect(normalizeSettings({ onboardingVersion: 2 }).onboardingVersion).toBe(2)
+    expect(normalizeSettings({ onboardingVersion: '2' }).onboardingVersion).toBe(0)
+    expect(normalizeSettings({ onboardingVersion: 1.5 }).onboardingVersion).toBe(0)
+    expect(normalizeSettings({ onboardingVersion: 120 }).onboardingVersion).toBe(0)
+  })
+
   it('writes JSON atomically without leaving a temp file', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pixmint-settings-'))
     const filePath = join(dir, 'settings.json')

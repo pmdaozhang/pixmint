@@ -8,6 +8,7 @@ const initialSettings: Settings = {
   language: 'zh-CN',
   launchAtLogin: false,
   onboardingCompleted: true,
+  onboardingVersion: 2,
   translationProvider: 'free',
   translationEndpoint: 'https://api.openai.com/v1',
   translationModel: 'gpt-4o-mini',

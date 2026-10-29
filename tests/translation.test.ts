@@ -18,6 +18,7 @@ const settings: Settings = {
   language: 'zh-CN',
   launchAtLogin: false,
   onboardingCompleted: true,
+  onboardingVersion: 2,
   translationProvider: 'openai',
   translationEndpoint: 'https://api.example.com/v1',
   translationModel: 'test-model',

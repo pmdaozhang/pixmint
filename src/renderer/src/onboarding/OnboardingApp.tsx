@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { LineStyle, Settings, ThemeSetting } from '@shared/types'
 import { drawArrowHead, strokePathStyled } from '../overlay/annotation/draw'
+import { GifScene, OcrScene, VideoScene } from './OnboardingScenes'
 import './onboarding.css'
+
+const ONBOARDING_VERSION = 2
 
 const STYLE_OPTIONS: Array<{ value: LineStyle; label: string }> = [
   { value: 'solid', label: '实线' },
@@ -175,7 +178,7 @@ function StepOne({ shortcut, active }: { shortcut: string; active: boolean }): J
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy">
-        <div className="onb-eyebrow">01 · 快捷键</div>
+        <div className="onb-eyebrow">04 · 快捷键</div>
         <h1>
           按一下 {shortcut}，
           <br />
@@ -259,7 +262,7 @@ function StepTwo({
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy onb-copy-two">
-        <div className="onb-eyebrow">02 · 划线工具</div>
+        <div className="onb-eyebrow">05 · 划线工具</div>
         <h1>
           拖一下，
           <br />
@@ -477,7 +480,7 @@ export function OnboardingApp(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (step === 2) setDemoKey((value) => value + 1)
+    if (step === 5) setDemoKey((value) => value + 1)
   }, [step])
 
   const shortcut = settings?.shortcut.replace('CommandOrControl', 'Ctrl') || 'F1'
@@ -486,7 +489,10 @@ export function OnboardingApp(): JSX.Element {
     if (finishing) return
     setFinishing(true)
     try {
-      await window.snapglass.settings.update({ onboardingCompleted: true })
+      await window.snapglass.settings.update({
+        onboardingCompleted: true,
+        onboardingVersion: ONBOARDING_VERSION
+      })
     } catch {
       // 主进程在引导展示时已写入完成标记，这里失败也不阻止关闭。
     }
@@ -503,9 +509,21 @@ export function OnboardingApp(): JSX.Element {
           </div>
 
           <div className="onb-stepper" aria-label="引导进度">
-            <span className={`onb-step-dot${step === 1 ? ' active' : ''}`}>1</span>
-            <span className="onb-step-line" />
-            <span className={`onb-step-dot${step === 2 ? ' active' : ''}`}>2</span>
+            {Array.from({ length: 5 }, (_, index) => (
+              <Fragment key={index}>
+                {index > 0 && <span className="onb-step-line" />}
+                <button
+                  type="button"
+                  className={`onb-step-dot${step === index + 1 ? ' active' : ''}${
+                    step > index + 1 ? ' done' : ''
+                  }`}
+                  aria-label={`第 ${index + 1} 页`}
+                  onClick={() => setStep(index + 1)}
+                >
+                  {index + 1}
+                </button>
+              </Fragment>
+            ))}
           </div>
 
           <button className="onb-skip" type="button" onClick={() => void finish()}>
@@ -514,22 +532,26 @@ export function OnboardingApp(): JSX.Element {
         </header>
 
         <div className="onb-pages">
-          <StepOne shortcut={shortcut} active={step === 1} />
+          <GifScene active={step === 1} />
+          <VideoScene active={step === 2} />
+          <OcrScene active={step === 3} />
+          <StepOne shortcut={shortcut} active={step === 4} />
           <StepTwo
             demoKey={demoKey}
-            active={step === 2}
+            active={step === 5}
             onReplay={() => setDemoKey((value) => value + 1)}
           />
         </div>
 
         <footer className="onb-foot">
           <div className="onb-dots" aria-hidden="true">
-            <i className={step === 1 ? 'active' : ''} />
-            <i className={step === 2 ? 'active' : ''} />
+            {Array.from({ length: 5 }, (_, index) => (
+              <i key={index} className={step === index + 1 ? 'active' : ''} />
+            ))}
           </div>
           <div className="onb-foot-actions">
-            {step === 2 && (
-              <button className="onb-ghost" type="button" onClick={() => setStep(1)}>
+            {step > 1 && (
+              <button className="onb-ghost" type="button" onClick={() => setStep(step - 1)}>
                 上一步
               </button>
             )}
@@ -538,11 +560,11 @@ export function OnboardingApp(): JSX.Element {
               type="button"
               disabled={finishing}
               onClick={() => {
-                if (step === 1) setStep(2)
+                if (step < 5) setStep(step + 1)
                 else void finish()
               }}
             >
-              {step === 1 ? '下一步' : '开始使用'}
+              {step < 5 ? '下一步' : '开始使用'}
             </button>
           </div>
         </footer>

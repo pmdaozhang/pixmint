@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { OcrInit, Settings } from '@shared/types'
+import type { OcrInit, Settings, WordCardEntry } from '@shared/types'
 import { detectTranslationTarget } from '@shared/text-analysis'
 import { Icon } from '../components/Icon'
 import './ocr.css'
@@ -9,6 +9,7 @@ export function OcrApp(): JSX.Element {
   const [init, setInit] = useState<OcrInit | null>(null)
   const [text, setText] = useState('')
   const [translation, setTranslation] = useState('')
+  const [wordEntry, setWordEntry] = useState<WordCardEntry | null>(null)
   const [translating, setTranslating] = useState(false)
   const [error, setError] = useState('')
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -42,6 +43,26 @@ export function OcrApp(): JSX.Element {
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
   }, [])
+
+  useEffect(() => {
+    const word = text.trim()
+    if (!init || init.mode !== 'translate' || !/^[A-Za-z][A-Za-z'-]{1,23}$/.test(word)) {
+      setWordEntry(null)
+      return
+    }
+    let cancelled = false
+    void window.snapglass.dictionary
+      .lookup(word)
+      .then((entry) => {
+        if (!cancelled) setWordEntry(entry)
+      })
+      .catch(() => {
+        if (!cancelled) setWordEntry(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [init, text])
 
   const copyAndClose = async (value: string): Promise<void> => {
     if (value) await window.snapglass.clipboard.writeText(value)
@@ -129,11 +150,13 @@ export function OcrApp(): JSX.Element {
       const hint = canTranslate ? 0 : 50
       const errorHeight = error ? 40 : 0
       const directionHeight = 40
+      const wordHeight = wordEntry ? 104 : 0
       window.snapglass.ocr.resize(
         28 +
           16 +
           inputHeight +
           10 +
+          wordHeight +
           directionHeight +
           resultHeight +
           10 +
@@ -143,7 +166,7 @@ export function OcrApp(): JSX.Element {
       )
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [init, text, translation, canTranslate, error])
+  }, [init, text, translation, canTranslate, error, wordEntry])
 
   if (!init) return <div className="ocr-loading">正在打开结果…</div>
 
@@ -200,6 +223,27 @@ export function OcrApp(): JSX.Element {
           readOnly
           spellCheck={false}
         />
+        {wordEntry && (
+          <div className="word-card">
+            <div className="word-card-head">
+              <strong>{wordEntry.word}</strong>
+              <span>英 {wordEntry.uk || wordEntry.phonetic || '—'}</span>
+              <span>美 {wordEntry.us || wordEntry.phonetic || '—'}</span>
+            </div>
+            {wordEntry.pos.length > 0 && (
+              <div className="word-pos">
+                {wordEntry.pos.map((item) => (
+                  <i key={item}>{item}.</i>
+                ))}
+              </div>
+            )}
+            <div className="word-meanings">
+              {wordEntry.meanings.map((meaning) => (
+                <p key={meaning}>{meaning}</p>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="translate-direction" ref={directionRef}>
           <button
             type="button"

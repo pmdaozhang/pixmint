@@ -18,19 +18,6 @@ async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
   const image = nativeImage.createFromDataURL(dataUrl)
   if (image.isEmpty()) throw new Error('OCR 输入图像为空')
 
-  if (process.env.OCR_BACKEND !== 'windows') {
-    try {
-      const paddle = await recognizePaddle(image)
-      console.log('OCR_BACKEND paddle')
-      return {
-        text: normalizeOcrText(paddle.text),
-        lines: paddle.lines.map(normalizeOcrText).filter(Boolean)
-      }
-    } catch (error) {
-      console.warn('OCR_PADDLE_FALLBACK', error)
-    }
-  }
-
   const size = image.getSize()
   const factor = ocrUpscaleFactor(size.width, size.height)
   const input =
@@ -44,6 +31,25 @@ async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
   if (factor > 1) {
     console.log('OCR_UPSCALE', size.width, size.height, '->', factor + 'x')
   }
+
+  if (process.env.OCR_BACKEND !== 'windows') {
+    try {
+      const paddle = await recognizePaddle(input)
+      if (paddle.text.trim() || paddle.lines.length > 0) {
+        console.log('OCR_BACKEND paddle')
+        return {
+          text: normalizeOcrText(paddle.text),
+          lines: paddle.lines.map(normalizeOcrText).filter(Boolean)
+        }
+      }
+      // 背景：单行窄条（如 303×20）检测不到文本框时，Paddle 会返回空结果而不是抛错。
+      // 设计意图：空结果也进入 Windows OCR 兜底，避免直接告诉用户“未识别到文字”。
+      console.warn('OCR_PADDLE_EMPTY_FALLBACK', size.width, size.height)
+    } catch (error) {
+      console.warn('OCR_PADDLE_FALLBACK', error)
+    }
+  }
+
   const filePath = join(app.getPath('temp'), `snapglass-ocr-${Date.now()}.png`)
   writeFileSync(filePath, input.toPNG())
   try {

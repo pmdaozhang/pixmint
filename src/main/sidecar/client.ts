@@ -66,6 +66,16 @@ export class SidecarClient {
       child.stderr.on('data', (chunk: string) => {
         this.log(`stderr: ${chunk.trim().slice(0, 500)}`)
       })
+      // 子进程退出后继续 write 会异步抛 EPIPE；没有监听器会变成未捕获异常拖垮主进程。
+      child.stdin.on('error', (error) => {
+        this.log(`stdin error: ${error.message}`)
+        const wasCurrent = this.child === child
+        if (wasCurrent) {
+          this.child = null
+          this.lines.clear()
+          this.finish(null)
+        }
+      })
       child.on('error', (error) => {
         this.log(`spawn error: ${error.message}`)
         const wasCurrent = this.child === child

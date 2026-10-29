@@ -33,6 +33,10 @@ extraResources:
     filter:
       - '*.onnx'
       - '*.txt'
+  - from: assets/dict
+    to: dict
+    filter:
+      - '*.json'
 asar: true
 publish:
   provider: github

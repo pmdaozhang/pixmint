@@ -559,7 +559,6 @@ export function OverlayApp(): JSX.Element {
         | 'translate'
         | 'gif'
         | 'video'
-        | 'long'
         | 'copy'
         | 'pin'
         | 'save'
@@ -571,11 +570,6 @@ export function OverlayApp(): JSX.Element {
       }
       if (action === 'gif' || action === 'video') {
         openRecorder(action)
-        return
-      }
-      if (action === 'long') {
-        closeSubmenu()
-        exportImage('long')
         return
       }
       if (action === 'ocr') {
@@ -818,9 +812,13 @@ export function OverlayApp(): JSX.Element {
           style={{
             left: phase === 'editing' && selection ? toolbarLeft : 0,
             top: phase === 'editing' && selection ? toolbarTop : 0,
-            visibility: phase === 'editing' && selection ? 'visible' : 'hidden',
+            // 用 opacity 而不是 visibility 隐藏：覆盖层首次显示时就把工具栏画好，
+            // 避免第一次框选后等一次可见绘制（实测多出约 80ms）。
+            opacity: phase === 'editing' && selection ? 1 : 0,
+            visibility: 'visible',
             pointerEvents: phase === 'editing' && selection ? 'auto' : 'none'
           }}
+          aria-hidden={!(phase === 'editing' && selection)}
         >
           <Toolbar
             options={options}

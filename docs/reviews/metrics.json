@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T05:52:54.995Z",
+  "generatedAt": "2026-10-29T04:14:37.114Z",
   "project": {
     "name": "snapglass",
     "version": "0.6.1",
@@ -8,30 +8,26 @@
   },
   "git": {
     "branch": "release/0.6.1",
-    "commit": "9eb192b",
-    "commitDate": "2026-10-28T05:47:06.000Z",
+    "commit": "4ea3764",
+    "commitDate": "2026-10-28T05:54:51.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
     "deletions": null
   },
   "source": {
-    "files": 161,
-    "lines": 26282,
-    "testFiles": 25,
+    "files": 129,
+    "lines": 19817,
+    "testFiles": 22,
     "todoCount": 0,
     "largest": [
       {
-        "path": "src\\main\\long-capture.ts",
-        "lines": 1462
-      },
-      {
         "path": "src\\main\\index.ts",
-        "lines": 1333
+        "lines": 972
       },
       {
         "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
-        "lines": 849
+        "lines": 847
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
@@ -40,6 +36,10 @@
       {
         "path": "src\\main\\recording.ts",
         "lines": 752
+      },
+      {
+        "path": "src\\renderer\\src\\overlay\\Toolbar.tsx",
+        "lines": 632
       }
     ]
   },
