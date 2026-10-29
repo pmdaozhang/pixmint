@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T04:14:37.114Z",
+  "generatedAt": "2026-10-29T04:15:27.341Z",
   "project": {
     "name": "snapglass",
     "version": "0.6.1",
@@ -8,8 +8,8 @@
   },
   "git": {
     "branch": "release/0.6.1",
-    "commit": "4ea3764",
-    "commitDate": "2026-10-28T05:54:51.000Z",
+    "commit": "a75e4a5",
+    "commitDate": "2026-10-29T04:15:12.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
