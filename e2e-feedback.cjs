@@ -53,7 +53,10 @@ const server = http.createServer((request, response) => {
       request.method === 'POST' &&
       /^\/api\/v1\/feedback\/[^/]+\/attachments$/.test(request.url || '')
     ) {
-      requests.attachments.push(body)
+      requests.attachments.push({
+        length: body.length,
+        hasFileField: body.includes(Buffer.from('name="file"'))
+      })
       response.writeHead(201, { 'Content-Type': 'application/json' })
       response.end(JSON.stringify({ ok: true }))
       return
@@ -157,8 +160,8 @@ function listen() {
     assert(typeof first.os_version === 'string', 'os_version missing')
     assert(typeof first.arch === 'string', 'arch missing')
     assert(requests.attachments.length === 2, 'expected two attachment requests')
-    for (const body of requests.attachments) {
-      assert(body.includes(Buffer.from('name="file"')), 'attachment field name mismatch')
+    for (const attachment of requests.attachments) {
+      assert(attachment.hasFileField, 'attachment field name mismatch')
     }
 
     const queueResult = await win.evaluate(
@@ -276,6 +279,48 @@ function listen() {
       compressedBody.length < 5 * 1024 * 1024 + 32 * 1024,
       'compressed attachment still exceeds five megabytes'
     )
+
+    const performanceSamples = []
+    for (let iteration = 0; iteration < 3; iteration += 1) {
+      const perfRequestId = randomUUID()
+      const result = await win.evaluate(
+        async ({ requestId, bytesPerImage, index }) => {
+          const attachments = Array.from({ length: 10 }, (_, imageIndex) => ({
+            name: `perf-${index}-${imageIndex}.png`,
+            mimeType: 'image/png',
+            bytes: new Uint8Array(bytesPerImage)
+          }))
+          const started = performance.now()
+          const submission = await window.snapglass.feedback.submit({
+            content: `E2E 满额性能第 ${index + 1} 轮`,
+            requestId,
+            attachments
+          })
+          return {
+            submission,
+            durationMs: performance.now() - started
+          }
+        },
+        {
+          requestId: perfRequestId,
+          bytesPerImage: 4.8 * 1024 * 1024,
+          index: iteration
+        }
+      )
+      assert(result.submission.status === 'sent', 'performance submission failed')
+      assert(
+        result.submission.attachments?.uploaded === 10,
+        'performance submission did not upload ten attachments'
+      )
+      performanceSamples.push(result.durationMs)
+    }
+    performanceSamples.sort((a, b) => a - b)
+    const perfP95 = performanceSamples[performanceSamples.length - 1]
+    console.log(
+      'FEEDBACK_10X4_8MB_MS',
+      performanceSamples.map((value) => Math.round(value)).join(',')
+    )
+    assert(perfP95 <= 8000, '10x4.8MB submission exceeded eight seconds')
 
     assert(errors.length === 0, `renderer errors: ${JSON.stringify(errors)}`)
     console.log('E2E_FEEDBACK_OK')
