@@ -124,3 +124,25 @@ publish:
 然后 `latest.yml`、安装包、`.blockmap` 必须放在 `/var/www/pixmint-downloads/`。
 这是一个独立的打包配置变更，需要单独确认后再改。
 
+## 6. Nginx 缓存建议
+
+```nginx
+# release.json 必须短缓存，发版后立刻生效
+location = /release.json {
+  add_header Cache-Control "no-store, must-revalidate";
+}
+
+# 版本化安装包可以长缓存
+location ~ ^/downloads/Pixmint-Setup-.*\.exe$ {
+  add_header Cache-Control "public, max-age=31536000, immutable";
+}
+
+# latest.yml 由同一个 URL 覆盖更新，不能长缓存
+location = /downloads/latest.yml {
+  add_header Cache-Control "no-cache";
+}
+```
+
+上传顺序必须是：安装包和 `.sha256` → `latest.yml`/`.blockmap` → 最后替换
+`release.json`。这样用户不会看到“新版本号指向旧文件”的中间状态。
+
