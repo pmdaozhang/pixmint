@@ -16,6 +16,7 @@
     "smoke:overlay": "electron . --smoke-overlay",
     "e2e:overlay": "node e2e-overlay.cjs",
     "e2e:onboarding": "node e2e-onboarding.cjs",
+    "e2e:feedback": "node e2e-feedback.cjs",
     "e2e:pin": "node e2e-pin.cjs",
     "e2e:recording": "node e2e-recording.cjs",
     "e2e:update-online": "node e2e-update-online.cjs",

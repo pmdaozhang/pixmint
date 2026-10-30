@@ -1,4 +1,5 @@
 import type { SnapglassApi } from '../../shared/api'
+import type { FeedbackSubmitInput } from '../../shared/feedback'
 import type { OverlayInit, Settings, UpdateState } from '../../shared/types'
 
 const initialSettings: Settings = {
@@ -96,6 +97,20 @@ const api = {
     openCrashFolder: async (): Promise<string> => '',
     flush: async (): Promise<void> => {},
     exportReport: async (): Promise<string | null> => null
+  },
+  feedback: {
+    submit: async (input: FeedbackSubmitInput) => {
+      await wait(650)
+      return {
+        status: 'sent',
+        requestId: input.requestId,
+        id: 'mock-feedback',
+        attachments: input.attachments.length
+          ? { uploaded: input.attachments.length, failed: 0 }
+          : undefined
+      }
+    },
+    onStatus: () => () => {}
   },
   updater: {
     getState: async (): Promise<UpdateState> => updateState,

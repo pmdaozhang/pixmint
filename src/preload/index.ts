@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SnapglassApi } from '../shared/api'
 import type {
+  FeedbackStatusEvent,
+  FeedbackSubmitInput
+} from '../shared/feedback'
+import type {
   GifDoneMeta,
   OverlayCompletePayload,
   OverlayInit,
@@ -134,6 +138,16 @@ const api: SnapglassApi = {
     flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
     exportReport: () =>
       ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
+  },
+  feedback: {
+    submit: (input: FeedbackSubmitInput) => ipcRenderer.invoke('feedback:submit', input),
+    onStatus: (callback: (event: FeedbackStatusEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: FeedbackStatusEvent) => {
+        callback(event)
+      }
+      ipcRenderer.on('feedback:status', listener)
+      return () => ipcRenderer.removeListener('feedback:status', listener)
+    }
   },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,

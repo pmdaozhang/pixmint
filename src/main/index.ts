@@ -38,6 +38,8 @@ import { WindowSnapHelper } from './window-snap'
 import { createPlatformServices, type PlatformServices } from './platform'
 import { createSettingsWindow } from './windows/settings-window'
 import { createOnboardingWindow } from './windows/onboarding-window'
+import { createFeedbackWindow, sendFeedbackStatus } from './windows/feedback-window'
+import { FeedbackService } from './feedback'
 import { loadRoute } from './windows/load'
 import { StatusToast } from './windows/status-toast'
 import { FAKE_SCREEN_PNG } from './test-fixture'
@@ -118,6 +120,7 @@ const isOcrSmoke = process.argv.includes('--smoke-ocr')
 const isOverlayOcrSmoke = process.argv.includes('--smoke-overlay-ocr')
 const isSettingsE2e = process.argv.includes('--e2e-settings')
 const isOnboardingE2e = process.argv.includes('--e2e-onboarding')
+const isFeedbackE2e = process.argv.includes('--e2e-feedback')
 const isOcrTranslateSmoke = process.argv.includes('--smoke-ocr-translate')
 const isPrepareSmoke = process.argv.includes('--smoke-prepare')
 const isFastCaptureSmoke = process.argv.includes('--smoke-fast-capture')
@@ -137,6 +140,7 @@ let ocrManager: OcrManager
 let recorderManager: RecorderManager
 let windowSnap: WindowSnapHelper
 let platformServices: PlatformServices
+let feedbackService: FeedbackService
 let tray: Tray | null = null
 let preloadPath = ''
 let overlayReadyCount = 0
@@ -398,6 +402,7 @@ function registerIpc(): void {
     secretStore.setTranslationKey(key)
   )
   ipcMain.on('settings:open-window', () => createSettingsWindow(preloadPath))
+  ipcMain.handle('feedback:submit', (_event, input) => feedbackService.submit(input))
 
   ipcMain.handle('app:version', () => app.getVersion())
 
@@ -517,6 +522,8 @@ function initServices(): void {
   })
   platformServices.capture.prewarm()
   platformServices.windowQuery.prewarm()
+  feedbackService = new FeedbackService({ onStatus: sendFeedbackStatus })
+  feedbackService.start()
   registerIpc()
   applySystemSettings()
   initUpdater()
@@ -819,6 +826,7 @@ if (
   !isCaptureOnce &&
   !isSettingsE2e &&
   !isOnboardingE2e &&
+  !isFeedbackE2e &&
   !app.requestSingleInstanceLock()
 ) {
   app.quit()
@@ -838,6 +846,7 @@ if (
       !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
+      !isFeedbackE2e &&
       preloadPath
     ) {
       openStartupWindow()
@@ -860,6 +869,10 @@ if (
     }
     if (isOnboardingE2e) {
       createOnboardingWindow(preloadPath)
+      return
+    }
+    if (isFeedbackE2e) {
+      createFeedbackWindow(preloadPath)
       return
     }
     if (isOverlaySmoke) {
@@ -900,6 +913,7 @@ if (
         void startCapture()
       },
       onSettings: () => createSettingsWindow(preloadPath),
+      onFeedback: () => createFeedbackWindow(preloadPath),
       onQuit: () => app.quit()
     })
     if (isDebugTrayMenu) {
@@ -943,6 +957,7 @@ if (
       !isCaptureOnce &&
       !isSettingsE2e &&
       !isOnboardingE2e &&
+      !isFeedbackE2e &&
       preloadPath
     ) {
       openStartupWindow()
@@ -958,6 +973,7 @@ if (
     ocrManager?.destroyAll()
     recorderManager?.destroyAll()
     overlayManager?.destroyAll()
+    feedbackService?.dispose()
     platformServices.dispose()
     tray?.destroy()
     tray = null

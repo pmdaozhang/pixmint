@@ -1,0 +1,1929 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixmint · 托盘意见反馈 Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Microsoft YaHei UI", "Segoe UI", sans-serif;
+        --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+        --page: #dfe4ea;
+        --page-deep: #c7d0da;
+        --wall-1: #d6e1ed;
+        --wall-2: #b8c9de;
+        --wall-3: #dfd4c7;
+        --surface: #f9f9fb;
+        --surface-2: #ffffff;
+        --surface-3: #ececf0;
+        --surface-glass: rgba(250, 250, 252, 0.86);
+        --menu: rgba(248, 248, 250, 0.94);
+        --text-1: #1c1c1e;
+        --text-2: #54545a;
+        --text-3: #7c7c84;
+        --border: rgba(0, 0, 0, 0.1);
+        --border-strong: rgba(0, 0, 0, 0.17);
+        --hover: rgba(0, 0, 0, 0.052);
+        --accent: #0285ff;
+        --accent-action: #0066cc;
+        --accent-hover: #0057ad;
+        --accent-soft: #e5f1ff;
+        --success: #1e7a34;
+        --success-soft: #e8f5ec;
+        --danger: #d70015;
+        --danger-soft: #fdecec;
+        --shadow-menu:
+          0 20px 56px rgba(17, 24, 39, 0.24), 0 3px 10px rgba(17, 24, 39, 0.13);
+        --shadow-dialog:
+          0 36px 100px rgba(12, 19, 31, 0.3), 0 8px 24px rgba(12, 19, 31, 0.13);
+        --shadow-sm: 0 2px 8px rgba(20, 30, 50, 0.08);
+        --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+      }
+
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #08090b;
+        --page-deep: #030405;
+        --wall-1: #102037;
+        --wall-2: #251c38;
+        --wall-3: #34232a;
+        --surface: #141416;
+        --surface-2: #1c1c1e;
+        --surface-3: #27272a;
+        --surface-glass: rgba(22, 22, 24, 0.9);
+        --menu: rgba(31, 31, 34, 0.94);
+        --text-1: #f5f5f7;
+        --text-2: #b8b8bd;
+        --text-3: #93939a;
+        --border: rgba(255, 255, 255, 0.1);
+        --border-strong: rgba(255, 255, 255, 0.18);
+        --hover: rgba(255, 255, 255, 0.072);
+        --accent: #0a84ff;
+        --accent-action: #0a84ff;
+        --accent-hover: #339cff;
+        --accent-soft: #10243b;
+        --success: #30d158;
+        --success-soft: #102515;
+        --danger: #ff453a;
+        --danger-soft: #2a1213;
+        --shadow-menu:
+          0 24px 64px rgba(0, 0, 0, 0.62), 0 3px 12px rgba(0, 0, 0, 0.42);
+        --shadow-dialog:
+          0 40px 120px rgba(0, 0, 0, 0.72), 0 8px 28px rgba(0, 0, 0, 0.45);
+        --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+        --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        color: var(--text-1);
+        font-family: var(--font);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+        background: var(--page);
+      }
+
+      button,
+      textarea,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        border: 0;
+        padding: 0;
+        background: none;
+        cursor: pointer;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .desktop {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        isolation: isolate;
+        background:
+          radial-gradient(58% 72% at 24% 16%, var(--wall-1), transparent 63%),
+          radial-gradient(56% 66% at 74% 34%, var(--wall-2), transparent 68%),
+          radial-gradient(52% 70% at 62% 82%, var(--wall-3), transparent 64%),
+          linear-gradient(145deg, var(--page), var(--page-deep));
+      }
+
+      .desktop::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        opacity: 0.5;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.62' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.13'/%3E%3C/svg%3E");
+        mix-blend-mode: soft-light;
+        pointer-events: none;
+      }
+
+      .desktop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(
+          110deg,
+          rgba(255, 255, 255, 0.16),
+          transparent 38%,
+          rgba(0, 0, 0, 0.1)
+        );
+        pointer-events: none;
+      }
+
+      [data-theme="dark"] .desktop::after {
+        background: linear-gradient(
+          110deg,
+          rgba(255, 255, 255, 0.05),
+          transparent 34%,
+          rgba(0, 0, 0, 0.32)
+        );
+      }
+
+      .desktop-glow {
+        position: absolute;
+        left: 20%;
+        top: 12%;
+        width: 46vw;
+        height: 52vh;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.16);
+        filter: blur(80px);
+        pointer-events: none;
+      }
+
+      [data-theme="dark"] .desktop-glow {
+        background: rgba(45, 111, 210, 0.12);
+      }
+
+      .backdrop-window {
+        position: absolute;
+        left: 50%;
+        top: 47%;
+        width: min(650px, 58vw);
+        height: min(420px, 51vh);
+        transform: translate(-50%, -50%) rotate(-0.5deg);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: color-mix(in srgb, var(--surface) 84%, transparent);
+        box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
+        backdrop-filter: blur(20px) saturate(1.35);
+        opacity: 0.72;
+      }
+
+      [data-theme="dark"] .backdrop-window {
+        box-shadow: 0 32px 100px rgba(0, 0, 0, 0.45);
+      }
+
+      .backdrop-window-bar {
+        height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 15px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .backdrop-mark {
+        width: 22px;
+        height: 22px;
+        color: var(--text-1);
+      }
+
+      .backdrop-window-bar strong {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .backdrop-window-bar span {
+        margin-left: auto;
+        color: var(--text-3);
+        font: 9.5px/1 var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .backdrop-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .backdrop-card {
+        min-height: 112px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+      }
+
+      .backdrop-card:nth-child(3) {
+        grid-column: span 2;
+        min-height: 152px;
+      }
+
+      .backdrop-card-lines {
+        display: grid;
+        gap: 8px;
+        padding: 16px;
+      }
+
+      .backdrop-card-lines i {
+        display: block;
+        height: 7px;
+        border-radius: 99px;
+        background: var(--border-strong);
+        opacity: 0.5;
+      }
+
+      .backdrop-card-lines i:nth-child(2) {
+        width: 73%;
+      }
+
+      .backdrop-card-lines i:nth-child(3) {
+        width: 48%;
+      }
+
+      .demo-bar {
+        position: fixed;
+        z-index: 40;
+        top: 18px;
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: calc(100vw - 32px);
+        padding: 6px 7px 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-glass);
+        box-shadow: var(--shadow-sm);
+        backdrop-filter: blur(24px) saturate(1.5);
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
+
+      .demo-brand {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-right: 3px;
+        color: var(--text-2);
+        font: 600 9.5px/1 var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .demo-brand::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .demo-state-group {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 8px;
+        background: var(--surface-3);
+      }
+
+      .demo-state {
+        height: 27px;
+        padding: 0 9px;
+        border-radius: 6px;
+        color: var(--text-2);
+        font-size: 11px;
+        transition:
+          background 120ms ease,
+          color 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .demo-state:hover {
+        color: var(--text-1);
+      }
+
+      .demo-state.on {
+        background: var(--surface-2);
+        color: var(--text-1);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .demo-icon-button {
+        width: 29px;
+        height: 29px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        color: var(--text-2);
+      }
+
+      .demo-icon-button:hover {
+        background: var(--hover);
+        color: var(--text-1);
+      }
+
+      .tray-area {
+        position: absolute;
+        right: 14px;
+        bottom: 46px;
+        z-index: 12;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 7px;
+      }
+
+      .tray-menu {
+        width: 222px;
+        padding: 5px;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--menu);
+        box-shadow: var(--shadow-menu);
+        backdrop-filter: blur(28px) saturate(1.4);
+        transform-origin: right bottom;
+        animation: menu-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      @keyframes menu-in {
+        from {
+          opacity: 0;
+          transform: scale(0.96) translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+
+      .tray-menu button {
+        position: relative;
+        width: 100%;
+        height: 31px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        border-radius: 6px;
+        text-align: left;
+        font-size: 12.5px;
+      }
+
+      .tray-menu button:hover,
+      .tray-menu button:focus-visible {
+        outline: none;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .tray-menu kbd {
+        color: var(--text-3);
+        font: 10px/1 var(--mono);
+      }
+
+      .tray-menu button:hover kbd,
+      .tray-menu button:focus-visible kbd {
+        color: rgba(255, 255, 255, 0.76);
+      }
+
+      .tray-menu .menu-separator {
+        height: 1px;
+        margin: 5px 7px;
+        background: var(--border);
+      }
+
+      .tray-menu .feedback-item {
+        animation: feedback-pulse 2.5s ease-in-out infinite;
+      }
+
+      @keyframes feedback-pulse {
+        0%,
+        68%,
+        100% {
+          background: transparent;
+        }
+        74%,
+        82% {
+          background: color-mix(in srgb, var(--accent) 11%, transparent);
+        }
+      }
+
+      .tray-menu .feedback-item:hover,
+      .tray-menu .feedback-item:focus-visible {
+        animation: none;
+      }
+
+      .new-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .feedback-item:hover .new-dot,
+      .feedback-item:focus-visible .new-dot {
+        background: #fff;
+      }
+
+      .tray-button {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--text-1);
+        transition:
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .tray-button:hover,
+      .tray-button[aria-expanded="true"] {
+        background: var(--hover);
+      }
+
+      .tray-button svg {
+        width: 19px;
+        height: 19px;
+      }
+
+      .tray-callout {
+        position: absolute;
+        right: 250px;
+        bottom: 130px;
+        z-index: 11;
+        width: 190px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-glass);
+        box-shadow: var(--shadow-sm);
+        color: var(--text-2);
+        font-size: 11px;
+        line-height: 1.55;
+        backdrop-filter: blur(20px);
+      }
+
+      .tray-callout::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -5px;
+        width: 9px;
+        height: 9px;
+        border-top: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        background: var(--surface-glass);
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      .tray-callout strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--text-1);
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+
+      .taskbar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 13px;
+        padding: 0 16px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 76%, transparent);
+        backdrop-filter: blur(28px) saturate(1.4);
+        color: var(--text-2);
+      }
+
+      .taskbar-grip {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-right: auto;
+        color: var(--text-3);
+        font: 9px/1 var(--mono);
+        letter-spacing: 0.1em;
+      }
+
+      .taskbar-grip i {
+        width: 12px;
+        height: 12px;
+        border: 1px solid currentColor;
+        border-radius: 3px;
+        opacity: 0.55;
+      }
+
+      .taskbar-icons {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: var(--text-2);
+      }
+
+      .taskbar-icons svg {
+        width: 14px;
+        height: 14px;
+        opacity: 0.72;
+      }
+
+      .taskbar-clock {
+        min-width: 76px;
+        text-align: right;
+        font-size: 10.5px;
+        line-height: 1.35;
+      }
+
+      .taskbar-clock span {
+        display: block;
+        color: var(--text-3);
+      }
+
+      .dialog-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(13, 18, 28, 0.3);
+        backdrop-filter: blur(8px) saturate(0.82);
+        animation: backdrop-in 180ms ease;
+      }
+
+      [data-theme="dark"] .dialog-backdrop {
+        background: rgba(0, 0, 0, 0.52);
+      }
+
+      @keyframes backdrop-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .feedback-dialog {
+        position: relative;
+        width: min(548px, calc(100vw - 40px));
+        max-height: calc(100vh - 48px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow-dialog);
+        animation: dialog-in 220ms cubic-bezier(0.16, 0.8, 0.25, 1);
+      }
+
+      @keyframes dialog-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .dialog-header {
+        flex: none;
+        height: 51px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 15px 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 88%, transparent);
+      }
+
+      .dialog-brand-mark {
+        width: 25px;
+        height: 25px;
+        flex: none;
+        color: var(--text-1);
+      }
+
+      .dialog-header-title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .dialog-header-title strong {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .dialog-header-title span {
+        color: var(--text-3);
+        font: 9px/1 var(--mono);
+        letter-spacing: 0.08em;
+      }
+
+      .dialog-close {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        margin-left: auto;
+        border-radius: 7px;
+        color: var(--text-2);
+      }
+
+      .dialog-close:hover {
+        background: var(--hover);
+        color: var(--text-1);
+      }
+
+      .dialog-close:focus-visible,
+      .demo-icon-button:focus-visible,
+      .demo-state:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+
+      .dialog-body {
+        overflow: auto;
+        padding: 22px 24px 0;
+      }
+
+      .dialog-body::-webkit-scrollbar {
+        width: 9px;
+      }
+
+      .dialog-body::-webkit-scrollbar-thumb {
+        border: 3px solid transparent;
+        border-radius: 99px;
+        background: var(--border-strong);
+        background-clip: padding-box;
+      }
+
+      .dialog-intro {
+        margin-bottom: 18px;
+      }
+
+      .dialog-intro h1 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1.2;
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .dialog-intro p {
+        margin: 7px 0 0;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .field-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 7px;
+      }
+
+      .field-heading label,
+      .field-heading strong {
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+
+      .field-heading span {
+        color: var(--text-3);
+        font: 9.5px/1 var(--mono);
+      }
+
+      .field-heading .required {
+        margin-left: 3px;
+        color: var(--accent);
+        font-family: var(--font);
+        font-size: 10px;
+      }
+
+      .composer {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--surface-2);
+        transition:
+          border-color 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .composer:focus-within {
+        border-color: var(--accent);
+        box-shadow: var(--focus);
+      }
+
+      .attachment-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px 7px;
+        padding: 11px 11px 10px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface-3) 38%, transparent);
+        animation: thumbs-in 160ms ease-out;
+      }
+
+      @keyframes thumbs-in {
+        from {
+          opacity: 0;
+          transform: translateY(-3px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .thumbnail {
+        position: relative;
+        width: 54px;
+        height: 54px;
+        flex: none;
+        animation: thumb-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1);
+      }
+
+      @keyframes thumb-pop {
+        from {
+          opacity: 0;
+          transform: scale(0.86);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .thumbnail-frame {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        background: var(--surface-3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      }
+
+      .thumbnail img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+
+      .thumb-remove {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 17px;
+        height: 17px;
+        display: grid;
+        place-items: center;
+        border: 2px solid var(--surface-2);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--text-1) 86%, transparent);
+        color: var(--surface-2);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition:
+          background 120ms ease,
+          transform 120ms ease;
+      }
+
+      .thumb-remove:hover {
+        background: var(--danger);
+        transform: scale(1.06);
+      }
+
+      .thumb-remove:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+
+      .feedback-textarea {
+        width: 100%;
+        min-height: 112px;
+        display: block;
+        resize: vertical;
+        padding: 12px 13px 14px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font-size: 12.5px;
+        line-height: 1.66;
+        user-select: text;
+      }
+
+      .feedback-textarea::placeholder {
+        color: var(--text-3);
+      }
+
+      .attach-hint {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      kbd.keycap {
+        display: inline-flex;
+        align-items: center;
+        height: 17px;
+        padding: 0 5px;
+        border: 1px solid var(--border-strong);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: var(--surface-2);
+        color: var(--text-2);
+        font: 8.5px/1 var(--mono);
+      }
+
+      .paste-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 7px;
+        color: var(--text-3);
+        font-size: 10.5px;
+      }
+
+      .paste-help {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+      }
+
+      .image-count {
+        flex: none;
+        font: 9.5px/1 var(--mono);
+        transition: color 120ms ease;
+      }
+
+      .image-count.full {
+        color: var(--danger);
+      }
+
+      .privacy-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        margin-top: 13px;
+        color: var(--text-3);
+        font-size: 10px;
+        line-height: 1.55;
+      }
+
+      .privacy-note svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      .dialog-footer {
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 17px;
+        padding: 14px 24px 18px;
+        border-top: 1px solid var(--border);
+      }
+
+      .button-secondary,
+      .button-primary {
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 13px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 540;
+        transition:
+          background 130ms ease,
+          border-color 130ms ease,
+          opacity 130ms ease,
+          transform 100ms ease;
+      }
+
+      .button-secondary {
+        border: 1px solid var(--border-strong);
+        background: var(--surface-2);
+        color: var(--text-1);
+      }
+
+      .button-secondary:hover {
+        background: var(--surface-3);
+      }
+
+      .button-primary {
+        min-width: 86px;
+        background: var(--accent-action);
+        color: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.13);
+      }
+
+      .button-primary:hover {
+        background: var(--accent-hover);
+      }
+
+      .button-primary:active:not(:disabled),
+      .button-secondary:active {
+        transform: translateY(0.5px);
+      }
+
+      .button-primary:disabled {
+        opacity: 0.42;
+        cursor: default;
+      }
+
+      .button-primary:focus-visible,
+      .button-secondary:focus-visible,
+      .image-remove:focus-visible,
+      .image-replace:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+
+      .spinner {
+        width: 13px;
+        height: 13px;
+        border: 1.7px solid rgba(255, 255, 255, 0.36);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .success-body {
+        padding: 42px 32px 30px;
+        text-align: center;
+      }
+
+      .success-mark {
+        position: relative;
+        width: 62px;
+        height: 62px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        background: var(--success-soft);
+        color: var(--success);
+        animation: success-pop 420ms cubic-bezier(0.2, 1.2, 0.3, 1);
+      }
+
+      .success-mark::before {
+        content: "";
+        position: absolute;
+        inset: -7px;
+        border: 1px solid color-mix(in srgb, var(--success) 22%, transparent);
+        border-radius: 50%;
+      }
+
+      @keyframes success-pop {
+        from {
+          opacity: 0;
+          transform: scale(0.72);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .success-body h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .success-body p {
+        max-width: 330px;
+        margin: 8px auto 0;
+        color: var(--text-2);
+        font-size: 12px;
+        line-height: 1.65;
+      }
+
+      .success-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 18px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        background: var(--surface-2);
+        color: var(--text-2);
+        font-size: 10.5px;
+      }
+
+      .success-summary svg {
+        color: var(--success);
+      }
+
+      .success-footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 24px 24px;
+      }
+
+      .success-footer .button-primary {
+        min-width: 96px;
+      }
+
+      .demo-note {
+        margin-top: 15px;
+        color: var(--text-3);
+        font-size: 9.5px;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 60;
+        left: 50%;
+        bottom: 60px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--surface-glass);
+        box-shadow: var(--shadow-menu);
+        color: var(--text-1);
+        font-size: 11px;
+        white-space: nowrap;
+        backdrop-filter: blur(24px);
+        transform: translate(-50%, 6px);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 150ms ease,
+          transform 150ms ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .toast svg {
+        color: var(--success);
+      }
+
+      @media (max-width: 760px) {
+        .demo-bar {
+          top: 10px;
+          gap: 5px;
+          padding-left: 9px;
+        }
+
+        .demo-brand {
+          display: none;
+        }
+
+        .demo-state {
+          padding: 0 7px;
+        }
+
+        .dialog-backdrop {
+          padding: 14px;
+        }
+
+        .feedback-dialog {
+          width: calc(100vw - 28px);
+          max-height: calc(100vh - 28px);
+        }
+
+        .dialog-body {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .dialog-footer {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+      }
+
+      @media (max-height: 660px) {
+        .dialog-body {
+          padding-top: 16px;
+        }
+
+        .dialog-intro {
+          margin-bottom: 13px;
+        }
+
+        .feedback-textarea {
+          min-height: 94px;
+        }
+
+        .privacy-note {
+          margin-top: 9px;
+        }
+
+        .dialog-footer {
+          margin-top: 11px;
+          padding-top: 11px;
+          padding-bottom: 14px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="desktop">
+      <div class="desktop-glow"></div>
+
+      <div class="backdrop-window" aria-hidden="true">
+        <div class="backdrop-window-bar">
+          <svg class="backdrop-mark" viewBox="0 0 512 512" fill="none">
+            <g transform="rotate(-2 256 270)">
+              <path
+                d="M 148 118 H 364 C 414 118 444 148 444 198 V 342 C 444 392 414 422 364 422 H 148 C 98 422 68 392 68 342 V 198 C 68 148 98 118 148 118 Z"
+                fill="currentColor"
+              />
+              <circle cx="190" cy="250" r="24" fill="var(--surface)" />
+              <circle cx="322" cy="250" r="24" fill="var(--surface)" />
+            </g>
+            <path
+              d="M 380 58 H 460 V 138"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="26"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <strong>Pixmint</strong>
+          <span>SETTINGS</span>
+        </div>
+        <div class="backdrop-grid">
+          <div class="backdrop-card">
+            <div class="backdrop-card-lines"><i></i><i></i><i></i></div>
+          </div>
+          <div class="backdrop-card">
+            <div class="backdrop-card-lines"><i></i><i></i><i></i></div>
+          </div>
+          <div class="backdrop-card">
+            <div class="backdrop-card-lines">
+              <i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-bar" aria-label="Demo 状态切换">
+        <span class="demo-brand">Feedback Demo · 0.6.1</span>
+        <div class="demo-state-group" role="group" aria-label="预览状态">
+          <button class="demo-state on" type="button" data-demo="tray">托盘菜单</button>
+          <button class="demo-state" type="button" data-demo="form">反馈弹窗</button>
+          <button class="demo-state" type="button" data-demo="image">粘贴截图</button>
+          <button class="demo-state" type="button" data-demo="success">提交成功</button>
+        </div>
+        <button
+          id="themeToggle"
+          class="demo-icon-button"
+          type="button"
+          aria-label="切换深色模式"
+          title="切换深浅色"
+        >
+          <svg
+            id="themeIcon"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="tray-callout" id="trayCallout">
+        <strong>托盘菜单新增反馈入口</strong>
+        点击“意见反馈…”打开弹窗
+      </div>
+
+      <div class="tray-area">
+        <div class="tray-menu" id="trayMenu" role="menu" aria-label="Pixmint 托盘菜单">
+          <button type="button" role="menuitem" data-menu-action="capture">
+            <span>截图</span><kbd>F1</kbd>
+          </button>
+          <button type="button" role="menuitem" data-menu-action="settings">
+            <span>设置</span>
+          </button>
+          <div class="menu-separator" role="separator"></div>
+          <button type="button" role="menuitem" class="feedback-item" data-menu-action="feedback">
+            <span>意见反馈…</span><i class="new-dot" aria-label="新增"></i>
+          </button>
+          <div class="menu-separator" role="separator"></div>
+          <button type="button" role="menuitem" data-menu-action="quit">
+            <span>退出 Pixmint</span>
+          </button>
+        </div>
+
+        <button
+          id="trayButton"
+          class="tray-button"
+          type="button"
+          aria-label="Pixmint 托盘图标"
+          aria-expanded="true"
+          title="右键托盘图标"
+        >
+          <svg viewBox="0 0 512 512" fill="none" aria-hidden="true">
+            <g transform="rotate(-2 256 270)">
+              <path
+                d="M 148 118 H 364 C 414 118 444 148 444 198 V 342 C 444 392 414 422 364 422 H 148 C 98 422 68 392 68 342 V 198 C 68 148 98 118 148 118 Z"
+                fill="currentColor"
+              />
+              <circle cx="190" cy="250" r="24" fill="var(--surface)" />
+              <circle cx="322" cy="250" r="24" fill="var(--surface)" />
+            </g>
+            <path
+              d="M 380 58 H 460 V 138"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="26"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="taskbar" aria-hidden="true">
+        <div class="taskbar-grip"><i></i>PIXMINT 0.6.1</div>
+        <div class="taskbar-icons">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 9v6h4l5 4V5L8 9H4z" />
+            <path d="M17 9a4.5 4.5 0 0 1 0 6" />
+          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 8.5a15 15 0 0 1 18 0M6 12a10.5 10.5 0 0 1 12 0M9 15.5a5.5 5.5 0 0 1 6 0" />
+            <circle cx="12" cy="19" r="1" fill="currentColor" />
+          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="7" width="18" height="10" rx="2" />
+            <path d="M6.5 10h11M6.5 13.5h7" />
+          </svg>
+        </div>
+        <div class="taskbar-clock">11:28<span>2026/10/30</span></div>
+      </div>
+
+      <div class="dialog-backdrop" id="dialogBackdrop" hidden>
+        <section
+          class="feedback-dialog"
+          id="feedbackDialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dialogTitle"
+        >
+          <header class="dialog-header">
+            <svg class="dialog-brand-mark" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+              <g transform="rotate(-2 256 270)">
+                <path
+                  d="M 148 118 H 364 C 414 118 444 148 444 198 V 342 C 444 392 414 422 364 422 H 148 C 98 422 68 392 68 342 V 198 C 68 148 98 118 148 118 Z"
+                  fill="currentColor"
+                />
+                <circle cx="190" cy="250" r="24" fill="var(--surface)" />
+                <circle cx="322" cy="250" r="24" fill="var(--surface)" />
+              </g>
+              <path
+                d="M 380 58 H 460 V 138"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="26"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <div class="dialog-header-title">
+              <strong>Pixmint</strong>
+              <span>FEEDBACK</span>
+            </div>
+            <button class="dialog-close" id="closeDialog" type="button" aria-label="关闭反馈弹窗">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </header>
+
+          <div id="formView">
+            <div class="dialog-body">
+              <div class="dialog-intro">
+                <h1 id="dialogTitle">意见反馈</h1>
+                <p>遇到问题，或者有想做的功能，都可以告诉我们。截图能帮助定位得更快。</p>
+              </div>
+
+              <div class="field-heading">
+                <label for="feedbackText">反馈内容<span class="required">必填</span></label>
+                <span id="charCount">0 / 1000</span>
+              </div>
+              <div class="composer">
+                <div
+                  class="attachment-strip"
+                  id="attachmentStrip"
+                  role="list"
+                  aria-label="已粘贴的截图"
+                  hidden
+                ></div>
+                <textarea
+                  id="feedbackText"
+                  class="feedback-textarea"
+                  maxlength="1000"
+                  placeholder="描述你遇到的问题或建议。截图后直接按 Ctrl+V，粘贴进来。"
+                  aria-describedby="pasteHint"
+                ></textarea>
+              </div>
+
+              <div class="paste-meta" id="pasteHint">
+                <span class="paste-help">
+                  <span class="attach-hint">
+                    <kbd class="keycap">Ctrl</kbd> + <kbd class="keycap">V</kbd>
+                    直接粘贴截图
+                  </span>
+                </span>
+                <span class="image-count" id="imageCount">0 / 10 张</span>
+              </div>
+
+              <div class="privacy-note">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="4" y="10" width="16" height="10" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+                会附带 Pixmint 0.6.1 与系统版本信息，仅用于定位问题。
+              </div>
+            </div>
+
+            <footer class="dialog-footer">
+              <button class="button-secondary" id="cancelDialog" type="button">取消</button>
+              <button class="button-primary" id="submitFeedback" type="button" disabled>
+                提交反馈
+              </button>
+            </footer>
+          </div>
+
+          <div id="successView" hidden>
+            <div class="success-body">
+              <div class="success-mark">
+                <svg
+                  width="29"
+                  height="29"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 13l4 4 10-10" />
+                </svg>
+              </div>
+              <h2>反馈已发送</h2>
+              <p>谢谢你帮助 Pixmint 变得更好。我们会认真读完每一条反馈。</p>
+              <div class="success-summary" id="successSummary">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <path d="M5 13l4 4 10-10" />
+                </svg>
+                <span id="successSummaryText">已提交文字反馈</span>
+              </div>
+              <div class="demo-note">Demo 中不会真正发送数据</div>
+            </div>
+            <div class="success-footer">
+              <button class="button-secondary" id="writeAnother" type="button">再写一条</button>
+              <button class="button-primary" id="doneDialog" type="button">完成</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M5 13l4 4 10-10" />
+        </svg>
+        <span id="toastText"></span>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const root = document.documentElement
+        const trayButton = document.getElementById("trayButton")
+        const trayMenu = document.getElementById("trayMenu")
+        const trayCallout = document.getElementById("trayCallout")
+        const dialogBackdrop = document.getElementById("dialogBackdrop")
+        const feedbackDialog = document.getElementById("feedbackDialog")
+        const formView = document.getElementById("formView")
+        const successView = document.getElementById("successView")
+        const feedbackText = document.getElementById("feedbackText")
+        const charCount = document.getElementById("charCount")
+        const attachmentStrip = document.getElementById("attachmentStrip")
+        const imageCount = document.getElementById("imageCount")
+        const submitFeedback = document.getElementById("submitFeedback")
+        const successSummaryText = document.getElementById("successSummaryText")
+        const toast = document.getElementById("toast")
+        const toastText = document.getElementById("toastText")
+        const themeToggle = document.getElementById("themeToggle")
+        const demoStates = Array.from(document.querySelectorAll("[data-demo]"))
+
+        const MAX_IMAGES = 10
+        let images = []
+        let toastTimer = 0
+        let submitTimer = 0
+        let modalOpen = false
+        let submitting = false
+
+        const demoShot =
+          "data:image/svg+xml;charset=utf-8," +
+          encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="920" height="540" viewBox="0 0 920 540">
+              <defs>
+                <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+                  <stop stop-color="#1a2741"/>
+                  <stop offset="1" stop-color="#31213f"/>
+                </linearGradient>
+                <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+                  <stop stop-color="#303746"/>
+                  <stop offset="1" stop-color="#1e2430"/>
+                </linearGradient>
+                <filter id="blur"><feGaussianBlur stdDeviation="22"/></filter>
+                <filter id="shadow"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-opacity=".35"/></filter>
+              </defs>
+              <rect width="920" height="540" fill="url(#bg)"/>
+              <circle cx="730" cy="110" r="160" fill="#2c77d4" opacity=".28" filter="url(#blur)"/>
+              <circle cx="180" cy="430" r="150" fill="#ad5c86" opacity=".25" filter="url(#blur)"/>
+              <rect x="80" y="80" width="760" height="392" rx="18" fill="url(#panel)" stroke="#ffffff" stroke-opacity=".13" filter="url(#shadow)"/>
+              <rect x="80" y="80" width="760" height="46" rx="18" fill="#ffffff" fill-opacity=".045"/>
+              <circle cx="108" cy="103" r="5" fill="#ff5f57"/>
+              <circle cx="125" cy="103" r="5" fill="#febc2e"/>
+              <circle cx="142" cy="103" r="5" fill="#28c840"/>
+              <rect x="475" y="96" width="206" height="14" rx="7" fill="#ffffff" fill-opacity=".1"/>
+              <rect x="116" y="158" width="330" height="24" rx="6" fill="#ffffff" fill-opacity=".76"/>
+              <rect x="116" y="194" width="256" height="11" rx="5.5" fill="#ffffff" fill-opacity=".24"/>
+              <rect x="116" y="229" width="330" height="168" rx="12" fill="#0c111a" fill-opacity=".48" stroke="#ffffff" stroke-opacity=".1"/>
+              <path d="M190 314c52-54 92-14 132-57 29-31 55-38 80-24" fill="none" stroke="#56a8ff" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="190" cy="314" r="5" fill="#56a8ff"/>
+              <circle cx="402" cy="233" r="5" fill="#56a8ff"/>
+              <rect x="482" y="158" width="310" height="122" rx="12" fill="#ffffff" fill-opacity=".055" stroke="#ffffff" stroke-opacity=".09"/>
+              <rect x="502" y="180" width="172" height="11" rx="5.5" fill="#ffffff" fill-opacity=".58"/>
+              <rect x="502" y="203" width="240" height="8" rx="4" fill="#ffffff" fill-opacity=".16"/>
+              <rect x="502" y="221" width="214" height="8" rx="4" fill="#ffffff" fill-opacity=".12"/>
+              <rect x="482" y="303" width="310" height="94" rx="12" fill="#ffffff" fill-opacity=".042"/>
+              <rect x="503" y="325" width="112" height="9" rx="4.5" fill="#ffffff" fill-opacity=".38"/>
+              <rect x="503" y="345" width="246" height="7" rx="3.5" fill="#ffffff" fill-opacity=".12"/>
+              <rect x="406" y="430" width="108" height="34" rx="17" fill="#ffffff" fill-opacity=".9"/>
+              <circle cx="427" cy="447" r="7" fill="#1a1d23"/>
+              <circle cx="449" cy="447" r="7" fill="#1a1d23"/>
+              <rect x="466" y="442" width="31" height="10" rx="5" fill="#1a1d23" fill-opacity=".88"/>
+              <rect x="626" y="430" width="170" height="34" rx="17" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".1"/>
+              <rect x="650" y="444" width="80" height="7" rx="3.5" fill="#ffffff" fill-opacity=".36"/>
+            </svg>
+          `)
+
+        function makeDemoShot(accent, secondary, label) {
+          return (
+            "data:image/svg+xml;charset=utf-8," +
+            encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+                <defs>
+                  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                    <stop stop-color="#151b27"/>
+                    <stop offset="1" stop-color="#242536"/>
+                  </linearGradient>
+                  <filter id="b"><feGaussianBlur stdDeviation="18"/></filter>
+                </defs>
+                <rect width="640" height="400" fill="url(#g)"/>
+                <circle cx="520" cy="62" r="140" fill="${accent}" opacity=".25" filter="url(#b)"/>
+                <circle cx="80" cy="350" r="130" fill="${secondary}" opacity=".2" filter="url(#b)"/>
+                <rect x="58" y="44" width="524" height="312" rx="16" fill="#1d2431" stroke="#ffffff" stroke-opacity=".13"/>
+                <rect x="58" y="44" width="524" height="37" rx="16" fill="#ffffff" fill-opacity=".045"/>
+                <circle cx="80" cy="62" r="4" fill="#ff5f57"/>
+                <circle cx="94" cy="62" r="4" fill="#febc2e"/>
+                <circle cx="108" cy="62" r="4" fill="#28c840"/>
+                <text x="122" y="67" fill="#ffffff" fill-opacity=".45" font-family="Segoe UI, sans-serif" font-size="9">${label}</text>
+                <rect x="86" y="105" width="222" height="18" rx="5" fill="#ffffff" fill-opacity=".7"/>
+                <rect x="86" y="135" width="170" height="8" rx="4" fill="#ffffff" fill-opacity=".18"/>
+                <rect x="86" y="166" width="212" height="126" rx="10" fill="#090d14" fill-opacity=".48" stroke="#ffffff" stroke-opacity=".1"/>
+                <path d="M120 244c38-42 65-10 95-44 21-24 43-31 62-17" fill="none" stroke="${accent}" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="120" cy="244" r="4" fill="${accent}"/>
+                <circle cx="277" cy="183" r="4" fill="${accent}"/>
+                <rect x="320" y="166" width="230" height="56" rx="9" fill="#ffffff" fill-opacity=".055"/>
+                <rect x="338" y="183" width="136" height="8" rx="4" fill="#ffffff" fill-opacity=".38"/>
+                <rect x="338" y="201" width="180" height="6" rx="3" fill="#ffffff" fill-opacity=".12"/>
+                <rect x="320" y="236" width="230" height="56" rx="9" fill="#ffffff" fill-opacity=".04"/>
+                <rect x="338" y="253" width="108" height="8" rx="4" fill="#ffffff" fill-opacity=".3"/>
+                <rect x="338" y="271" width="192" height="6" rx="3" fill="#ffffff" fill-opacity=".1"/>
+                <rect x="86" y="310" width="52" height="22" rx="11" fill="#ffffff" fill-opacity=".08"/>
+                <rect x="149" y="310" width="72" height="22" rx="11" fill="${accent}" fill-opacity=".16"/>
+              </svg>
+            `)
+          )
+        }
+
+        const demoShots = [
+          demoShot,
+          makeDemoShot("#b06bff", "#4e7cff", "settings.png"),
+          makeDemoShot("#39c6b0", "#ffb44d", "annotation.png")
+        ]
+
+        function showToast(message) {
+          window.clearTimeout(toastTimer)
+          toastText.textContent = message
+          toast.classList.add("show")
+          toastTimer = window.setTimeout(() => toast.classList.remove("show"), 1800)
+        }
+
+        function syncSubmitState() {
+          submitFeedback.disabled = submitting || feedbackText.value.trim().length === 0
+          charCount.textContent = `${feedbackText.value.length} / 1000`
+        }
+
+        function renderImages() {
+          attachmentStrip.replaceChildren()
+          attachmentStrip.hidden = images.length === 0
+          images.forEach((src, index) => {
+            const item = document.createElement("div")
+            item.className = "thumbnail"
+            item.setAttribute("role", "listitem")
+
+            const frame = document.createElement("div")
+            frame.className = "thumbnail-frame"
+            const image = document.createElement("img")
+            image.src = src
+            image.alt = `截图 ${index + 1}`
+            frame.append(image)
+
+            const remove = document.createElement("button")
+            remove.type = "button"
+            remove.className = "thumb-remove"
+            remove.dataset.imageIndex = String(index)
+            remove.setAttribute("aria-label", `移除截图 ${index + 1}`)
+            remove.innerHTML =
+              '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+
+            item.append(frame, remove)
+            attachmentStrip.append(item)
+          })
+
+          imageCount.textContent = `${images.length} / ${MAX_IMAGES} 张`
+          imageCount.classList.toggle("full", images.length === MAX_IMAGES)
+          syncSubmitState()
+        }
+
+        function fileToDataUrl(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result))
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(file)
+          })
+        }
+
+        async function addImageFiles(files) {
+          const imageFiles = files.filter((file) => file && file.type.startsWith("image/"))
+          if (imageFiles.length === 0) return
+
+          const available = MAX_IMAGES - images.length
+          if (available <= 0) {
+            showToast(`最多只能粘贴 ${MAX_IMAGES} 张截图`)
+            return
+          }
+
+          const accepted = imageFiles.slice(0, available)
+          try {
+            const nextImages = await Promise.all(accepted.map(fileToDataUrl))
+            images.push(...nextImages)
+            renderImages()
+            setActiveDemo("image")
+            showToast(
+              imageFiles.length > available
+                ? `最多 ${MAX_IMAGES} 张，已粘贴前 ${accepted.length} 张`
+                : `已粘贴 ${accepted.length} 张截图`
+            )
+          } catch {
+            showToast("截图读取失败，请重新复制后再粘贴")
+          }
+        }
+
+        function openTray() {
+          trayMenu.hidden = false
+          trayCallout.hidden = false
+          trayButton.setAttribute("aria-expanded", "true")
+        }
+
+        function closeTray() {
+          trayMenu.hidden = true
+          trayCallout.hidden = true
+          trayButton.setAttribute("aria-expanded", "false")
+        }
+
+        function openDialog({ success = false } = {}) {
+          modalOpen = true
+          closeTray()
+          dialogBackdrop.hidden = false
+          formView.hidden = success
+          successView.hidden = !success
+          if (!success) {
+            syncSubmitState()
+            window.setTimeout(() => feedbackText.focus(), 80)
+          }
+        }
+
+        function closeDialog() {
+          modalOpen = false
+          dialogBackdrop.hidden = true
+          openTray()
+        }
+
+        function resetForm() {
+          feedbackText.value = ""
+          images = []
+          submitting = false
+          formView.hidden = false
+          successView.hidden = true
+          submitFeedback.textContent = "提交反馈"
+          renderImages()
+          syncSubmitState()
+        }
+
+        function setActiveDemo(name) {
+          demoStates.forEach((button) => {
+            button.classList.toggle("on", button.dataset.demo === name)
+          })
+        }
+
+        function showDemoState(name) {
+          window.clearTimeout(submitTimer)
+          if (name === "tray") {
+            resetForm()
+            modalOpen = false
+            dialogBackdrop.hidden = true
+            openTray()
+          } else if (name === "form") {
+            resetForm()
+            openDialog()
+          } else if (name === "image") {
+            resetForm()
+            feedbackText.value =
+              "使用 F1 截图后，托盘菜单偶尔会停留一秒才消失。Windows 11，双屏。"
+            images = demoShots.slice()
+            renderImages()
+            openDialog()
+          } else if (name === "success") {
+            resetForm()
+            feedbackText.value = "希望反馈入口能更快找到，现在这个位置很好。"
+            images = demoShots.slice(0, 2)
+            renderImages()
+            openDialog({ success: true })
+            successSummaryText.textContent = "已提交文字与 2 张截图"
+          }
+          setActiveDemo(name)
+        }
+
+        trayButton.addEventListener("click", () => {
+          if (trayMenu.hidden) {
+            openTray()
+            setActiveDemo("tray")
+          } else {
+            closeTray()
+          }
+        })
+
+        trayButton.addEventListener("contextmenu", (event) => {
+          event.preventDefault()
+          openTray()
+          setActiveDemo("tray")
+        })
+
+        trayMenu.addEventListener("click", (event) => {
+          const item = event.target.closest("[data-menu-action]")
+          if (!item) return
+          const action = item.dataset.menuAction
+          if (action === "feedback") {
+            resetForm()
+            openDialog()
+            setActiveDemo("form")
+            return
+          }
+          const messages = {
+            capture: "Demo：这里会启动截图",
+            settings: "Demo：这里会打开设置",
+            quit: "Demo：这里会退出 Pixmint"
+          }
+          showToast(messages[action] || "Demo 操作")
+          closeTray()
+        })
+
+        demoStates.forEach((button) => {
+          button.addEventListener("click", () => showDemoState(button.dataset.demo))
+        })
+
+        document.getElementById("closeDialog").addEventListener("click", closeDialog)
+        document.getElementById("cancelDialog").addEventListener("click", closeDialog)
+        document.getElementById("doneDialog").addEventListener("click", () => {
+          resetForm()
+          closeDialog()
+          setActiveDemo("tray")
+        })
+
+        document.getElementById("writeAnother").addEventListener("click", () => {
+          resetForm()
+          setActiveDemo("form")
+          feedbackText.focus()
+        })
+
+        feedbackText.addEventListener("input", syncSubmitState)
+
+        attachmentStrip.addEventListener("click", (event) => {
+          const remove = event.target.closest("[data-image-index]")
+          if (!remove) return
+          const index = Number(remove.dataset.imageIndex)
+          if (!Number.isInteger(index)) return
+          images.splice(index, 1)
+          renderImages()
+          showToast("已移除截图")
+        })
+
+        document.addEventListener("paste", (event) => {
+          if (!modalOpen || !successView.hidden) return
+          const items = Array.from(event.clipboardData?.items || [])
+          const files = items
+            .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+            .map((item) => item.getAsFile())
+            .filter(Boolean)
+          if (files.length === 0) return
+          event.preventDefault()
+          void addImageFiles(files)
+        })
+
+        submitFeedback.addEventListener("click", () => {
+          if (submitting || !feedbackText.value.trim()) return
+          submitting = true
+          submitFeedback.disabled = true
+          submitFeedback.innerHTML = '<span class="spinner" aria-hidden="true"></span>正在提交…'
+          submitTimer = window.setTimeout(() => {
+            submitting = false
+            formView.hidden = true
+            successView.hidden = false
+            successSummaryText.textContent = images.length
+              ? `已提交文字与 ${images.length} 张截图`
+              : "已提交文字反馈"
+            setActiveDemo("success")
+          }, 850)
+        })
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            if (modalOpen) closeDialog()
+            else closeTray()
+          }
+        })
+
+        function applyTheme(theme) {
+          root.dataset.theme = theme
+          const icon = document.getElementById("themeIcon")
+          if (theme === "dark") {
+            icon.innerHTML = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M4.3 4.3l1.4 1.4M18.3 18.3l1.4 1.4M2.5 12h2M19.5 12h2M4.3 19.7l1.4-1.4M18.3 5.7l1.4-1.4"/>'
+            themeToggle.setAttribute("aria-label", "切换浅色模式")
+          } else {
+            icon.innerHTML = '<path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"/>'
+            themeToggle.setAttribute("aria-label", "切换深色模式")
+          }
+        }
+
+        themeToggle.addEventListener("click", () => {
+          applyTheme(root.dataset.theme === "dark" ? "light" : "dark")
+        })
+
+        applyTheme(
+          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+        )
+        renderImages()
+        syncSubmitState()
+        openTray()
+      })()
+    </script>
+  </body>
+</html>

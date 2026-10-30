@@ -19,6 +19,11 @@ import type {
   VideoDoneMeta,
   WordCardEntry
 } from './types'
+import type {
+  FeedbackStatusEvent,
+  FeedbackSubmitInput,
+  FeedbackSubmitResult
+} from './feedback'
 
 export interface SnapglassApi {
   overlay: {
@@ -105,6 +110,10 @@ export interface SnapglassApi {
     openCrashFolder(): Promise<string>
     flush(): Promise<void>
     exportReport(): Promise<string | null>
+  }
+  feedback: {
+    submit(input: FeedbackSubmitInput): Promise<FeedbackSubmitResult>
+    onStatus(callback: (event: FeedbackStatusEvent) => void): () => void
   }
   updater: {
     getState(): Promise<UpdateState>

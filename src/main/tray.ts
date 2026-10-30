@@ -4,6 +4,7 @@ import { trayIconDataUrl } from './tray-icon'
 export interface TrayActions {
   onCapture: () => void
   onSettings: () => void
+  onFeedback: () => void
   onQuit: () => void
 }
 
@@ -24,6 +25,8 @@ export function createTray(actions: TrayActions): Tray {
   const menu = Menu.buildFromTemplate([
     { label: '截图  F1', click: actions.onCapture },
     { label: '设置', click: actions.onSettings },
+    { type: 'separator' },
+    { label: '意见反馈…', click: actions.onFeedback },
     { type: 'separator' },
     { label: '退出 Pixmint', click: actions.onQuit }
   ])
