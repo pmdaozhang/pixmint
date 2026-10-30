@@ -1,0 +1,121 @@
+{
+  "version": "0.6.1",
+  "date": "2026-10-30T13:58:39+08:00",
+  "commit": "cac1df1",
+  "level": "light",
+  "conclusion": "blocked",
+  "baseline_created": false,
+  "red": [
+    {
+      "id": "R1",
+      "dimension": "功能回归",
+      "item": "生产后台附件接口不存在，截图反馈核心路径不可用",
+      "evidence": "客户端仅对本地 mock 附件接口验证；生产契约仍标注 v1 暂不做附件",
+      "state": "unresolved"
+    }
+  ],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "Y1",
+      "dimension": "性能与资源",
+      "item": "10 张 × 5MB 满额 IPC、压缩和内存峰值未实测",
+      "deadline": "2026-11-06",
+      "owner": "Pixmint"
+    },
+    {
+      "id": "Y2",
+      "dimension": "兼容性",
+      "item": "macOS Cmd+V、透明窗口和附件上传未在 Mac 实机验证",
+      "deadline": "2026-11-13",
+      "owner": "Pixmint"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 120423342,
+    "sourceFiles": 135,
+    "sourceLines": 21389,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "23 files / 141 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "feedback-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:feedback",
+        "result": "2 real clipboard images; cap 10; 11.1MB -> 2.72MB; 503 2s retry; 400 no retry; E2E_FEEDBACK_OK"
+      },
+      {
+        "name": "overlay-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "result": "E2E_OK"
+      },
+      {
+        "name": "onboarding-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:onboarding",
+        "result": "5 pages; E2E_ONBOARDING_OK"
+      },
+      {
+        "name": "tray-manual",
+        "status": "pass",
+        "command": "真实桌面截图",
+        "result": "意见反馈…位于设置与退出之间"
+      },
+      {
+        "name": "production-text-integration",
+        "status": "not_run",
+        "command": "POST https://data.hugproducthub.top/api/v1/feedback",
+        "reason": "未主动写入真实统计后台，等待后台上线后与 Claude 联调"
+      },
+      {
+        "name": "production-attachment-integration",
+        "status": "fail",
+        "command": "POST /api/v1/feedback/<id>/attachments",
+        "reason": "后台 v1 尚未实现附件接口"
+      },
+      {
+        "name": "ten-by-five-megabyte-performance",
+        "status": "not_run",
+        "command": "10×5MB E2E",
+        "reason": "本轮只测 10 张小图和单张 11.1MB 压缩，满额性能留待补测"
+      },
+      {
+        "name": "macos",
+        "status": "not_run",
+        "command": "macOS 实机",
+        "reason": "当前仅有 Windows 环境"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "客户端功能和本地契约验证完成；生产附件接口是发布阻断项。Claude 按 docs/integrations/feedback-backend-contract.md 上线附件接口后，需重新跑生产联调并更新回顾。"
+}
+
