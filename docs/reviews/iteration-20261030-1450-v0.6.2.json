@@ -1,0 +1,107 @@
+{
+  "version": "0.6.2",
+  "date": "2026-10-30T14:50:00+08:00",
+  "commit": "e8f7d31",
+  "level": "light",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [
+    "R1 生产后台附件接口不存在；已上线并通过生产 E2E 与打包应用 E2E"
+  ],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 120430894,
+    "sourceFiles": 136,
+    "sourceLines": 21586,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "23 files / 141 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "package",
+        "status": "pass",
+        "command": "pnpm release:win",
+        "result": "Pixmint-Setup-0.6.2.exe 120430894 bytes; latest.yml and blockmap generated"
+      },
+      {
+        "name": "feedback-local-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:feedback",
+        "result": "10x4.8MB 0.958/1.043/1.165s; 11.1MB -> 2.72MB"
+      },
+      {
+        "name": "feedback-packaged-e2e",
+        "status": "pass",
+        "command": "PIXMINT_E2E_EXECUTABLE=release/win-unpacked/Pixmint.exe pnpm e2e:feedback",
+        "result": "version=0.6.2; E2E_FEEDBACK_OK"
+      },
+      {
+        "name": "feedback-live-e2e",
+        "status": "pass",
+        "command": "PIXMINT_FEEDBACK_LIVE=1 pnpm e2e:feedback:live",
+        "result": "fb_26; text 201; idempotent 200; PNG/JPEG 201; 404/400/413"
+      },
+      {
+        "name": "overlay-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "result": "E2E_OK"
+      },
+      {
+        "name": "onboarding-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:onboarding",
+        "result": "5 pages; E2E_ONBOARDING_OK"
+      },
+      {
+        "name": "tray-manual",
+        "status": "pass",
+        "command": "真实桌面截图",
+        "result": "意见反馈…位于设置与退出之间"
+      },
+      {
+        "name": "release-json-hash",
+        "status": "pass",
+        "command": "node SHA256 verification",
+        "result": "size 120430894; sha256 411172becfea5619cb08b808dc1c7549dd8903ed2536fb13618b45edec988184"
+      },
+      {
+        "name": "updater-provider",
+        "status": "pass",
+        "command": "release/win-unpacked/resources/app-update.yml",
+        "result": "provider generic; https://pixmint.hugproducthub.top/downloads/"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.6.2 release candidate is ready. Production feedback record fb_26 can be deleted. Website upload is the next operational step. macOS is outside this Windows release scope. Production 429 was validated by backend 13-request test."
+}
+

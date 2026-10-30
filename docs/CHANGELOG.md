@@ -23,6 +23,7 @@
 - 10 张 × 4.8MB 本地 IPC + 上传 p95 1.100s。
 - 0.6.2 安装包：120,430,894 字节，SHA256 `411172becfea5619cb08b808dc1c7549dd8903ed2536fb13618b45edec988184`。
 - 打包后应用 E2E：`version=0.6.2`，本地 mock 反馈全链路通过。
+- 迭代回顾 `docs/reviews/iteration-20261030-1450-v0.6.2.md` 结论 `pass`，红色和黄色项均为 0；发布门禁通过。
 
 ## [Unreleased]
 

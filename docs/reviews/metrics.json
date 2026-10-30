@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-30T06:28:08.419Z",
+  "generatedAt": "2026-10-30T06:38:46.802Z",
   "project": {
     "name": "snapglass",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "codex/feedback-v1",
-    "commit": "eddf537",
-    "commitDate": "2026-10-30T06:27:58.000Z",
+    "commit": "e8f7d31",
+    "commitDate": "2026-10-30T06:38:40.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
@@ -17,7 +17,7 @@
   },
   "source": {
     "files": 136,
-    "lines": 21582,
+    "lines": 21586,
     "testFiles": 23,
     "todoCount": 0,
     "largest": [
@@ -50,18 +50,18 @@
   "artifacts": {
     "currentVersion": [
       {
-        "path": "release\\Pixmint-Setup-0.6.1.exe",
-        "bytes": 120423342,
-        "modifiedAt": "2026-10-29T04:21:21.411Z"
+        "path": "release\\Pixmint-Setup-0.6.2.exe",
+        "bytes": 120430894,
+        "modifiedAt": "2026-10-30T06:36:36.963Z"
       }
     ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.6.1.exe",
-      "bytes": 120423342,
-      "modifiedAt": "2026-10-29T04:21:21.411Z"
+      "path": "release\\Pixmint-Setup-0.6.2.exe",
+      "bytes": 120430894,
+      "modifiedAt": "2026-10-30T06:36:36.963Z"
     },
-    "allCount": 12,
-    "allTotalBytes": 1385227812
+    "allCount": 13,
+    "allTotalBytes": 1505658706
   },
   "python": {
     "requirementLines": 0
