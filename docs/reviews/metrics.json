@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T05:56:23.421Z",
+  "generatedAt": "2026-10-30T06:28:08.419Z",
   "project": {
     "name": "snapglass",
     "version": "0.6.1",
@@ -8,16 +8,16 @@
   },
   "git": {
     "branch": "codex/feedback-v1",
-    "commit": "cac1df1",
-    "commitDate": "2026-10-30T05:56:17.000Z",
+    "commit": "eddf537",
+    "commitDate": "2026-10-30T06:27:58.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
     "deletions": null
   },
   "source": {
-    "files": 135,
-    "lines": 21389,
+    "files": 136,
+    "lines": 21582,
     "testFiles": 23,
     "todoCount": 0,
     "largest": [

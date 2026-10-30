@@ -1,0 +1,103 @@
+{
+  "version": "0.6.1",
+  "date": "2026-10-30T14:28:08+08:00",
+  "commit": "eddf537",
+  "level": "light",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [
+    "R1 生产后台附件接口不存在，截图反馈核心路径不可用；已由 Claude 上线并通过生产 E2E"
+  ],
+  "yellow": [
+    {
+      "id": "Y1",
+      "dimension": "升级与分发",
+      "item": "0.6.2 安装包尚未构建，官网 release.json 尚未部署",
+      "deadline": "2026-11-03",
+      "owner": "Pixmint"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 120423342,
+    "sourceFiles": 136,
+    "sourceLines": 21582,
+    "testFiles": 23,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "23 files / 141 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "feedback-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:feedback",
+        "result": "real clipboard; cap 10; 11.1MB -> 2.72MB; 503 2s retry; 400 no retry; 10x4.8MB 1.007/1.080/1.100s"
+      },
+      {
+        "name": "feedback-live-e2e",
+        "status": "pass",
+        "command": "PIXMINT_FEEDBACK_LIVE=1 pnpm e2e:feedback:live",
+        "result": "fb_26; text 201; idempotent 200 same id; PNG/JPEG 201; 404; 400; 413"
+      },
+      {
+        "name": "overlay-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "result": "E2E_OK"
+      },
+      {
+        "name": "onboarding-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:onboarding",
+        "result": "5 pages; E2E_ONBOARDING_OK"
+      },
+      {
+        "name": "tray-manual",
+        "status": "pass",
+        "command": "真实桌面截图",
+        "result": "意见反馈…位于设置与退出之间"
+      },
+      {
+        "name": "production-429",
+        "status": "not_run",
+        "command": "生产 13 条连发",
+        "reason": "后台已完成 13 条连发实测；客户端不主动消耗生产限速额度"
+      },
+      {
+        "name": "macos",
+        "status": "not_run",
+        "command": "macOS 实机",
+        "reason": "本轮发布范围为 Windows x64，macOS 继续保留跨平台债务"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "生产 E2E 创建了反馈记录 fb_26（可删除），附件 2 张。代码仍在 codex/feedback-v1 分支，未合并/发版；下一步为 0.6.2 打包和官网 release.json。"
+}
+
