@@ -6,9 +6,10 @@
 
 - 托盘菜单新增“意见反馈…”，打开独立反馈窗口。
 - 反馈窗口支持直接 `Ctrl+V` 粘贴截图、缩略图预览、单张删除，最多 10 张；超过 5MB 的图片提交前自动压缩为 WebP。
-- 反馈文本提交到 `https://data.hugproducthub.top/api/v1/feedback`，截图按反馈 ID 逐张上传到预留附件接口。
+- 反馈文本提交到 `https://data.hugproducthub.top/api/v1/feedback`，截图按反馈 ID 逐张上传到生产附件接口。
 - 反馈离线队列写入 `<userData>/feedback-queue.json`，429/5xx/网络错误按 2s → 8s → 30s 重试，`request_id` 重试复用。
 - 新增 `docs/integrations/feedback-backend-contract.md`，用于后台对接和上线联调。
+- 新增 `docs/integrations/website-release-json.md`，约定官网安装包版本、大小、SHA256 与下载链接自动更新。
 - 首次引导扩展为 5 页：GIF、视频、OCR/翻译，加上原有快捷键与划线两页。
 - OCR 翻译单词卡：英文单词显示英式/美式音标、词性和前 3 条常用释义。
 - 内置 ECDICT 常用 3 万词子集（2.81MB），音标走 dictionaryapi.dev 并本地缓存，失败时回退单套音标。
@@ -39,8 +40,8 @@
 
 - 反馈功能：`pnpm typecheck`、`pnpm test`（23 文件 / 141 用例）、`pnpm build` 通过。
 - 反馈 E2E：真实剪贴板粘贴 2 张；12 张截断到 10 张；11.1MB 截图压缩到 2.72MB；503 后 2 秒重试成功；400 不重试；文本与 2 次附件 multipart 均到达本地 mock 后台。
-- 反馈后台附件接口尚未上线；当前文字接口可用，截图上传会明确提示失败，待 Claude 按对接文档补齐。
-- 迭代回顾 `docs/reviews/iteration-20261030-1358-v0.6.1.md` 结论 `blocked`；发布门禁因生产附件接口缺失按预期拦截。
+- 生产联调：文本 201、同 `request_id` 幂等 200 且返回同一 `fb_26`、PNG/JPEG 各 201、不存在 ID 404、`text/plain` 400、6MB 413；反馈 ID `fb_26`，后台可删除。
+- 上一轮 `iteration-20261030-1358-v0.6.1` 的附件接口红线已解除，新的回顾报告将在生产联调后更新。
 - `pnpm typecheck`、`pnpm test`（25 文件 / 163 用例）、`pnpm build` 通过。
 - E2E：5 页标题、GIF 光标误差 0.003px、视频 8.204s 播放中、OCR 居中 0/0、完成标记写入版本 2。
 - 回归：覆盖层、钉图、录制、设置、OCR、OCR 翻译、工具栏切换/延迟 E2E 通过；覆盖层断言长截图按钮数量为 0。

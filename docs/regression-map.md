@@ -16,7 +16,7 @@
 | `src/main/updater.ts`、`src/shared/update.ts`、`src/preload/index.ts`（updater IPC）、`src/renderer/src/settings/SettingsApp.tsx` | 应用内检查、下载、校验、静默安装、更新状态展示 | `update.test.ts`、`e2e-settings.cjs`、本地 generic 0.4.0 → 0.4.1 E2E | 设置页检查更新；本地源下载安装；断网 / 404 / 哈希失败；重启后版本与设置 |
 | `electron-builder.yml`、`release/latest.yml`、`resources/app-update.yml` | 更新源、安装包命名、发布产物 | `release-gate.mjs`、手工产物检查 | 构建后核对 `latest.yml` 与 Setup 文件名、`.blockmap`、`app-update.yml` |
 | `src/main/tray.ts`、`src/main/tray-icon.ts` | 托盘图标、截图/设置/反馈/退出菜单、版本提示 | 无自动化 | 托盘右键确认“意见反馈…”位于设置与退出之间；F2/F4 不触发录制；退出进程 |
-| `src/main/feedback.ts`、`src/main/windows/feedback-window.ts`、`src/renderer/src/feedback/**`、`src/shared/feedback.ts`、`src/preload/index.ts`（feedback IPC） | 反馈窗口、粘贴截图、5MB 压缩、JSON 提交、附件 multipart、离线队列、2/8/30 秒重试 | `feedback.test.ts`、`e2e-feedback.cjs` | 右键托盘打开反馈；真实截图后 `Ctrl+V`；粘贴 10 张；断网提交；恢复网络等待补发；检查后台记录与附件 |
+| `src/main/feedback.ts`、`src/main/windows/feedback-window.ts`、`src/renderer/src/feedback/**`、`src/shared/feedback.ts`、`src/preload/index.ts`（feedback IPC） | 反馈窗口、粘贴截图、5MB 压缩、JSON 提交、附件 multipart、离线队列、2/8/30 秒重试 | `feedback.test.ts`、`e2e-feedback.cjs`、`e2e-feedback-live.cjs` | 右键托盘打开反馈；真实截图后 `Ctrl+V`；粘贴 10 张；断网提交；恢复网络等待补发；生产文本/幂等/附件/400/404/413 联调 |
 | `docs/integrations/feedback-backend-contract.md` | 反馈后台字段、错误码、附件接口、队列与隐私契约 | `e2e-feedback.cjs` 本地 mock | 按文档联调文本、附件、400、429、503；核对统计后台可见 |
 | `src/main/security.ts`、`src/main/secret-store.ts` | 权限边界、密钥存储、敏感数据 | `security.test.ts` | 检查密钥不落明文；确认渲染层无越权 IPC |
 | `src/main/crash-report.ts`、`src/main/diagnostics-export.ts` | 崩溃上报、诊断导出 | `diagnostics-utils.test.ts` | 触发诊断导出；检查日志脱敏 |

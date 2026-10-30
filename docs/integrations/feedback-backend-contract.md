@@ -83,7 +83,7 @@ Content-Type: application/json
 
 ## 4. 附件上传
 
-后台当前 v1 还没有附件接口，需要补充实现：
+附件接口已在生产上线，并已通过真实联调：
 
 ```http
 POST /api/v1/feedback/<feedback_id>/attachments
@@ -142,10 +142,17 @@ Content-Type: multipart/form-data
 
 ## 7. 联调验收
 
-1. 后台实现文本接口和附件接口。
-2. 把 `PIXMINT_FEEDBACK_ENDPOINT` 指向测试地址，运行 `pnpm e2e:feedback`。
-3. 检查后台收到：一条文本、一个 `request_id`、两张测试截图。
-4. 返回 503 验证重试；返回 400 验证不重试；返回 429 验证队列。
+1. 本地契约回归：`pnpm e2e:feedback`。
+2. 生产真实联调（会创建一条“生产联调、可删除”记录）：
+
+```powershell
+$env:PIXMINT_FEEDBACK_LIVE = '1'
+pnpm e2e:feedback:live
+```
+
+3. 已验证：文本 201、同 `request_id` 幂等 200 同 ID、PNG/JPEG 各 201、
+   不存在 ID 404、`text/plain` 400、6MB 413。
+4. 429 已由后台完成 13 条连发实测，客户端不主动在生产触发限速。
 5. 打开统计后台，确认反馈记录和附件可查看。
 
 ## 8. 可直接执行的联调命令

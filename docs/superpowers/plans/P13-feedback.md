@@ -24,5 +24,5 @@
 - [x] `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm e2e:feedback`。
 - [x] 更新 CHANGELOG、ROADMAP、regression-map。
 - [x] 输出后台对接文档，供 Claude 上线。
-- [ ] 后台附件接口上线后的生产联调。
+- [x] 后台附件接口上线后的生产联调。
 
