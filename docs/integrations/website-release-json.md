@@ -112,8 +112,7 @@
 
 ## 5. 应用内自动更新
 
-当前 `electron-builder.yml` 使用 GitHub provider。如果后续不再使用 Git 仓库/CI，
-建议改为 generic provider：
+`0.6.2` 起 `electron-builder.yml` 已改为 generic provider：
 
 ```yaml
 publish:
@@ -121,8 +120,7 @@ publish:
   url: https://pixmint.hugproducthub.top/downloads/
 ```
 
-然后 `latest.yml`、安装包、`.blockmap` 必须放在 `/var/www/pixmint-downloads/`。
-这是一个独立的打包配置变更，需要单独确认后再改。
+`latest.yml`、安装包、`.blockmap` 必须放在 `/var/www/pixmint-downloads/`。
 
 ## 6. Nginx 缓存建议
 

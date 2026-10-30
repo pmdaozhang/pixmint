@@ -6,7 +6,11 @@ const path = require('node:path')
 const { _electron: electron } = require('playwright-core')
 
 const PROJECT = __dirname
-const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electron.exe')
+const PACKAGED_EXECUTABLE = process.env.PIXMINT_E2E_EXECUTABLE
+const ELECTRON =
+  PACKAGED_EXECUTABLE ||
+  path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electron.exe')
+const APP_ARGS = PACKAGED_EXECUTABLE ? [] : ['.']
 const SHOTS = path.join(PROJECT, 'test-results', 'feedback')
 const userData = mkdtempSync(path.join(tmpdir(), 'pixmint-feedback-'))
 const queueRequestId = randomUUID()
@@ -82,7 +86,7 @@ function listen() {
   const errors = []
   const app = await electron.launch({
     executablePath: ELECTRON,
-    args: ['.', '--e2e-feedback', `--user-data-dir=${userData}`],
+    args: [...APP_ARGS, '--e2e-feedback', `--user-data-dir=${userData}`],
     cwd: PROJECT,
     env: {
       ...process.env,

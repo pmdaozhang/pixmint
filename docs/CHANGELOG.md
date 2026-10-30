@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.2] - 2026-10-30
+
+### Added
+
+- 托盘右键菜单新增“意见反馈…”，独立反馈窗口支持文字和内置截图粘贴。
+- 最多 10 张截图，单张超过 5MB 自动压缩为 WebP。
+- 离线文字反馈队列、`request_id` 幂等、2s/8s/30s 重试。
+- 生产反馈后台文本与附件接口联调通过。
+- 官网 `release.json` 下载元数据约定与 Nginx 缓存建议。
+
+### Changed
+
+- 应用内自动更新从 GitHub provider 切换到
+  `https://pixmint.hugproducthub.top/downloads/`。
+- 发版检查单改为腾讯云静态目录上传流程。
+
+### Verified
+
+- `pnpm typecheck`、`pnpm test`（23 文件 / 141 用例）、`pnpm build`。
+- 生产 E2E：文本 201、幂等 200、PNG/JPEG 201、404/400/413 符合契约。
+- 10 张 × 4.8MB 本地 IPC + 上传 p95 1.100s。
+- 0.6.2 安装包：120,430,894 字节，SHA256 `411172becfea5619cb08b808dc1c7549dd8903ed2536fb13618b45edec988184`。
+- 打包后应用 E2E：`version=0.6.2`，本地 mock 反馈全链路通过。
+
 ## [Unreleased]
 
 ### Added

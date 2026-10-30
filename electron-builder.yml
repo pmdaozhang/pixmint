@@ -39,9 +39,8 @@ extraResources:
       - '*.json'
 asar: true
 publish:
-  provider: github
-  owner: pmdaozhang
-  repo: pixmint
+  provider: generic
+  url: https://pixmint.hugproducthub.top/downloads/
 win:
   icon: assets/icon-mark.ico
   target: nsis

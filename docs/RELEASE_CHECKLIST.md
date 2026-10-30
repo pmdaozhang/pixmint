@@ -12,8 +12,9 @@
 ## 应用内更新（P6）
 
 - 打包后确认 `release` 同时存在 `Pixmint-Setup-<version>.exe`、`latest.yml`、`.blockmap`，三者的文件名和版本一致。
-- 确认 `release/win-unpacked/resources/app-update.yml` 的 `provider` 为 `github`、`owner` 为 `pmdaozhang`、`repo` 为 `pixmint`。
-- 在 GitHub 创建对应版本 Release，上传 `Pixmint-Setup-<version>.exe`、`latest.yml`、`.blockmap`，不要重命名资产。
+- 确认 `release/win-unpacked/resources/app-update.yml` 的 `provider` 为 `generic`，`url` 为 `https://pixmint.hugproducthub.top/downloads/`。
+- 上传 `Pixmint-Setup-<version>.exe`、`.sha256`、`latest.yml`、`.blockmap` 到服务器 `/var/www/pixmint-downloads/`，不要重命名资产。
+- 最后原子替换 `/var/www/pixmint/release.json`，再验证官网下载和应用内更新。
 - 0.3.10 老用户必须先手动安装一次 0.4.0；旧版没有更新器，无法自动升级。
 - 用当前版本检查线上更新源，验证“检查 → 发现新版本 → 下载进度 → 校验 → 重启安装 → 版本号变化”。
 - 验证断网、更新源 404、安装包哈希不匹配三条失败路径都有中文提示，且不会进入安装。
@@ -21,6 +22,7 @@
 - 本地回归可用 `PIXMINT_UPDATE_URL=http://127.0.0.1:<port>/` 指向 generic 测试源；测试源需同时提供 `latest.yml`、安装包和 `.blockmap`。
 - 已知风险：Windows 安装包未签名会触发 SmartScreen；GitHub 国内下载速度未实测；差分下载命中未实测。
 - 2026-10-27 状态：`v0.5.0` 已发布；0.4.1 → 0.5.0 在线更新验证通过；0.4.1 旧 Release 缺 blockmap，差分自动回退全量下载。
+- 2026-10-30 状态：`v0.6.2` 安装包已构建；`latest.yml`、`.blockmap`、`release.json` 和 SHA256 已生成，等待上传腾讯云并验证自动更新。
 
 ## 长截图（已下线）
 
