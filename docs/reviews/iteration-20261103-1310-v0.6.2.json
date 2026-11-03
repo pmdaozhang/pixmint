@@ -1,0 +1,110 @@
+{
+  "version": "0.6.2",
+  "date": "2026-11-03T13:10:00+08:00",
+  "commit": "7c46c3f",
+  "level": "full",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "Y1",
+      "dimension": "performance",
+      "item": "OCR 100 次 RSS 增长 126.9–132.2MB，略高于 128MB 预算",
+      "deadline": "2026-11-17"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 120430894,
+    "sourceFiles": 139,
+    "sourceLines": 22340,
+    "testFiles": 25,
+    "runtimeDependencies": 6,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "25 files / 152 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "pin-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:pin",
+        "result": "PIN_E2E_OK"
+      },
+      {
+        "name": "pin-text-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:pin-text",
+        "result": "mouse selection, double click, Ctrl+A, Ctrl+C, edit re-OCR, zoom alignment, OCR failure fallback, 30-pin stress"
+      },
+      {
+        "name": "overlay-e2e",
+        "status": "pass",
+        "command": "pnpm e2e:overlay",
+        "result": "E2E_OK"
+      },
+      {
+        "name": "ocr-soak-1",
+        "status": "pass",
+        "command": "pnpm soak:ocr",
+        "result": "0 failures; p95 460ms; RSS +126.9MB"
+      },
+      {
+        "name": "ocr-soak-2",
+        "status": "pass",
+        "command": "pnpm soak:ocr",
+        "result": "0 failures; p95 487ms; RSS +132.2MB"
+      },
+      {
+        "name": "ocr-soak-3",
+        "status": "pass",
+        "command": "pnpm soak:ocr",
+        "result": "0 failures; p95 498ms; RSS +129.7MB"
+      },
+      {
+        "name": "dpi-150-200",
+        "status": "not_run",
+        "command": "manual display scaling",
+        "reason": "当前 E2E 会话 DPR=1，无法切换系统显示缩放；沿用项目高 DPI 实机验证债务"
+      },
+      {
+        "name": "multiline-copy",
+        "status": "not_run",
+        "command": "manual multiline pin",
+        "reason": "当前固定 fixture 只有单行；行框布局有单测覆盖"
+      },
+      {
+        "name": "package",
+        "status": "not_run",
+        "command": "electron-builder",
+        "reason": "本轮只做本地验收，未发版、未生成新安装包"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P14 functional paths are green. The only yellow item is OCR RSS slightly above the 128MB budget; p95 latency is well below the 1500ms budget. No new installer was generated."
+}

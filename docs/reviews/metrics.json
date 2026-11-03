@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T06:38:46.802Z",
+  "generatedAt": "2026-11-03T04:39:07.095Z",
   "project": {
     "name": "snapglass",
     "version": "0.6.2",
@@ -7,23 +7,23 @@
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
-    "branch": "codex/feedback-v1",
-    "commit": "e8f7d31",
-    "commitDate": "2026-10-30T06:38:40.000Z",
+    "branch": "codex/pixmint-pin-text",
+    "commit": "7c46c3f",
+    "commitDate": "2026-11-03T04:39:02.000Z",
     "lastTag": null,
     "changedFiles": null,
     "insertions": null,
     "deletions": null
   },
   "source": {
-    "files": 136,
-    "lines": 21586,
-    "testFiles": 23,
+    "files": 139,
+    "lines": 22340,
+    "testFiles": 25,
     "todoCount": 0,
     "largest": [
       {
         "path": "src\\main\\index.ts",
-        "lines": 988
+        "lines": 995
       },
       {
         "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",

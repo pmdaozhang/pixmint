@@ -36,7 +36,7 @@
    - [x] 连续钉图与 OCR 压测。
 6. 文档与回顾
    - [x] 更新 CHANGELOG、ROADMAP、regression-map。
-   - [ ] 采集 metrics，生成迭代回顾与发布门禁检查。
+   - [x] 采集 metrics，生成迭代回顾与发布门禁检查。
 7. 运行交付
    - [ ] 启动 Pixmint，确认进程与主窗口存活，交由用户验收。
 
