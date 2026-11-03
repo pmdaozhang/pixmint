@@ -10,13 +10,14 @@
 ### Fixed
 
 - 修复短选区钉图被强制拉到 60px 高导致的纵向拉伸；宽高改为同一缩放比例，图片使用 `object-fit: contain`。
+- OCR 像素转换改为原地 BGRA→RGBA，减少每次识别的整图额外分配。
 
 ### Verified
 
-- `pnpm typecheck`、`pnpm test`（25 文件 / 152 用例）、`pnpm build` 通过。
+- `pnpm typecheck`、`pnpm test`（26 文件 / 154 用例）、`pnpm build` 通过。
 - `pnpm e2e:pin`、`pnpm e2e:pin-text`、`pnpm e2e:overlay` 通过。
 - 30 次连续钉图：0 崩溃、0 窗口残留，私有内存下降 55.3MB。
-- OCR 100 次 × 3：0 失败，p95 460 / 487 / 498ms；RSS 增长 126.9 / 132.2 / 129.7MB，略高于 128MB 预算，作为黄色项跟踪。
+- OCR 100 次 × 3：0 失败，p95 241 / 234 / 243ms；RSS 增长 124.4 / 119.4 / 124.0MB，低于 128MB 预算。
 
 ## [0.6.2] - 2026-10-30
 

@@ -76,5 +76,6 @@
 | TC-019 OCR 引擎不可用 | PASS | `PIN_TEXT_FAILURE_STATUS 文字识别不可用`，`PIN_TEXT_FAILURE_COPY_IMAGE true` |
 | TC-022 连续钉图 | PASS | 30 次 0 崩溃，私有内存下降 55.3MB |
 | TC-023 编辑期间旧 OCR 返回 | PASS | 编辑后文字层先清空，再重建为新图结果 |
+| OCR 资源预算 | PASS | 100 次 × 3，0 失败；p95 241/234/243ms；RSS 增长 124.4/119.4/124.0MB |
 
 未实测：150% / 200% DPI 真机、超长单行、超大选区、手工多行换行复制。以上沿用现有高 DPI 回归债务，不把未实测写成通过。

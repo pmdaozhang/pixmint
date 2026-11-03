@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import * as ort from 'onnxruntime-node'
 import { PaddleOcrService } from 'paddleocr'
 import { lineBlockFromParts } from '../../shared/ocr-layout'
+import { bgraToRgbaInPlace } from '../../shared/pixel-format'
 import { normalizeOcrText } from '../../shared/text-analysis'
 import type { OcrResult, OcrTextBlock } from '../../shared/types'
 
@@ -22,8 +23,7 @@ let servicePromise: Promise<PaddleOcrService> | null = null
 export async function recognizePaddle(image: NativeImage): Promise<OcrResult> {
   const service = await getService()
   const size = image.getSize()
-  const bitmap = image.toBitmap()
-  const rgba = bgraToRgba(bitmap)
+  const rgba = bgraToRgbaInPlace(image.toBitmap())
   const started = Date.now()
   const results = await service.recognize({
     width: size.width,
@@ -113,17 +113,6 @@ function modelDir(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'ocr')
     : join(app.getAppPath(), 'assets', 'ocr')
-}
-
-function bgraToRgba(bitmap: Buffer): Uint8Array {
-  const rgba = Buffer.allocUnsafe(bitmap.length)
-  for (let offset = 0; offset < bitmap.length; offset += 4) {
-    rgba[offset] = bitmap[offset + 2]
-    rgba[offset + 1] = bitmap[offset + 1]
-    rgba[offset + 2] = bitmap[offset]
-    rgba[offset + 3] = 255
-  }
-  return rgba
 }
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
