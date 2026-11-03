@@ -1,32 +1,26 @@
 {
   "version": "0.7.0",
-  "date": "2026-11-03T14:30:00+08:00",
-  "commit": "824a964",
+  "date": "2026-11-03T15:30:00+08:00",
+  "commit": "5c0213b",
   "level": "full",
-  "conclusion": "conditional",
+  "conclusion": "pass",
   "baseline_created": false,
   "red": [],
   "resolved_red": [],
-  "yellow": [
-    {
-      "id": "Y1",
-      "dimension": "performance",
-      "item": "OCR 100 次 RSS 增长 126.9–132.2MB，略高于 128MB 预算",
-      "deadline": "2026-11-17"
-    }
-  ],
+  "yellow": [],
   "green": [
     "regression",
     "stability",
+    "performance",
     "architecture",
     "reversibility",
     "testing"
   ],
   "metrics": {
-    "installerBytes": 120430894,
-    "sourceFiles": 139,
-    "sourceLines": 22340,
-    "testFiles": 25,
+    "installerBytes": 120434486,
+    "sourceFiles": 140,
+    "sourceLines": 22344,
+    "testFiles": 26,
     "runtimeDependencies": 6,
     "devDependencies": 12
   },
@@ -42,7 +36,7 @@
         "name": "unit",
         "status": "pass",
         "command": "pnpm test",
-        "result": "25 files / 152 tests"
+        "result": "26 files / 154 tests"
       },
       {
         "name": "build",
@@ -71,40 +65,52 @@
         "name": "ocr-soak-1",
         "status": "pass",
         "command": "pnpm soak:ocr",
-        "result": "0 failures; p95 460ms; RSS +126.9MB"
+        "result": "0 failures; p95 241ms; RSS +124.4MB"
       },
       {
         "name": "ocr-soak-2",
         "status": "pass",
         "command": "pnpm soak:ocr",
-        "result": "0 failures; p95 487ms; RSS +132.2MB"
+        "result": "0 failures; p95 234ms; RSS +119.4MB"
       },
       {
         "name": "ocr-soak-3",
         "status": "pass",
         "command": "pnpm soak:ocr",
-        "result": "0 failures; p95 498ms; RSS +129.7MB"
+        "result": "0 failures; p95 243ms; RSS +124.0MB"
       },
       {
         "name": "dpi-150-200",
-        "status": "not_run",
+        "status": "skip",
         "command": "manual display scaling",
         "reason": "当前 E2E 会话 DPR=1，无法切换系统显示缩放；沿用项目高 DPI 实机验证债务"
       },
       {
         "name": "multiline-copy",
-        "status": "not_run",
+        "status": "skip",
         "command": "manual multiline pin",
         "reason": "当前固定 fixture 只有单行；行框布局有单测覆盖"
       },
       {
         "name": "package",
-        "status": "not_run",
+        "status": "pass",
         "command": "electron-builder",
-        "reason": "本轮只做本地验收，未发版、未生成新安装包"
+        "result": "Pixmint-Setup-0.7.0.exe 120434486 bytes; latest.yml and blockmap generated"
+      },
+      {
+        "name": "website-release",
+        "status": "pass",
+        "command": "curl /release.json + Lightpanda",
+        "result": "version 0.7.0; download URL points to Setup 0.7.0; rendered website shows v0.7.0"
+      },
+      {
+        "name": "download-sha256",
+        "status": "pass",
+        "command": "curl full download + Get-FileHash",
+        "result": "120434486 bytes; sha256 f69a861ad6a51a4cd202a3f2003711c3c7b72750741d6f2df5e0b48272626e88"
       }
     ]
   },
   "exception": null,
-  "notes": "P14 functional paths are green and the product version is now 0.7.0. The only yellow item is OCR RSS slightly above the 128MB budget; p95 latency is well below the 1500ms budget. No new installer was generated."
+  "notes": "P14 functional paths and OCR resource budgets are green. Pixmint 0.7.0 installer was packaged, uploaded to the generic update feed, and the public website now serves v0.7.0."
 }

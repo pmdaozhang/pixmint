@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T05:59:23.918Z",
+  "generatedAt": "2026-11-03T06:53:52.995Z",
   "project": {
     "name": "snapglass",
     "version": "0.7.0",
@@ -8,17 +8,17 @@
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "824a964",
-    "commitDate": "2026-11-03T05:59:17.000Z",
-    "lastTag": null,
-    "changedFiles": null,
-    "insertions": null,
-    "deletions": null
+    "commit": "5c0213b",
+    "commitDate": "2026-11-03T14:07:35+08:00",
+    "lastTag": "v0.6.1",
+    "changedFiles": 141,
+    "insertions": 10940,
+    "deletions": 15341
   },
   "source": {
-    "files": 139,
-    "lines": 22340,
-    "testFiles": 25,
+    "files": 140,
+    "lines": 22344,
+    "testFiles": 26,
     "todoCount": 0,
     "largest": [
       {
@@ -48,14 +48,20 @@
     "dev": 12
   },
   "artifacts": {
-    "currentVersion": [],
+    "currentVersion": [
+      {
+        "path": "release\\Pixmint-Setup-0.7.0.exe",
+        "bytes": 120434486,
+        "modifiedAt": "2026-11-03T06:12:44.536Z"
+      }
+    ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.6.2.exe",
-      "bytes": 120430894,
-      "modifiedAt": "2026-10-30T06:36:36.963Z"
+      "path": "release\\Pixmint-Setup-0.7.0.exe",
+      "bytes": 120434486,
+      "modifiedAt": "2026-11-03T06:12:44.536Z"
     },
-    "allCount": 13,
-    "allTotalBytes": 1505658706
+    "allCount": 14,
+    "allTotalBytes": 1626093192
   },
   "python": {
     "requirementLines": 0

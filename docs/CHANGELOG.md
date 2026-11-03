@@ -18,6 +18,9 @@
 - `pnpm e2e:pin`、`pnpm e2e:pin-text`、`pnpm e2e:overlay` 通过。
 - 30 次连续钉图：0 崩溃、0 窗口残留，私有内存下降 55.3MB。
 - OCR 100 次 × 3：0 失败，p95 241 / 234 / 243ms；RSS 增长 124.4 / 119.4 / 124.0MB，低于 128MB 预算。
+- 0.7.0 安装包：120,434,486 字节，SHA256 `f69a861ad6a51a4cd202a3f2003711c3c7b72750741d6f2df5e0b48272626e88`。
+- 已上传 `Pixmint-Setup-0.7.0.exe`、`latest.yml`、`.blockmap` 和 `release.json` 到腾讯云下载站。
+- 官网页 `v0.7.0`、下载链接、完整下载 SHA256 验证通过。
 
 ## [0.6.2] - 2026-10-30
 
