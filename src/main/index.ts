@@ -366,6 +366,13 @@ function registerIpc(): void {
     pinManager.copy(event.sender.id)
   })
   ipcMain.handle('pin:save', (event) => pinManager.save(event.sender.id))
+  ipcMain.handle('pin:recognize-text', async (event) => {
+    const bytes = pinManager.imageBytesFor(event.sender.id)
+    if (!bytes) return null
+    const image = imageFromBytes(bytes)
+    if (image.isEmpty()) return null
+    return platformServices.ocr.recognizeDataUrl(image.toDataURL())
+  })
   ipcMain.handle('pin:set-edit-mode', (event, active: boolean) =>
     pinManager.setEditMode(event.sender.id, active)
   )

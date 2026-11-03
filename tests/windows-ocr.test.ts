@@ -11,5 +11,7 @@ describe.skipIf(process.platform !== 'win32')('Windows Media OCR', () => {
     const text = normalizeOcrText(result.text)
     expect(text).toContain('你好世界')
     expect(text).toContain('SnapGlass')
+    expect(result.blocks?.length).toBeGreaterThan(0)
+    expect(result.blocks?.every((block) => block.width > 0 && block.height > 0)).toBe(true)
   }, 30000)
 })

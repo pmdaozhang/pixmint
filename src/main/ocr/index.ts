@@ -1,8 +1,9 @@
 import { app, nativeImage } from 'electron'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { OcrResult } from '../../shared/types'
+import { scaleOcrBlocks } from '../../shared/ocr-layout'
 import { normalizeOcrText, ocrUpscaleFactor } from '../../shared/text-analysis'
+import type { OcrResult } from '../../shared/types'
 import { recognizePaddle } from './paddle'
 import { enqueueOcr } from './queue'
 import { recognizeWindows } from './windows'
@@ -39,7 +40,8 @@ async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
         console.log('OCR_BACKEND paddle')
         return {
           text: normalizeOcrText(paddle.text),
-          lines: paddle.lines.map(normalizeOcrText).filter(Boolean)
+          lines: paddle.lines.map(normalizeOcrText).filter(Boolean),
+          blocks: normalizeBlocks(paddle.blocks, factor)
         }
       }
       // 背景：单行窄条（如 303×20）检测不到文本框时，Paddle 会返回空结果而不是抛错。
@@ -58,7 +60,8 @@ async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
     console.log('OCR_BACKEND windows')
     return {
       text: normalizeOcrText(text),
-      lines: result.lines.map(normalizeOcrText).filter(Boolean)
+      lines: result.lines.map(normalizeOcrText).filter(Boolean),
+      blocks: normalizeBlocks(result.blocks, factor)
     }
   } finally {
     try {
@@ -67,4 +70,10 @@ async function recognizeImageDataUrlNow(dataUrl: string): Promise<OcrResult> {
       // 临时文件清理失败不影响识别结果
     }
   }
+}
+
+function normalizeBlocks(blocks: OcrResult['blocks'], factor: number): OcrResult['blocks'] {
+  return scaleOcrBlocks(blocks, factor)
+    .map((block) => ({ ...block, text: normalizeOcrText(block.text) }))
+    .filter((block) => block.text.length > 0)
 }

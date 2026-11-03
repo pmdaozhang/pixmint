@@ -78,9 +78,23 @@ export interface OverlayCompletePayload {
   autoTranslate?: boolean
 }
 
+/**
+ * 背景：钉图需要把 OCR 文字叠加成可选中文字层，纯文本结果没有可用位置。
+ * 设计意图：文字框坐标统一使用原图像素，渲染层再按当前显示尺寸换算。
+ * 关键约束：x/y/width/height 必须有效；blocks 为可选字段，旧 OCR 调用方无需改动。
+ */
+export interface OcrTextBlock {
+  text: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface OcrResult {
   text: string
   lines: string[]
+  blocks?: OcrTextBlock[]
 }
 
 export interface WordCardEntry {

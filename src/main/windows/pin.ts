@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, Menu, screen } from 'electron'
 import { join } from 'node:path'
 import { clamp } from '../../shared/geometry'
 import type { PinEditLayout, PinInit, Point } from '../../shared/types'
-import { clampOpacity, nextPinSize } from '../pin-state'
+import { clampOpacity, fitPinWindowSize, nextPinSize } from '../pin-state'
 import { copyImageBytes, notify, saveImageBytes } from '../image-utils'
 import { loadRoute } from './load'
 
@@ -30,15 +30,17 @@ export class PinManager {
   create(imageBytes: Uint8Array, width: number, height: number, position: Point): BrowserWindow {
     const display = screen.getDisplayNearestPoint(position)
     const workArea = display.workArea
-    const scale = Math.min(
-      1,
-      (workArea.width - SHADOW_PADDING * 2) / Math.max(1, width),
-      (workArea.height - SHADOW_PADDING * 2) / Math.max(1, height)
+    const size = fitPinWindowSize(
+      width,
+      height,
+      workArea.width,
+      workArea.height,
+      SHADOW_PADDING
     )
-    const pinWidth = Math.max(80, Math.round(width * scale))
-    const pinHeight = Math.max(60, Math.round(height * scale))
-    const totalWidth = pinWidth + SHADOW_PADDING * 2
-    const totalHeight = pinHeight + SHADOW_PADDING * 2
+    const pinWidth = size.width
+    const pinHeight = size.height
+    const totalWidth = size.totalWidth
+    const totalHeight = size.totalHeight
     const x = clamp(
       position.x - SHADOW_PADDING,
       workArea.x,
@@ -108,6 +110,16 @@ export class PinManager {
       height: state.height,
       opacity: state.opacity
     }
+  }
+
+  /**
+   * 背景：钉图文字选择需要识别当前图片，但渲染层不应拿到可修改的主进程状态。
+   * 设计意图：返回字节副本给 OCR 调用方，避免识别过程或后续编辑影响钉图原数据。
+   * 关键约束：窗口已关闭或 webContents 不匹配时返回 null。
+   */
+  imageBytesFor(webContentsId: number): Uint8Array | null {
+    const state = this.pins.get(webContentsId)
+    return state ? new Uint8Array(state.imageBytes) : null
   }
 
   close(webContentsId: number): void {

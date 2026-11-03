@@ -2,6 +2,7 @@ import type {
   GifDoneMeta,
   OverlayCompletePayload,
   OverlayInit,
+  OcrResult,
   OcrInit,
   PinEditLayout,
   PinInit,
@@ -44,6 +45,7 @@ export interface SnapglassApi {
     close(): void
     copy(): Promise<void>
     save(): Promise<string | null>
+    recognizeText(): Promise<OcrResult | null>
     setOpacity(opacity: number): Promise<number>
     toggleIgnore(): Promise<boolean>
     zoom(direction: 1 | -1): Promise<{ width: number; height: number }>

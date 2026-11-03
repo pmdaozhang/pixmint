@@ -54,6 +54,9 @@ describe.skipIf(process.platform !== 'win32')('PaddleOCR local backend', () => {
       expect(processed.text).toContain('127.0.0.1:7892')
       expect(processed.text).toContain('0.3.7')
       expect(processed.text).toContain('Git')
+      const boxes = processed.lines.flat().map((line) => line.box)
+      expect(boxes.length).toBeGreaterThan(0)
+      expect(boxes.every((box) => box.width > 0 && box.height > 0)).toBe(true)
     } finally {
       await service.destroy()
     }

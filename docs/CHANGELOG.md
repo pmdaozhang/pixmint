@@ -42,6 +42,8 @@
 - 视频页使用本地 8.2 秒无缝循环录屏素材，不依赖网络。
 - 设置新增 `onboardingVersion`，升级后可再看到一次新版引导。
 - `e2e-onboarding.cjs` 引导全流程 E2E。
+- 钉图新增 OCR 文字层：鼠标拖选、双击选词、`Ctrl+A` 全选和 `Ctrl+C` 复制。
+- `pin:recognize-text` IPC 与 `e2e-pin-text.cjs`，覆盖文字选择、缩放对齐、OCR 失败降级和 30 次连续钉图。
 
 ### Changed
 
@@ -55,6 +57,7 @@
 - 工具栏移除十字按钮，改为隐式移动工具；其他工具点击选中、再次点击取消并回到移动状态。
 - 诊断模块只在开发版显示，正式构建隐藏。
 - 设置“关于与更新”移除“更新功能仅在打包版 Windows 中启用”提示行，卡片高度随内容收缩。
+- 修复短选区钉图被强制拉到 60px 高导致的纵向拉伸；宽高改为同一缩放比例，图片使用 `object-fit: contain`。
 
 ### Removed
 
@@ -73,6 +76,10 @@
 - E2E：5 页标题、GIF 光标误差 0.003px、视频 8.204s 播放中、OCR 居中 0/0、完成标记写入版本 2。
 - 回归：覆盖层、钉图、录制、设置、OCR、OCR 翻译、工具栏切换/延迟 E2E 通过；覆盖层断言长截图按钮数量为 0。
 - 发布门禁 `node scripts/review/release-gate.mjs --project _snapglass_app` 通过；报告 `docs/reviews/iteration-20261029-1148-v0.6.1.md`。
+- 钉图文字选择：`pnpm typecheck`、`pnpm test`（25 文件 / 152 用例）、`pnpm build` 通过。
+- `pnpm e2e:pin`、`pnpm e2e:pin-text`、`pnpm e2e:overlay` 通过；文字层实测鼠标选中、双击、`Ctrl+A`、`Ctrl+C`、编辑后重识别、滚轮缩放和 OCR 失败降级。
+- 30 次连续钉图：0 崩溃、0 窗口残留，私有内存下降 55.3MB。
+- OCR 100 次 × 3：0 失败，p95 460 / 487 / 498ms；RSS 增长 126.9 / 132.2 / 129.7MB，略高于 128MB 预算，作为黄色项跟踪。
 
 ## [0.6.1] - 2026-10-28
 

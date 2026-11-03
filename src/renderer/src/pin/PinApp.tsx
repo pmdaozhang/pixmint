@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { PinInit, Rect, TextAnno, Tool } from '@shared/types'
+import type { OcrTextBlock, PinInit, Rect, TextAnno, Tool } from '@shared/types'
 import { Icon } from '../components/Icon'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from '../overlay/AnnotationCanvas'
 import { DEFAULT_OPTIONS, type OverlayOptions } from '../overlay/options'
 import { Toolbar } from '../overlay/Toolbar'
+import { layoutPinTextLines } from './pin-text'
 import './pin.css'
+
+type PinTextState = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 
 export function PinApp(): JSX.Element {
   const [init, setInit] = useState<PinInit | null>(null)
@@ -19,10 +22,16 @@ export function PinApp(): JSX.Element {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 })
+  const [viewSize, setViewSize] = useState({ width: 0, height: 0 })
+  const [textBlocks, setTextBlocks] = useState<OcrTextBlock[]>([])
+  const [textState, setTextState] = useState<PinTextState>('idle')
   const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null)
   const suppressDoubleClickRef = useRef(false)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const imageRef = useRef<HTMLImageElement | null>(null)
+  const textLayerRef = useRef<HTMLDivElement | null>(null)
+  const ocrCacheRef = useRef<{ imageUrl: string; blocks: OcrTextBlock[] } | null>(null)
 
   useEffect(() => {
     window.snapglass.pin.ready().then(setInit)
@@ -44,10 +53,10 @@ export function PinApp(): JSX.Element {
     }
   }, [imageUrl])
 
-  const flash = (message: string): void => {
+  const flash = useCallback((message: string): void => {
     setToast(message)
     window.setTimeout(() => setToast(''), 1500)
-  }
+  }, [])
 
   /**
    * 背景：编辑模式需要比普通钉图多出工具栏高度，窗口尺寸由主进程控制。
@@ -154,6 +163,23 @@ export function PinApp(): JSX.Element {
   }, [])
 
   useEffect(() => {
+    if (!imageUrl) {
+      setNaturalSize({ width: 0, height: 0 })
+      return
+    }
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => {
+      if (cancelled) return
+      setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.src = imageUrl
+    return () => {
+      cancelled = true
+    }
+  }, [imageUrl])
+
+  useEffect(() => {
     if (!editing || !imageUrl) return
     let cancelled = false
     const image = new Image()
@@ -168,33 +194,141 @@ export function PinApp(): JSX.Element {
       if (!context) return
       context.clearRect(0, 0, canvas.width, canvas.height)
       context.drawImage(image, 0, 0)
-      setNaturalSize({ width: image.naturalWidth, height: image.naturalHeight })
     }
     return () => {
       cancelled = true
     }
   }, [editing, imageUrl])
 
+  const measureView = useCallback((): void => {
+    const image = imageRef.current
+    if (!image) return
+    setViewSize({ width: image.clientWidth, height: image.clientHeight })
+  }, [])
+
+  useEffect(() => {
+    if (!imageUrl || editing) {
+      setViewSize({ width: 0, height: 0 })
+      return
+    }
+    measureView()
+    const image = imageRef.current
+    if (!image) return
+    const observer = new ResizeObserver(measureView)
+    observer.observe(image)
+    return () => observer.disconnect()
+  }, [editing, imageUrl, measureView])
+
+  useEffect(() => {
+    if (!init || !imageUrl || editing) {
+      setTextBlocks([])
+      setTextState('idle')
+      return
+    }
+    const cached = ocrCacheRef.current
+    if (cached?.imageUrl === imageUrl) {
+      setTextBlocks(cached.blocks)
+      setTextState(cached.blocks.length > 0 ? 'ready' : 'empty')
+      return
+    }
+    let cancelled = false
+    setTextBlocks([])
+    setTextState('loading')
+    window.snapglass.pin
+      .recognizeText()
+      .then((result) => {
+        if (cancelled) return
+        const blocks = result?.blocks ?? []
+        ocrCacheRef.current = { imageUrl, blocks }
+        setTextBlocks(blocks)
+        setTextState(blocks.length > 0 ? 'ready' : 'empty')
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        console.warn('PIN_TEXT_OCR_FAILED', error)
+        setTextBlocks([])
+        setTextState('error')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [editing, imageUrl, init])
+
+  const textLayout = useMemo(
+    () => layoutPinTextLines(textBlocks, naturalSize, viewSize),
+    [naturalSize, textBlocks, viewSize]
+  )
+
+  const selectAllPinText = useCallback((): boolean => {
+    const layer = textLayerRef.current
+    if (!layer || textLayout.length === 0) return false
+    const range = document.createRange()
+    range.selectNodeContents(layer)
+    const selection = window.getSelection()
+    if (!selection) return false
+    selection.removeAllRanges()
+    selection.addRange(range)
+    return true
+  }, [textLayout.length])
+
+  const selectedPinText = useCallback((): string => {
+    const layer = textLayerRef.current
+    const selection = window.getSelection()
+    if (!layer || !selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return ''
+    }
+    const anchor = selection.anchorNode
+    const focus = selection.focusNode
+    if (!anchor || !focus || !layer.contains(anchor) || !layer.contains(focus)) return ''
+    return selection.toString()
+  }, [])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (editing) {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          void exitEdit()
+        }
+        return
+      }
+      const modifier = event.ctrlKey || event.metaKey
+      if (modifier && event.key.toLowerCase() === 'a') {
+        if (selectAllPinText()) event.preventDefault()
+        return
+      }
+      if (modifier && event.key.toLowerCase() === 'c') {
+        const text = selectedPinText()
+        if (!text) return
+        event.preventDefault()
+        void window.snapglass.clipboard
+          .writeText(text)
+          .then(() => flash('已复制选中文字'))
+          .catch((error: unknown) => {
+            console.warn('PIN_TEXT_COPY_FAILED', error)
+            flash('复制文字失败')
+          })
+        return
+      }
       if (event.code === 'Space' && !event.repeat) {
-        if (editing) return
         event.preventDefault()
         void enterEdit()
         return
       }
       if (event.key === 'Escape') {
-        if (editing) {
-          event.preventDefault()
-          void exitEdit()
-        } else {
-          window.snapglass.pin.close()
-        }
+        window.snapglass.pin.close()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [editing, enterEdit, exitEdit])
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [
+    editing,
+    enterEdit,
+    exitEdit,
+    flash,
+    selectAllPinText,
+    selectedPinText
+  ])
 
   if (!init) return <div className="pin-empty" />
 
@@ -203,9 +337,10 @@ export function PinApp(): JSX.Element {
   return (
     <div
       className={`pin-root${dragging ? ' dragging' : ''}${editing ? ' editing' : ''}`}
+      data-pin-text-state={textState}
       onPointerDown={(event) => {
         if (editing || event.button !== 0) return
-        if ((event.target as HTMLElement).closest('.pin-actions')) return
+        if ((event.target as HTMLElement).closest('.pin-actions, .pin-text-line')) return
         event.currentTarget.setPointerCapture(event.pointerId)
         dragRef.current = { startX: event.screenX, startY: event.screenY, moved: false }
         setDragging(true)
@@ -246,7 +381,7 @@ export function PinApp(): JSX.Element {
       }}
       onDoubleClick={async (event) => {
         if (editing) return
-        if ((event.target as HTMLElement).closest('.pin-actions')) return
+        if ((event.target as HTMLElement).closest('.pin-actions, .pin-text-line')) return
         if (suppressDoubleClickRef.current) return
         const next = await window.snapglass.pin.toggleIgnore()
         setIgnore(next)
@@ -298,7 +433,44 @@ export function PinApp(): JSX.Element {
           </div>
         </div>
       ) : (
-        imageUrl && <img className="pin-image" src={imageUrl} alt="" draggable={false} />
+        imageUrl && (
+          <div className="pin-image-wrap">
+            <img
+              ref={imageRef}
+              className="pin-image"
+              src={imageUrl}
+              alt=""
+              draggable={false}
+              onLoad={measureView}
+            />
+            {textLayout.length > 0 && (
+              <div ref={textLayerRef} className="pin-text-layer">
+                {textLayout.map((line) => (
+                  <span
+                    key={line.id}
+                    className="pin-text-line"
+                    style={{
+                      left: line.left,
+                      top: line.top,
+                      width: line.width,
+                      height: line.height,
+                      fontSize: line.fontSize,
+                      lineHeight: `${line.height}px`
+                    }}
+                  >
+                    {line.text}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      )}
+      {!editing && textState === 'loading' && (
+        <span className="pin-text-status">识别文字中…</span>
+      )}
+      {!editing && textState === 'error' && (
+        <span className="pin-text-status">文字识别不可用</span>
       )}
       {!editing && (
         <div className="pin-actions">

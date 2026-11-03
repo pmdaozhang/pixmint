@@ -9,9 +9,9 @@
 | `src/main/windows/overlay.ts` | 覆盖层窗口、框选、Esc 取消、保存/复制入口 | `e2e-overlay.cjs` | 框选后分别保存、复制、Esc 取消 |
 | `src/renderer/src/overlay/**` | 标注画布、工具栏、箭头、文字、马赛克、撤销重做 | `annotation-utils.test.ts`、`arrow-geometry.test.ts`、`mosaic-options.test.ts`、`e2e-overlay.cjs` | 每种工具绘制一次；撤销/重做；文字二次编辑 |
 | `src/main/recording.ts`、`src/renderer/src/recorder/**` | GIF/视频录制、系统音频、暂停与结束 | `recording.test.ts`、`gif-encoder.test.ts`、`e2e-recording.cjs` | 录制 10 秒 GIF 和视频；检查音频轨；结束并保存 |
-| `src/main/ocr/**`、`src/renderer/src/ocr/**` | PaddleOCR、Windows OCR 兜底、多行结果拼接 | `ocr-queue.test.ts`、`paddle-ocr.test.ts`、`windows-ocr.test.ts`、`e2e-ocr.cjs` | 选中中英混排、路径、版本号各识别一次 |
+| `src/main/ocr/**`、`src/renderer/src/ocr/**` | PaddleOCR、Windows OCR 兜底、多行结果拼接、文字框坐标 | `ocr-queue.test.ts`、`ocr-layout.test.ts`、`paddle-ocr.test.ts`、`windows-ocr.test.ts`、`e2e-ocr.cjs` | 选中中英混排、路径、版本号各识别一次 |
 | `src/main/translation*`、翻译弹框 | OCR 翻译、方向选择、长文本滚动 | `translation.test.ts`、`e2e-ocr-translate.cjs` | 中英各一段；切换 CN→EN / EN→CN；检查长文本滚动 |
-| `src/main/pin-state.ts`、`src/main/windows/pin.ts`、`src/renderer/src/pin/**` | 钉图、缩放、标注、关闭 | `pin-state.test.ts`、`e2e-pin.cjs` | 钉图后缩放、标注、关闭；重启应用检查残留 |
+| `src/main/pin-state.ts`、`src/main/windows/pin.ts`、`src/renderer/src/pin/**` | 钉图、缩放、标注、关闭、OCR 文字选择与复制 | `pin-state.test.ts`、`pin-text.test.ts`、`ocr-layout.test.ts`、`e2e-pin.cjs`、`e2e-pin-text.cjs` | 14px 短选区钉图不拉伸；文字拖选/双击/`Ctrl+A`/`Ctrl+C`；空白区拖动；缩放后文字对齐；编辑后重识别；OCR 失败仍可复制图片 |
 | `src/main/settings-store.ts`、`src/main/settings-utils.ts`、`src/renderer/src/settings/**` | 设置读写、schema 迁移、设置窗口 | `settings-utils.test.ts`、`e2e-settings.cjs` | 修改设置后重启，确认保留；用旧设置文件验证迁移 |
 | `src/main/updater.ts`、`src/shared/update.ts`、`src/preload/index.ts`（updater IPC）、`src/renderer/src/settings/SettingsApp.tsx` | 应用内检查、下载、校验、静默安装、更新状态展示 | `update.test.ts`、`e2e-settings.cjs`、本地 generic 0.4.0 → 0.4.1 E2E | 设置页检查更新；本地源下载安装；断网 / 404 / 哈希失败；重启后版本与设置 |
 | `electron-builder.yml`、`release/latest.yml`、`resources/app-update.yml` | 更新源、安装包命名、发布产物 | `release-gate.mjs`、手工产物检查 | 构建后核对 `latest.yml` 与 Setup 文件名、`.blockmap`、`app-update.yml` |

@@ -6,18 +6,69 @@
   overflow: hidden;
   background: transparent;
   cursor: grab;
+  user-select: none;
+}
+
+.pin-image-wrap {
+  position: absolute;
+  inset: 20px;
 }
 
 .pin-image {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: contain;
   border-radius: var(--radius-xl);
   box-shadow:
     0 0 20px rgba(0, 0, 0, 0.45),
     0 8px 28px rgba(0, 0, 0, 0.35);
   cursor: grab;
+}
+
+.pin-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.pin-text-line {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: transparent;
+  white-space: pre;
+  font-family: var(--font);
+  letter-spacing: 0;
+  text-shadow: none;
+  cursor: text;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.pin-text-line::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: rgba(2, 133, 255, 0.36);
+}
+
+.pin-text-status {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  color: #fff;
+  background: #1c1c1c;
+  pointer-events: none;
 }
 
 .pin-root.editing {
@@ -64,6 +115,7 @@
   position: absolute;
   top: 26px;
   right: 26px;
+  z-index: 2;
   display: flex;
   gap: 4px;
   opacity: 0;

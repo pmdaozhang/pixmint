@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as ort from 'onnxruntime-node'
 import { PaddleOcrService } from 'paddleocr'
-import type { OcrResult } from '../../shared/types'
+import { lineBlockFromParts } from '../../shared/ocr-layout'
+import { normalizeOcrText } from '../../shared/text-analysis'
+import type { OcrResult, OcrTextBlock } from '../../shared/types'
 
 const DET_MODEL = 'PP-OCRv5_mobile_det_infer.onnx'
 const REC_MODEL = 'PP-OCRv5_mobile_rec_infer.onnx'
@@ -33,13 +35,28 @@ export async function recognizePaddle(image: NativeImage): Promise<OcrResult> {
     .map((line) => line.map((item) => item.text).join(' ').trim())
     .filter(Boolean)
   const text = lines.length > 0 ? lines.join('\n') : processed.text
+  const blocks = processed.lines
+    .map((line) =>
+      lineBlockFromParts(
+        line.map((item) => ({
+          text: item.text,
+          x: item.box.x,
+          y: item.box.y,
+          width: item.box.width,
+          height: item.box.height
+        })),
+        normalizeOcrText(line.map((item) => item.text).join(' '))
+      )
+    )
+    .filter((block): block is OcrTextBlock => block !== null)
   console.log(
     'OCR_PADDLE',
     'ms=' + (Date.now() - started),
     'confidence=' + processed.confidence.toFixed(4),
-    'lines=' + lines.length
+    'lines=' + lines.length,
+    'blocks=' + blocks.length
   )
-  return { text, lines }
+  return { text, lines, blocks }
 }
 
 export async function disposePaddle(): Promise<void> {
