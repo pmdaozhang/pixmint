@@ -9,6 +9,7 @@
 - 授权体系：Ed25519 离线验签、设备 ID 哈希、最多 3 台设备、7 天续签 + 30 天宽限、safeStorage 存储。
 - 独立授权服务 `server/license/`：Flask + SQLite，已部署 `data.hugproducthub.top/api/v1/*`（8101），含激活/续签/设备管理/试用/发码/订单与面包多Pay Webhook 适配。
 - 设置页「Pixmint Pro」卡片：授权状态、今日剩余额度、激活码复制、升级入口。
+- 授权设备管理：查看已绑定设备、标记本机、两步确认解绑旧设备；购买窗与设置页均可进入。
 
 ### Verified
 

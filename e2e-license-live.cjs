@@ -107,6 +107,34 @@ async function waitHealth(timeout = 15000) {
       { timeout: 10000 }
     )
     console.log('LIVE_REACTIVATED true')
+
+    // 第二台设备直连接口激活，然后在 UI 里解绑
+    const secondDevice = 'b2'.repeat(32)
+    const activateResponse = await fetch(
+      `http://127.0.0.1:${PORT}/v1/license/activate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, deviceId: secondDevice, deviceName: 'second-pc' })
+      }
+    )
+    if (!activateResponse.ok) throw new Error('second device activation failed')
+
+    await page.locator('.pc-secondary').click()
+    await page.waitForSelector('.pc-device', { timeout: 10000 })
+    const before = await page.locator('.pc-device').count()
+    console.log('DEVICES_BEFORE_UNBIND', before)
+    if (before !== 2) throw new Error('expected 2 devices')
+    await page.screenshot({ path: path.join(PROJECT, 'test-results', 'device-manage.png') })
+    const unbindButton = page.locator('.pc-device button').first()
+    await unbindButton.click()
+    await unbindButton.click()
+    await page.waitForFunction(
+      () => document.querySelectorAll('.pc-device').length === 1,
+      undefined,
+      { timeout: 10000 }
+    )
+    console.log('DEVICES_AFTER_UNBIND 1')
     console.log('LIVE_E2E_OK')
   } finally {
     await app?.close().catch(() => {})

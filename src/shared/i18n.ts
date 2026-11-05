@@ -542,6 +542,20 @@ const EN: Record<string, string> = {
   '今日剩余：OCR {ocr}/{ocrLimit} · 翻译 {translate}/{translateLimit} · GIF {gif}/{gifLimit} · 视频 {video}/{videoLimit}':
     'Remaining today: OCR {ocr}/{ocrLimit} · Translation {translate}/{translateLimit} · GIF {gif}/{gifLimit} · Video {video}/{videoLimit}',
   '管理授权': 'Manage license',
+  '管理设备': 'Manage devices',
+  '授权设备': 'Licensed devices',
+  '当前已绑定 {used}/{max} 台设备': '{used}/{max} devices bound',
+  '一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。':
+    'One code binds up to 3 devices. After unbinding, that device must activate again.',
+  '正在加载设备…': 'Loading devices…',
+  '还没有绑定设备，或当前没有可管理的授权。':
+    'No devices bound, or no license to manage.',
+  '本机': 'This PC',
+  '最后使用 {date}': 'Last used {date}',
+  '当前设备': 'Current device',
+  '确认解绑': 'Confirm unbind',
+  '解绑': 'Unbind',
+  '已解绑该设备': 'Device unbound',
   '升级 Pro': 'Upgrade to Pro',
   '换电脑时输入此码，最多绑定 3 台设备':
     'Enter this code on a new PC; up to 3 devices',

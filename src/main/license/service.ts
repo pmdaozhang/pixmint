@@ -234,7 +234,9 @@ export class LicenseService {
       code: record.code,
       deviceId: this.options.deviceId()
     })
-    return Array.isArray(response.devices) ? response.devices : []
+    const devices = Array.isArray(response.devices) ? response.devices : []
+    this.options.store.save({ devicesUsed: devices.length })
+    return devices
   }
 
   async unbind(deviceHash: string): Promise<void> {
@@ -245,6 +247,7 @@ export class LicenseService {
       deviceId: this.options.deviceId(),
       targetDevice: deviceHash
     })
+    await this.devices().catch(() => {})
   }
 
   async trial(inviteCode: string): Promise<LicenseActivation> {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { JSX } from 'react'
 import {
   PURCHASE_PLANS,
+  type LicenseDevice,
   type LicenseStatus,
   type PaymentProvider,
   type PurchaseOrder
@@ -16,7 +17,7 @@ const MIN_WINDOW_HEIGHT = 480
 const MAX_WINDOW_HEIGHT = 880
 
 type PlanId = 'monthly' | 'yearly' | 'lifetime'
-type Step = 'plans' | 'pay' | 'done' | 'activate' | 'invite'
+type Step = 'plans' | 'pay' | 'done' | 'activate' | 'invite' | 'devices'
 
 const FEATURE_LABEL: Record<UsageFeature, string> = {
   ocr: 'OCR 识别',
@@ -45,6 +46,13 @@ function parseFeature(): UsageFeature | null {
   return value === 'ocr' || value === 'translate' || value === 'gif' || value === 'video'
     ? value
     : null
+}
+
+function formatDeviceTime(seconds: number): string {
+  const date = new Date(seconds * 1000)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`
 }
 
 function formatDate(value: number | null): string {
@@ -136,6 +144,9 @@ export function PurchaseApp(): JSX.Element {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [devices, setDevices] = useState<LicenseDevice[]>([])
+  const [deviceBusy, setDeviceBusy] = useState(false)
+  const [confirmUnbind, setConfirmUnbind] = useState('')
 
   const language = settings?.language ?? 'zh-CN'
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
@@ -311,6 +322,45 @@ export function PurchaseApp(): JSX.Element {
     }
   }, [email, tr])
 
+  const loadDevices = useCallback(async (): Promise<void> => {
+    setDeviceBusy(true)
+    setMessage('')
+    setConfirmUnbind('')
+    try {
+      setDevices(await window.snapglass.license.devices())
+    } catch (error) {
+      setMessage(readableError(error))
+    } finally {
+      setDeviceBusy(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (step === 'devices') void loadDevices()
+  }, [step, loadDevices])
+
+  const unbindDevice = useCallback(
+    async (deviceHash: string): Promise<void> => {
+      if (confirmUnbind !== deviceHash) {
+        setConfirmUnbind(deviceHash)
+        return
+      }
+      setDeviceBusy(true)
+      setMessage('')
+      try {
+        await window.snapglass.license.unbind(deviceHash)
+        await loadDevices()
+        setMessage(tr('已解绑该设备'))
+      } catch (error) {
+        setMessage(readableError(error))
+      } finally {
+        setDeviceBusy(false)
+        setConfirmUnbind('')
+      }
+    },
+    [confirmUnbind, loadDevices, tr]
+  )
+
   const copyCode = (): void => {
     if (!code) return
     void navigator.clipboard.writeText(code)
@@ -353,6 +403,20 @@ export function PurchaseApp(): JSX.Element {
                   '截图、标注、钉图永久免费；Pro解锁OCR、翻译、GIF与视频录制无限次，也包括后续即将上线的新奇功能哦~'
                 )}
               </p>
+
+              {status?.pro && (
+                <div className="pc-pro-row">
+                  <span>
+                    {tr('当前已绑定 {used}/{max} 台设备', {
+                      used: status.devicesUsed,
+                      max: status.devicesMax
+                    })}
+                  </span>
+                  <button type="button" onClick={() => setStep('devices')}>
+                    {tr('管理设备')}
+                  </button>
+                </div>
+              )}
 
               <div className="pc-plans">
                 {PURCHASE_PLANS.map((item) => {
@@ -515,6 +579,10 @@ export function PurchaseApp(): JSX.Element {
                 <p>{tr('换电脑时输入这个激活码即可，一个激活码最多绑定 3 台设备。')}</p>
               </div>
 
+              <button className="pc-secondary" type="button" onClick={() => setStep('devices')}>
+                {tr('管理设备')}
+              </button>
+
               {message && <div className="pc-message">{message}</div>}
             </>
           )}
@@ -559,6 +627,56 @@ export function PurchaseApp(): JSX.Element {
               <button className="pc-primary" type="button" disabled={busy || !code.trim()} onClick={() => void redeemInvite()}>
                 {busy ? tr('领取中…') : tr('领取 7 天 Pro')}
               </button>
+              <button className="pc-secondary" type="button" onClick={() => setStep('plans')}>
+                {tr('返回')}
+              </button>
+            </>
+          )}
+
+          {step === 'devices' && (
+            <>
+              <div className="pc-eyebrow">{tr('授权设备')}</div>
+              <h1>{tr('管理设备')}</h1>
+              <p className="pc-lead">
+                {tr('一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。')}
+              </p>
+              {deviceBusy && devices.length === 0 ? (
+                <div className="pc-message">{tr('正在加载设备…')}</div>
+              ) : devices.length === 0 ? (
+                <div className="pc-message">
+                  {tr('还没有绑定设备，或当前没有可管理的授权。')}
+                </div>
+              ) : (
+                <div className="pc-devices">
+                  {devices.map((device) => (
+                    <div className="pc-device" key={device.deviceHash}>
+                      <div className="pc-device-main">
+                        <strong>
+                          {device.name}
+                          {device.current && <span className="pc-device-tag">{tr('本机')}</span>}
+                        </strong>
+                        <span>
+                          {tr('最后使用 {date}', {
+                            date: formatDeviceTime(device.lastSeen)
+                          })}
+                        </span>
+                      </div>
+                      {device.current ? (
+                        <span className="pc-device-current">{tr('当前设备')}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={deviceBusy}
+                          onClick={() => void unbindDevice(device.deviceHash)}
+                        >
+                          {confirmUnbind === device.deviceHash ? tr('确认解绑') : tr('解绑')}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {message && <div className="pc-message">{message}</div>}
               <button className="pc-secondary" type="button" onClick={() => setStep('plans')}>
                 {tr('返回')}
               </button>
