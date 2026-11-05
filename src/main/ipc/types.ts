@@ -1,8 +1,11 @@
+import type { UsageFeature } from '../../shared/usage'
 import type { FeedbackService } from '../feedback'
+import type { LicenseService } from '../license/service'
 import type { PlatformServices } from '../platform'
 import type { RecorderManager } from '../recording'
 import type { SecretStore } from '../secret-store'
 import type { SettingsStore } from '../settings-store'
+import type { UsageService } from '../services/usage-service'
 import type { OcrManager } from '../windows/ocr'
 import type { OverlayManager } from '../windows/overlay'
 import type { PinManager } from '../windows/pin'
@@ -22,6 +25,9 @@ export interface IpcContext {
   recorderManager: RecorderManager
   feedbackService: FeedbackService
   platformServices: PlatformServices
+  usageService: UsageService
+  licenseService: LicenseService
   applySystemSettings: () => void
   openSettingsWindow: () => void
+  openPurchaseWindow: (feature?: UsageFeature) => void
 }

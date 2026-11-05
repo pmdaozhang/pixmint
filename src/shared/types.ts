@@ -97,6 +97,8 @@ export interface OcrResult {
   text: string
   lines: string[]
   blocks?: OcrTextBlock[]
+  /** 免费次数用完，主进程已打开购买窗；渲染层不要提示“未识别到文字” */
+  quotaExceeded?: boolean
 }
 
 export interface WordCardEntry {
@@ -231,6 +233,10 @@ export interface RecorderBeginPayload {
 
 export interface RecorderBeginResult {
   sourceId: string
+  /** 免费次数用完，主进程已打开购买窗 */
+  denied?: boolean
+  reason?: 'quota'
+  feature?: 'gif' | 'video'
 }
 
 export interface RecorderState {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import type { DiagnosticsInfo, Settings, ThemeSetting, UpdateState } from '@shared/types'
+import type { LicenseStatus } from '@shared/license'
+import type { UsageView } from '@shared/usage'
 import { describeUpdate } from '@shared/update'
 import { t } from '@shared/i18n'
 import { Icon } from '../components/Icon'
@@ -57,6 +59,8 @@ export function SettingsApp(): JSX.Element {
   const [toast, setToast] = useState('')
   const [translationKey, setTranslationKey] = useState('')
   const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null)
+  const [usage, setUsage] = useState<UsageView | null>(null)
   const language = settings?.language ?? 'zh-CN'
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
     t(language, zh, vars)
@@ -67,12 +71,16 @@ export function SettingsApp(): JSX.Element {
   }
 
   const load = async (): Promise<void> => {
-    const [nextSettings, nextVersion] = await Promise.all([
+    const [nextSettings, nextVersion, nextUsage, nextLicense] = await Promise.all([
       window.snapglass.settings.get(),
-      window.snapglass.app.version()
+      window.snapglass.app.version(),
+      window.snapglass.usage.get().catch(() => null),
+      window.snapglass.license.status().catch(() => null)
     ])
     setSettings(nextSettings)
     setVersion(nextVersion)
+    setUsage(nextUsage)
+    setLicenseStatus(nextLicense)
     try {
       setDiagnostics(await window.snapglass.diagnostics.info())
     } catch (error) {
@@ -357,6 +365,67 @@ export function SettingsApp(): JSX.Element {
               <span />
             </label>
           </div>
+        </section>
+
+        <section className="card">
+          <div className="card-title">
+            <Icon name="settings" size={16} />
+            {tr('Pixmint Pro')}
+          </div>
+          <div className="row">
+            <div className="row-label">
+              <strong>{licenseStatus?.pro ? tr('Pro 已激活') : tr('免费版')}</strong>
+              <span>
+                {licenseStatus?.pro
+                  ? licenseStatus.expiresAt
+                    ? tr('有效期至 {date}', {
+                        date: new Date(licenseStatus.expiresAt).toLocaleDateString()
+                      })
+                    : tr('永久授权')
+                  : usage
+                    ? tr('今日剩余：OCR {ocr}/{ocrLimit} · 翻译 {translate}/{translateLimit} · GIF {gif}/{gifLimit} · 视频 {video}/{videoLimit}', {
+                        ocr: usage.remaining.ocr,
+                        ocrLimit: usage.limits.ocr,
+                        translate: usage.remaining.translate,
+                        translateLimit: usage.limits.translate,
+                        gif: usage.remaining.gif,
+                        gifLimit: usage.limits.gif,
+                        video: usage.remaining.video,
+                        videoLimit: usage.limits.video
+                      })
+                    : tr('每日免费额度')
+                }
+              </span>
+            </div>
+            <div className="row-actions">
+              <button
+                className="primary"
+                onClick={() => window.snapglass.purchase.open()}
+              >
+                {licenseStatus?.pro ? tr('管理授权') : tr('升级 Pro')}
+              </button>
+            </div>
+          </div>
+          {licenseStatus?.code && (
+            <div className="row">
+              <div className="row-label">
+                <strong>{tr('激活码')}</strong>
+                <span>{tr('换电脑时输入此码，最多绑定 3 台设备')}</span>
+              </div>
+              <div className="row-actions">
+                <code className="license-code">{licenseStatus.code}</code>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(licenseStatus.code ?? '')
+                    flash(tr('激活码已复制'))
+                  }}
+                >
+                  {tr('复制')}
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="card">

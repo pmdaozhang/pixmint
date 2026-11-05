@@ -12,6 +12,7 @@ import type { PlatformServices } from '../platform'
 import type { RecorderManager } from '../recording'
 import type { SecretStore } from '../secret-store'
 import type { SettingsStore } from '../settings-store'
+import type { UsageService } from './usage-service'
 import type { OcrManager } from '../windows/ocr'
 import type { OverlayManager } from '../windows/overlay'
 import type { PinManager } from '../windows/pin'
@@ -33,6 +34,7 @@ export interface CaptureDeps {
   settingsStore: SettingsStore
   secretStore: SecretStore
   statusToast: StatusToast
+  usageService: UsageService
   getTray: () => Tray | null
   isFastCaptureSmoke: boolean
 }
@@ -123,6 +125,12 @@ export async function handleOverlayComplete(
     return
   }
   if (payload.action === 'ocr') {
+    // 翻译任务只扣翻译额度（由 translation:translate 负责），避免 OCR + 翻译双扣；
+    // 纯 OCR 在真正识别前扣，失败会退回，Pro 用户直接放行。
+    if (!payload.autoTranslate) {
+      const quota = deps.usageService.consume('ocr')
+      if (!quota.allowed) return
+    }
     let toastTimer: ReturnType<typeof setTimeout> | null = null
     try {
       // 快速识别不闪 toast；超过 150ms 才提示，避免短任务频繁闪窗。
@@ -146,6 +154,7 @@ export async function handleOverlayComplete(
         hasTranslationKey: deps.secretStore.hasTranslationKey()
       })
     } catch (error) {
+      if (!payload.autoTranslate) deps.usageService.refund('ocr')
       if (toastTimer) clearTimeout(toastTimer)
       deps.statusToast.hide()
       const message = error instanceof Error ? error.message : String(error)

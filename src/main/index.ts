@@ -5,6 +5,7 @@ import {
   nativeTheme,
   net,
   protocol,
+  safeStorage,
   screen,
   session,
   Tray
@@ -26,6 +27,13 @@ import { createSettingsWindow } from './windows/settings-window'
 import { createOnboardingWindow } from './windows/onboarding-window'
 import { createFeedbackWindow, sendFeedbackStatus } from './windows/feedback-window'
 import { createWhatsNewWindow } from './windows/whats-new-window'
+import { createPurchaseWindow } from './windows/purchase-window'
+import { DeviceIdStore } from './license/device-id'
+import { LicenseStore, safeStorageCipher } from './license/store'
+import { LicenseService } from './license/service'
+import { UsageStore } from './usage-store'
+import { UsageService } from './services/usage-service'
+import type { UsageFeature } from '../shared/usage'
 import { StatusToast } from './windows/status-toast'
 import { RecorderManager } from './recording'
 import { enableSafeMode, hasUncleanSession, safeModeRequested } from './safe-mode'
@@ -115,6 +123,11 @@ let recorderManager: RecorderManager
 let windowSnap: WindowSnapHelper
 let platformServices: PlatformServices
 let feedbackService: FeedbackService
+let deviceIdStore: DeviceIdStore
+let licenseStore: LicenseStore
+let licenseService: LicenseService
+let usageStore: UsageStore
+let usageService: UsageService
 let tray: Tray | null = null
 let trayActions: TrayActions | null = null
 let preloadPath = ''
@@ -158,6 +171,7 @@ function captureDeps(): CaptureDeps {
     settingsStore,
     secretStore,
     statusToast,
+    usageService,
     getTray: () => tray,
     isFastCaptureSmoke: flags.fastCaptureSmoke
   }
@@ -206,6 +220,30 @@ function initServices(): void {
     hideOverlay: () => overlayManager.hideAll(),
     getLanguage: () => settingsStore.get().language
   })
+  deviceIdStore = new DeviceIdStore(join(app.getPath('userData'), 'device.json'))
+  licenseStore = new LicenseStore(
+    join(app.getPath('userData'), 'license.json'),
+    safeStorageCipher(safeStorage)
+  )
+  licenseService = new LicenseService({
+    store: licenseStore,
+    deviceId: () => deviceIdStore.get(),
+    fetchImpl: (url, init) =>
+      net.fetch(url, init as RequestInit) as unknown as Promise<{
+        ok: boolean
+        status: number
+        json(): Promise<unknown>
+      }>
+  })
+  usageStore = new UsageStore(join(app.getPath('userData'), 'usage.json'))
+  usageService = new UsageService({
+    store: usageStore,
+    license: licenseService,
+    onExceeded: (feature: UsageFeature) => {
+      overlayManager.hideAll()
+      createPurchaseWindow(preloadPath, feature)
+    }
+  })
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
     if (!isTrustedAppUrl(contents.getURL())) {
       callback(false)
@@ -240,10 +278,21 @@ function initServices(): void {
     recorderManager,
     feedbackService,
     platformServices,
+    usageService,
+    licenseService,
     applySystemSettings,
-    openSettingsWindow: () => createSettingsWindow(preloadPath)
+    openSettingsWindow: () => createSettingsWindow(preloadPath),
+    openPurchaseWindow: (feature) => {
+      overlayManager.hideAll()
+      createPurchaseWindow(preloadPath, feature)
+    }
   })
   applySystemSettings()
+  if (licenseStore.get().token) {
+    void licenseService.refresh().catch((error: unknown) => {
+      logDiagnostic('license', `refresh failed: ${String(error)}`, 'warn')
+    })
+  }
   initUpdater({
     onAvailable: (version) => {
       if (settingsStore.get().skippedUpdateVersion === version) return
@@ -345,6 +394,10 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
     }
     if (flags.whatsNewE2e) {
       createWhatsNewWindow(preloadPath, 'whats-new?version=0.8.0')
+      return
+    }
+    if (flags.purchaseE2e) {
+      createPurchaseWindow(preloadPath, 'ocr')
       return
     }
     if (flags.overlaySmoke) {

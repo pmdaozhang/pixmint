@@ -5,6 +5,15 @@ import type {
   FeedbackSubmitInput
 } from '../shared/feedback'
 import type {
+  LicenseActivation,
+  LicenseDevice,
+  LicenseStatus,
+  PaymentProvider,
+  PurchaseOrder,
+  PurchaseOrderResult
+} from '../shared/license'
+import type { UsageFeature, UsageView } from '../shared/usage'
+import type {
   GifDoneMeta,
   OverlayCompletePayload,
   OverlayInit,
@@ -152,6 +161,30 @@ const api: SnapglassApi = {
   },
   whatsNew: {
     resize: (height: number) => ipcRenderer.send('whats-new:resize', height)
+  },
+  usage: {
+    get: () => ipcRenderer.invoke('usage:get') as Promise<UsageView>
+  },
+  license: {
+    status: () => ipcRenderer.invoke('license:status') as Promise<LicenseStatus>,
+    activate: (code: string) =>
+      ipcRenderer.invoke('license:activate', code) as Promise<LicenseActivation>,
+    restore: () => ipcRenderer.invoke('license:restore') as Promise<LicenseStatus | null>,
+    refresh: () => ipcRenderer.invoke('license:refresh') as Promise<LicenseStatus>,
+    email: (email: string) => ipcRenderer.invoke('license:email', email) as Promise<void>,
+    devices: () => ipcRenderer.invoke('license:devices') as Promise<LicenseDevice[]>,
+    unbind: (deviceHash: string) =>
+      ipcRenderer.invoke('license:unbind', deviceHash) as Promise<void>,
+    trial: (inviteCode: string) =>
+      ipcRenderer.invoke('license:trial', inviteCode) as Promise<LicenseActivation>
+  },
+  purchase: {
+    open: (feature?: UsageFeature) => ipcRenderer.send('purchase:open', feature),
+    createOrder: (plan, provider: PaymentProvider) =>
+      ipcRenderer.invoke('purchase:create-order', plan, provider) as Promise<PurchaseOrder>,
+    orderStatus: (orderId: string, orderToken: string) =>
+      ipcRenderer.invoke('purchase:order-status', orderId, orderToken) as Promise<PurchaseOrderResult>,
+    resize: (height: number) => ipcRenderer.send('purchase:resize', height)
   },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,

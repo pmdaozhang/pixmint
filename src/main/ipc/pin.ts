@@ -23,7 +23,16 @@ export function registerPinIpc(ctx: IpcContext): void {
     if (!bytes) return null
     const image = imageFromBytes(bytes)
     if (image.isEmpty()) return null
-    return ctx.platformServices.ocr.recognizeDataUrl(image.toDataURL())
+    const quota = ctx.usageService.consume('ocr')
+    if (!quota.allowed) {
+      return { text: '', lines: [], blocks: [], quotaExceeded: true }
+    }
+    try {
+      return await ctx.platformServices.ocr.recognizeDataUrl(image.toDataURL())
+    } catch (error) {
+      ctx.usageService.refund('ocr')
+      throw error
+    }
   })
   handle('pin:set-edit-mode', z.tuple([z.boolean()]), (event, [active]) =>
     pin.setEditMode(event.sender.id, active)

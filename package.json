@@ -30,7 +30,9 @@
     "soak:memory": "node scripts/soak/memory-path-soak.cjs",
     "soak:crash-recovery": "node scripts/soak/crash-recovery.cjs",
     "release:win": "pnpm typecheck && pnpm test && pnpm build && electron-builder",
-    "package": "node ../scripts/review/release-gate.mjs --project . && electron-builder"
+    "package": "node ../scripts/review/release-gate.mjs --project . && electron-builder",
+    "e2e:purchase": "node e2e-purchase.cjs",
+    "e2e:quota": "node e2e-quota.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",

@@ -159,6 +159,69 @@ const api = {
       }
     }
   },
+  usage: {
+    get: async () => ({
+      pro: false,
+      day: new Date().toISOString().slice(0, 10),
+      limits: { ocr: 20, translate: 10, gif: 3, video: 1 },
+      used: { ocr: 0, translate: 0, gif: 0, video: 0 },
+      remaining: { ocr: 20, translate: 10, gif: 3, video: 1 }
+    })
+  },
+  license: {
+    status: async () => ({
+      pro: false,
+      plan: null,
+      expiresAt: null,
+      updateUntil: null,
+      code: null,
+      email: null,
+      devicesUsed: 0,
+      devicesMax: 3,
+      needsRefresh: false,
+      offline: false
+    }),
+    activate: async (code: string) => ({
+      token: code,
+      code,
+      plan: 'pro' as const,
+      expiresAt: null,
+      devicesUsed: 1,
+      devicesMax: 3
+    }),
+    restore: async () => null,
+    refresh: async () => ({
+      pro: false,
+      plan: null,
+      expiresAt: null,
+      updateUntil: null,
+      code: null,
+      email: null,
+      devicesUsed: 0,
+      devicesMax: 3,
+      needsRefresh: false,
+      offline: false
+    }),
+    email: async () => {},
+    devices: async () => [],
+    unbind: async () => {},
+    trial: async (code: string) => ({
+      token: code,
+      code,
+      plan: 'pro' as const,
+      expiresAt: Date.now() + 7 * 86_400_000,
+      devicesUsed: 1,
+      devicesMax: 1
+    })
+  },
+  purchase: {
+    open: () => {},
+    createOrder: async () => {
+      throw new Error('浏览器预览不支持支付')
+    },
+    orderStatus: async () => ({ status: 'pending' as const }),
+    resize: () => {}
+  },
   overlay: {
     ready: async (): Promise<OverlayInit> => createOverlayInit(),
     onInit: () => () => {},

@@ -253,6 +253,10 @@ export function PinApp(): JSX.Element {
     setTextState('loading')
     try {
       const result = await window.snapglass.pin.recognizeText()
+      if (result?.quotaExceeded) {
+        setTextState('idle')
+        return
+      }
       const blocks = result?.blocks ?? []
       ocrCacheRef.current = { imageUrl, blocks }
       setTextBlocks(blocks)

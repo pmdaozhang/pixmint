@@ -1,10 +1,12 @@
 import { registerDiagnosticsIpc } from './diagnostics'
+import { registerLicenseIpc } from './license'
 import { registerOcrIpc } from './ocr'
 import { registerOverlayIpc } from './overlay'
 import { registerPinIpc } from './pin'
 import { registerRecorderIpc } from './recorder'
 import { registerSettingsIpc } from './settings'
 import { registerSystemIpc } from './system'
+import { registerUsageIpc } from './usage'
 import type { IpcContext } from './types'
 
 export type { IpcContext } from './types'
@@ -22,4 +24,6 @@ export function registerIpc(ctx: IpcContext): void {
   registerOcrIpc(ctx)
   registerDiagnosticsIpc(ctx)
   registerSystemIpc(ctx)
+  registerUsageIpc(ctx)
+  registerLicenseIpc(ctx)
 }

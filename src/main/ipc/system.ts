@@ -31,12 +31,42 @@ export function registerSystemIpc(ctx: IpcContext): void {
           t(ctx.settingsStore.get().language, '未配置翻译 API Key，请先在设置页配置')
         )
       }
-      return translateText(text, effective, key ?? '', net.fetch.bind(net) as typeof fetch)
+      const quota = ctx.usageService.consume('translate')
+      if (!quota.allowed) {
+        throw new Error(
+          t(settings.language, '今日翻译次数已用完，明天再来吧')
+        )
+      }
+      try {
+        return await translateText(text, effective, key ?? '', net.fetch.bind(net) as typeof fetch)
+      } catch (error) {
+        ctx.usageService.refund('translate')
+        throw error
+      }
     }
   )
 
   handle('feedback:submit', z.tuple([feedbackSubmitSchema]), (_event, [input]) =>
     ctx.feedbackService.submit(input)
+  )
+
+  // 购买窗按内容高度自适应
+  on(
+    'purchase:resize',
+    z.tuple([z.number().finite().min(360).max(900)]),
+    (event, [height]) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (!window || window.isDestroyed()) return
+      const bounds = window.getBounds()
+      const nextHeight = Math.round(height)
+      if (bounds.height === nextHeight) return
+      window.setBounds({
+        x: bounds.x,
+        y: Math.round(bounds.y + (bounds.height - nextHeight) / 2),
+        width: bounds.width,
+        height: nextHeight
+      })
+    }
   )
 
   // 更新介绍页按内容高度自适应

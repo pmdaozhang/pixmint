@@ -25,6 +25,15 @@ import type {
   FeedbackSubmitInput,
   FeedbackSubmitResult
 } from './feedback'
+import type {
+  LicenseActivation,
+  LicenseDevice,
+  LicenseStatus,
+  PaymentProvider,
+  PurchaseOrder,
+  PurchaseOrderResult
+} from './license'
+import type { UsageFeature, UsageView } from './usage'
 
 export interface SnapglassApi {
   overlay: {
@@ -124,6 +133,28 @@ export interface SnapglassApi {
     onState(callback: (state: UpdateState) => void): () => void
   }
   whatsNew: {
+    resize(height: number): void
+  }
+  usage: {
+    get(): Promise<UsageView>
+  }
+  license: {
+    status(): Promise<LicenseStatus>
+    activate(code: string): Promise<LicenseActivation>
+    restore(): Promise<LicenseStatus | null>
+    refresh(): Promise<LicenseStatus>
+    email(email: string): Promise<void>
+    devices(): Promise<LicenseDevice[]>
+    unbind(deviceHash: string): Promise<void>
+    trial(inviteCode: string): Promise<LicenseActivation>
+  }
+  purchase: {
+    open(feature?: UsageFeature): void
+    createOrder(
+      plan: 'monthly' | 'yearly' | 'lifetime',
+      provider: PaymentProvider
+    ): Promise<PurchaseOrder>
+    orderStatus(orderId: string, orderToken: string): Promise<PurchaseOrderResult>
     resize(height: number): void
   }
 }

@@ -18,7 +18,17 @@ export function registerRecorderIpc(ctx: IpcContext): void {
   handle('recorder:begin', z.tuple([recorderBeginSchema]), (event, [payload]) => {
     const capture = ctx.overlayManager.captureFor(event.sender.id)
     if (!capture) throw new Error('截图会话已结束，请重新截图')
-    return recorder.begin(event.sender.id, payload, capture.bounds)
+    const feature = payload.mode === 'gif' ? 'gif' : 'video'
+    const quota = ctx.usageService.consume(feature)
+    if (!quota.allowed) {
+      return { sourceId: '', denied: true, reason: 'quota', feature } as const
+    }
+    try {
+      return recorder.begin(event.sender.id, payload, capture.bounds)
+    } catch (error) {
+      ctx.usageService.refund(feature)
+      throw error
+    }
   })
 
   on('recorder:state', z.tuple([recorderStatePatchSchema]), (_event, [patch]) => {

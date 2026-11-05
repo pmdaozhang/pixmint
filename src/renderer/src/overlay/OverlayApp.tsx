@@ -328,7 +328,7 @@ export function OverlayApp(): JSX.Element {
     setRecordPhase('preparing')
     recordPhaseRef.current = 'preparing'
     try {
-      const { sourceId } = await withTimeout(
+      const beginResult = await withTimeout(
         window.snapglass.recorder.begin({
           mode,
           displayId: init.displayId,
@@ -338,6 +338,14 @@ export function OverlayApp(): JSX.Element {
         9_000,
         t(init?.settings?.language, '录制初始化超时，请重试')
       )
+      if (beginResult.denied) {
+        // 主进程已隐藏覆盖层并打开购买窗，这里只收尾本地状态
+        setRecordPhase('idle')
+        recordPhaseRef.current = 'idle'
+        setCountdownNumber(0)
+        return
+      }
+      const { sourceId } = beginResult
       if (recordCancelledRef.current) return
 
       const session = new RecorderSession(init, selection, options, {
