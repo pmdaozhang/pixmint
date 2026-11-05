@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- 每日免费额度：OCR 20 次、翻译 10 次、GIF 3 次、视频 1 次；截图、标注、钉图永久免费，Pro 不限次。
+- 购买窗：额度用完自动弹出，套餐 ¥9/月、¥80/年、¥198 终身；支付即激活、邮箱发码、激活码换机恢复、邀请码 7 天试用。
+- 授权体系：Ed25519 离线验签、设备 ID 哈希、最多 3 台设备、7 天续签 + 30 天宽限、safeStorage 存储。
+- 独立授权服务 `server/license/`：Flask + SQLite，已部署 `data.hugproducthub.top/api/v1/*`（8101），含激活/续签/设备管理/试用/发码/订单与面包多Pay Webhook 适配。
+- 设置页「Pixmint Pro」卡片：授权状态、今日剩余额度、激活码复制、升级入口。
+
+### Verified
+
+- 客户端：`typecheck`、`pnpm test`（31 文件 / 188 用例）、`build` 通过；`e2e-purchase`、`e2e-quota`、`e2e-license-live` 通过。
+- 服务端：`python -m unittest discover -s server/license/tests -t server/license`（6 用例）通过。
+- 生产验证：线上签发授权码 → 客户端激活成功；`/v1/plans`、`activate`、`refresh`、`by-device`、`devices`、`unbind` 均返回预期。
+
+### Pending
+
+- 面包多Pay 审核通过后填写 `MBD_APP_ID/MBD_APP_KEY` 并完成真实支付联调。
+- 腾讯云 SES SMTP 配置后才能发激活码邮件。
+- 隐私政策需补充设备哈希用于授权绑定。
+
 ## [0.8.0] - 2026-11-05
 
 ### Changed

@@ -1,0 +1,6 @@
+[Unit]
+Description=Backup Pixmint license database and signing key
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pixmint-license-backup.sh

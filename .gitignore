@@ -38,3 +38,7 @@ verify-*.mp4
 .pnpm-store/
 dist/
 *.tmp
+
+# Python
+__pycache__/
+*.pyc

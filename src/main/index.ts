@@ -292,6 +292,11 @@ function initServices(): void {
     void licenseService.refresh().catch((error: unknown) => {
       logDiagnostic('license', `refresh failed: ${String(error)}`, 'warn')
     })
+  } else {
+    // 支付后立刻关掉应用的用户，下次启动按设备自动恢复授权。
+    void licenseService.restoreByDevice().catch((error: unknown) => {
+      logDiagnostic('license', `restore failed: ${String(error)}`, 'debug')
+    })
   }
   initUpdater({
     onAvailable: (version) => {

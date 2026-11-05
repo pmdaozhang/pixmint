@@ -188,10 +188,23 @@ export class LicenseService {
     const record = this.options.store.get()
     if (!record.token) return this.status()
     this.refreshing = (async () => {
-      const response = await this.request<RefreshResponse>('/license/refresh', {
-        token: record.token,
-        deviceId: this.options.deviceId()
-      })
+      let response: RefreshResponse
+      try {
+        response = await this.request<RefreshResponse>('/license/refresh', {
+          token: record.token,
+          deviceId: this.options.deviceId()
+        })
+      } catch (error) {
+        // 退款/封禁后服务端返回 410，立即清掉本地授权，避免永久保留 Pro。
+        if (
+          error instanceof LicenseApiError &&
+          (error.status === 410 || error.status === 401)
+        ) {
+          this.options.store.clear()
+          return this.status()
+        }
+        throw error
+      }
       this.options.store.save({
         token: response.token,
         lastRefreshAt: this.now(),

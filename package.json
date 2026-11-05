@@ -32,7 +32,9 @@
     "release:win": "pnpm typecheck && pnpm test && pnpm build && electron-builder",
     "package": "node ../scripts/review/release-gate.mjs --project . && electron-builder",
     "e2e:purchase": "node e2e-purchase.cjs",
-    "e2e:quota": "node e2e-quota.cjs"
+    "e2e:quota": "node e2e-quota.cjs",
+    "e2e:license": "node e2e-license-live.cjs",
+    "test:server": "python -m unittest discover -s server/license/tests -t server/license -v"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",

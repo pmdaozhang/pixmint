@@ -25,6 +25,14 @@ const FEATURE_LABEL: Record<UsageFeature, string> = {
   video: '视频录制'
 }
 
+function readableError(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error)
+  return text
+    .replace(/^Error invoking remote method '[^']+':\s*/, '')
+    .replace(/^LicenseApiError:\s*/, '')
+    .trim()
+}
+
 function applyTheme(theme: ThemeSetting): void {
   const media = window.matchMedia('(prefers-color-scheme: dark)').matches
   document.documentElement.dataset.theme = theme === 'system' ? (media ? 'dark' : 'light') : theme
@@ -245,11 +253,7 @@ export function PurchaseApp(): JSX.Element {
       setOrder(created)
       setStep('pay')
     } catch (error) {
-      setMessage(
-        error instanceof Error && error.message
-          ? error.message
-          : tr('支付暂未开放，请稍后再试')
-      )
+      setMessage(readableError(error) || tr('支付暂未开放，请稍后再试'))
     } finally {
       setBusy(false)
     }
@@ -268,7 +272,7 @@ export function PurchaseApp(): JSX.Element {
       if (nextUsage) setUsage(nextUsage)
       setStep('done')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(readableError(error))
     } finally {
       setBusy(false)
     }
@@ -286,7 +290,7 @@ export function PurchaseApp(): JSX.Element {
       setStatus(nextStatus)
       setStep('done')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(readableError(error))
     } finally {
       setBusy(false)
     }
@@ -301,7 +305,7 @@ export function PurchaseApp(): JSX.Element {
       await window.snapglass.license.email(value)
       setMessage(tr('激活码已发送到 {email}', { email: value }))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error))
+      setMessage(readableError(error))
     } finally {
       setBusy(false)
     }

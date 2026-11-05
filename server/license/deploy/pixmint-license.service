@@ -1,0 +1,20 @@
+[Unit]
+Description=Pixmint license and payment API
+After=network.target
+
+[Service]
+Type=simple
+User=pixmint
+Group=pixmint
+WorkingDirectory=/opt/pixmint-license
+EnvironmentFile=/etc/pixmint-license/env
+ExecStart=/opt/pixmint-license/venv/bin/gunicorn -w 2 -b 127.0.0.1:8101 --access-logfile - --error-logfile - app:app
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pixmint-license /opt/pixmint-license/.gunicorn
+
+[Install]
+WantedBy=multi-user.target
