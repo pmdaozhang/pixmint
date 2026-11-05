@@ -1,5 +1,47 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- 主进程入口拆分：`src/main/index.ts` 从 960 行降至 362 行，新增 `src/main/ipc/`、`src/main/runtime/`、`src/main/services/`，与 `ARCHITECTURE.md` 的分层约定对齐。
+- IPC 全量接入 zod 运行时校验与发送方来源校验（`src/main/ipc/validate.ts`），设置、覆盖层、录制、钉图、OCR、诊断、翻译、反馈等 40+ 频道统一走 `handle`/`on` 包装，校验失败写入诊断日志。
+- OCR 推理迁移到 `utilityProcess`（`src/main/ocr/worker.ts` + `remote.ts`），主进程只负责解码/缩放/转发；子进程不可用、超时或崩溃时自动回退进程内实现，功能不会因隔离改造而不可用。
+- 覆盖层新增会话级内存治理：每 25 次会话采样渲染进程私有内存，较基线增长 ≥64MB 时销毁并重建覆盖层窗口（`src/main/runtime/memory-governor.ts`）。
+- 界面完整接入中英双语：设置、托盘、覆盖层工具条、OCR、钉图、反馈、引导页、更新页与主进程提示统一走 `src/shared/i18n.ts`，切换「界面语言」立即生效。
+- 覆盖层改为常驻 + 屏幕外停放（`-32000`），截图时再移入，消除按 F1 时整屏“由小到大”的闪动与首次悬浮工具条延迟。
+- 悬浮工具条高度压到 38px，圆角改为最大（胶囊形）；马赛克二级菜单移除尺寸滑杆，保留滚轮与圆点调整。
+- 钉图窗口顶部新增 34px 操作条，操作按钮不再遮挡图片；OCR 改为右上角图标手动触发，避免钉图后立刻识别造成卡顿。
+- OCR / 翻译弹框改为透明窗口，关闭按钮改为圆形无底色，解决四角白底与按钮底色挡边框。
+
+### Added
+
+- `src/main/runtime/flags.ts`：收敛全部命令行开关，新增自动化入口统一判断。
+- `src/main/runtime/counters.ts`、`src/main/runtime/format-stamp.ts`、`src/main/runtime/memory-governor.ts`。
+- 单测：`tests/ipc-schemas.test.ts`、`tests/memory-governor.test.ts`。
+- 新版本介绍弹窗 `WhatsNewApp`：检测到新版本时自动弹出，展示更新条目，支持「立即更新」与「跳过此版本」（`skippedUpdateVersion` 持久化）；高度随内容自适应（380–860px），主题与引导页一致。
+- `scripts/check-whats-new.cjs`、`scripts/check-i18n*.cjs`、`scripts/check-ui-fixes.cjs` 等迭代验证脚本。
+
+### Fixed
+
+- 选中截图后在空白处双击即可关闭并自动复制，双击标注对象仍保持原有删除行为。
+- 更新介绍页品牌标识与首次引导页保持一致，不再使用占位字母。
+
+### Verified
+
+- `pnpm typecheck`、`pnpm test:unit`（27 文件 / 170 用例）、`pnpm test`（28 / 171）、`pnpm build` 通过。
+- `pnpm smoke` 返回 `SMOKE_OK`（设置页经新 IPC 校验正常加载）。
+- `electron . --smoke-ocr-file` 走 utilityProcess：识别结果 `你好世界` 正确。
+- OCR 压测 300 次：0 失败，p95 235ms；扣除 ONNX arena 后的稳态增长 41.3MB（预算 128MB）。600 次复测确认子进程内存稳定在 +120MB 平台期，不是线性泄漏。
+- 覆盖层压测 200 次：0 失败，p95 276ms，Tab 私有内存 +53.6MB（预算 256MB）。
+- 真实截图路径压测 100 次：0 失败，p95 251ms，Tab 私有内存 +15.6MB。
+- 录制压测 3×10s：0 失败，Tab 私有内存 +11.4MB（预算 64MB）。
+- 内存回收分支强制触发验证（阈值降到 1MB / 10 次会话）：成功回收 2 次，40 次会话 0 失败。
+- E2E：`e2e:overlay`、`e2e:pin`、`e2e:pin-text`、`e2e:onboarding` 全部通过。
+- 仍未执行：`3×590s` 录制长跑（发版前必须补）。
+- 2026-11-05 回归（本轮）：`typecheck`、`test`（28 文件 / 171 用例）、`build` 通过；`e2e-overlay`、`e2e-pin`、`e2e-pin-text`、`e2e-onboarding`、`e2e-settings`、`e2e-toolbar-toggle`、`e2e-prepare`、`e2e-dictionary`、`e2e-feedback`（离线）、`e2e-ocr`、`e2e-overlay-ocr`、`e2e-overlay-toolbar-latency`、`check-whats-new` 全部通过。同步修正 `e2e-pin.cjs` 的 34px 操作条预期与 `e2e-overlay-ocr.cjs` 的 toast 窗口竞态。
+- 本轮未执行：需真实 F1 注入的 `e2e-ocr-303x20` / `e2e-word-card`（当前自动化环境无法注入全局快捷键）、`e2e-recording` 的「录制后 F1」段、外网 E2E 与 `3×590s` 录制长跑。
+
 ## [0.7.0] - 2026-11-03
 
 ### Added

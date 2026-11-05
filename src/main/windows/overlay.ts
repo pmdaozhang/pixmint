@@ -1,4 +1,4 @@
-import { BrowserWindow, globalShortcut } from 'electron'
+import { app, BrowserWindow, globalShortcut, screen } from 'electron'
 import type {
   DisplayCapture,
   DisplayInfo,
@@ -13,6 +13,11 @@ import {
 } from '../safe-mode'
 import { logDiagnostic } from '../diagnostics'
 import { disableWindowTransitions } from '../native-window'
+import {
+  MEMORY_RECYCLE_THRESHOLD_BYTES,
+  MEMORY_SAMPLE_EVERY_SESSIONS,
+  evaluateMemoryGrowth
+} from '../runtime/memory-governor'
 
 interface OverlayEntry {
   window: BrowserWindow
@@ -23,6 +28,34 @@ interface OverlayEntry {
 
 const WARMUP_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+function toMb(bytes: number): number {
+  return Math.round(bytes / 1024 / 1024)
+}
+
+/**
+ * 背景：hide()/showInactive() 会让 Windows 重播窗口展开动画，并让合成器变冷。
+ * 设计意图：窗口常驻可见但完全透明，空闲时停在屏幕外；截图时只移动位置和改透明度。
+ * 关键约束：屏幕外坐标必须超出所有显示器；窗口尺寸保持不变，避免渲染层重排。
+ */
+const OFFSCREEN_POSITION = -32000
+
+function parkWindow(window: BrowserWindow): void {
+  if (window.isDestroyed()) return
+  const bounds = window.getBounds()
+  window.setBounds({
+    x: OFFSCREEN_POSITION,
+    y: OFFSCREEN_POSITION,
+    width: bounds.width,
+    height: bounds.height
+  })
+}
+
+/** 回收延迟；压测可用环境变量缩短，生产默认 1.5 秒。 */
+function recycleDelayMs(): number {
+  const raw = Number(process.env.PIXMINT_MEMORY_RECYCLE_DELAY_MS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : 1500
+}
 
 /**
  * 覆盖层在应用启动时预热，F1 只做一次当前屏幕捕获并把已加载好的窗口显示出来，
@@ -45,6 +78,12 @@ export class OverlayManager {
   private lastHeartbeatAt = 0
   private escapeRegistered = false
   private sessionLocked = false
+  /** 自上次重建以来的截图会话数，用于按节奏采样渲染进程内存。 */
+  private sessionCount = 0
+  /** 建立基线之后又完成了多少次会话。 */
+  private sessionsSinceBaseline = 0
+  private memoryBaselineBytes: number | null = null
+  private recycleTimer: NodeJS.Timeout | null = null
 
   constructor(
     private readonly preloadPath: string,
@@ -160,11 +199,13 @@ export class OverlayManager {
         this.removeEntry(id)
         continue
       }
-      // 先做窗口级清理，再通知渲染层；渲染进程已崩溃时通知会失败。
+      // 背景：hide() 会让下一次 showInactive() 重新播放 Windows 的窗口展开动画，
+      // 表现为整个画面"从小放大"闪一下，并让首次工具栏等待重新合成。
+      // 设计意图：窗口常驻可见但完全透明，只切换 opacity，不再 hide/show。
       entry.window.setIgnoreMouseEvents(true)
       entry.window.setOpacity(0)
       entry.window.setContentProtection(false)
-      entry.window.hide()
+      parkWindow(entry.window)
       this.send(entry, 'overlay:reset')
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
@@ -208,7 +249,7 @@ export class OverlayManager {
         other.window.setIgnoreMouseEvents(true)
       }
     }
-    entry.window.setBounds(display.bounds)
+    // 保持屏幕外位置：截图发生在 prepare 之后，此时绝不能把覆盖层移进屏幕。
     this.captures.delete(id)
     entry.window.setContentProtection(false)
     // 覆盖层常驻可见但完全透明，截屏期间只清空内容，不 hide，
@@ -365,7 +406,6 @@ export class OverlayManager {
       imageHeight: 1
     }
     this.captures.set(id, fake)
-    entry.window.setBounds(display.bounds)
     entry.window.setContentProtection(false)
     entry.window.setOpacity(0)
     entry.window.showInactive()
@@ -406,7 +446,7 @@ export class OverlayManager {
       entry.window.setContentProtection(false)
       entry.window.setIgnoreMouseEvents(true)
       entry.window.setOpacity(0)
-      entry.window.hide()
+      parkWindow(entry.window)
       this.send(entry, 'overlay:reset')
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
@@ -415,6 +455,102 @@ export class OverlayManager {
     }
     this.captures.clear()
     this.active = false
+    this.noteSessionEnded()
+  }
+
+  /**
+   * 背景：Chromium 的原生内存不会随截图会话自动回落，长时间驻留会持续爬升。
+   * 设计意图：每完成若干次会话采样一次渲染进程私有内存，超阈值就重建覆盖层窗口。
+   * 关键约束：只在会话结束、窗口已隐藏时执行；重建失败不影响当前使用（下次预热门槛会兜底）。
+   */
+  private noteSessionEnded(): void {
+    this.sessionCount += 1
+    if (this.memoryBaselineBytes !== null) this.sessionsSinceBaseline += 1
+    if (this.sessionCount % MEMORY_SAMPLE_EVERY_SESSIONS !== 0) return
+
+    const currentBytes = this.currentRendererPrivateBytes()
+    if (currentBytes <= 0) return
+    if (this.memoryBaselineBytes === null) {
+      this.memoryBaselineBytes = currentBytes
+      this.sessionsSinceBaseline = 0
+      logDiagnostic('overlay', `memory baseline ${toMb(currentBytes)}MB`)
+      return
+    }
+
+    const decision = evaluateMemoryGrowth({
+      baselineBytes: this.memoryBaselineBytes,
+      currentBytes,
+      sessionsSinceBaseline: this.sessionsSinceBaseline,
+      thresholdBytes: MEMORY_RECYCLE_THRESHOLD_BYTES
+    })
+    if (decision === 'recycle') {
+      logDiagnostic(
+        'overlay',
+        `recycling overlays: baseline ${toMb(this.memoryBaselineBytes)}MB -> ${toMb(currentBytes)}MB after ${this.sessionsSinceBaseline} sessions`,
+        'warn'
+      )
+      console.log(
+        'OVERLAY_MEMORY_RECYCLE',
+        toMb(this.memoryBaselineBytes),
+        '->',
+        toMb(currentBytes),
+        'sessions=' + this.sessionsSinceBaseline
+      )
+      this.scheduleRecycle()
+    }
+  }
+
+  /**
+   * 背景：回收需要销毁并重建全屏窗口，同步执行会和"复制/保存/OCR"的完成动作抢 CPU。
+   * 设计意图：延迟到会话结束后 1.5 秒，此时用户已经拿到结果；若又按下 F1 则放弃本次回收。
+   * 关键约束：定时器只允许存在一个；销毁窗口前必须确认没有活动会话。
+   */
+  private scheduleRecycle(delayMs = recycleDelayMs()): void {
+    if (this.recycleTimer) return
+    this.recycleTimer = setTimeout(() => {
+      this.recycleTimer = null
+      // 用户又开始截图了：推迟到下一次空闲，不能打断正在进行或即将开始的会话。
+      if (this.active) {
+        this.scheduleRecycle(5000)
+        return
+      }
+      this.recycleOverlays()
+    }, delayMs)
+  }
+
+  private currentRendererPrivateBytes(): number {
+    let max = 0
+    const metrics = app.getAppMetrics()
+    for (const entry of this.entries.values()) {
+      if (entry.window.isDestroyed() || entry.window.webContents.isDestroyed()) continue
+      const pid = entry.window.webContents.getOSProcessId()
+      const metric = metrics.find((item) => item.pid === pid)
+      const privateKb = metric?.memory?.privateBytes ?? 0
+      if (privateKb > max) max = privateKb
+    }
+    return max * 1024
+  }
+
+  private recycleOverlays(): void {
+    const displays = screen.getAllDisplays().map((display) => ({
+      id: display.id,
+      bounds: display.bounds,
+      scaleFactor: display.scaleFactor
+    }))
+    for (const entry of this.entries.values()) {
+      if (!entry.window.isDestroyed()) entry.window.destroy()
+    }
+    this.entries.clear()
+    this.byDisplay.clear()
+    this.captures.clear()
+    this.rendererReady.clear()
+    for (const resolve of this.prepareWaiters.values()) resolve()
+    this.prepareWaiters.clear()
+    this.active = false
+    this.sessionCount = 0
+    this.sessionsSinceBaseline = 0
+    this.memoryBaselineBytes = null
+    this.prewarm(displays)
   }
 
   private send(entry: OverlayEntry, channel: string, payload?: unknown): void {
@@ -444,6 +580,10 @@ export class OverlayManager {
 
   destroyAll(): void {
     this.warmupToken += 1
+    if (this.recycleTimer) {
+      clearTimeout(this.recycleTimer)
+      this.recycleTimer = null
+    }
     this.endSession()
     for (const entry of this.entries.values()) {
       if (!entry.window.isDestroyed()) entry.window.destroy()
@@ -477,8 +617,8 @@ export class OverlayManager {
 
   private createWindow(display: DisplayInfo): number {
     const window = new BrowserWindow({
-      x: display.bounds.x,
-      y: display.bounds.y,
+      x: OFFSCREEN_POSITION,
+      y: OFFSCREEN_POSITION,
       width: display.bounds.width,
       height: display.bounds.height,
       frame: false,

@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import type { OcrInit, Settings, WordCardEntry } from '@shared/types'
 import { detectTranslationTarget } from '@shared/text-analysis'
 import { Icon } from '../components/Icon'
+import { t } from '@shared/i18n'
 import './ocr.css'
 
 export function OcrApp(): JSX.Element {
@@ -64,6 +65,10 @@ export function OcrApp(): JSX.Element {
     }
   }, [init, text])
 
+  const language = init?.settings?.language ?? 'zh-CN'
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
+
   const copyAndClose = async (value: string): Promise<void> => {
     if (value) await window.snapglass.clipboard.writeText(value)
     window.snapglass.ocr.close()
@@ -78,11 +83,11 @@ export function OcrApp(): JSX.Element {
     const nextTarget = explicitTarget ?? target
     if (!nextTarget) return
     if (!settings || settings.translationProvider === 'none') {
-      setError('请先在设置页选择翻译服务')
+      setError(tr('请先在设置页选择翻译服务'))
       return
     }
     if (settings.translationProvider !== 'free' && !hasKey) {
-      setError('请先在设置页配置翻译 API Key')
+      setError(tr('请先在设置页配置翻译 API Key'))
       return
     }
     const sequence = ++translateSeqRef.current
@@ -168,7 +173,7 @@ export function OcrApp(): JSX.Element {
     return () => window.cancelAnimationFrame(frame)
   }, [init, text, translation, canTranslate, error, wordEntry])
 
-  if (!init) return <div className="ocr-loading">正在打开结果…</div>
+  if (!init) return <div className="ocr-loading">{tr('正在打开结果…')}</div>
 
   if (init.mode === 'ocr') {
     return (
@@ -176,7 +181,7 @@ export function OcrApp(): JSX.Element {
         <div className="ocr-dragbar">
           <button
             className="ocr-icon-btn"
-            title="关闭"
+            title={tr('关闭')}
             onClick={() => window.snapglass.ocr.close()}
           >
             <Icon name="close" size={14} />
@@ -193,13 +198,15 @@ export function OcrApp(): JSX.Element {
           />
           {!text.trim() && (
             <div className="ocr-hint">
-              未识别到文字。请重新截图并放大文字区域，或确认 Windows OCR 语言包已安装。
+              {tr(
+                '未识别到文字。请重新截图并放大文字区域，或确认 Windows OCR 语言包已安装。'
+              )}
             </div>
           )}
           <div className="ocr-compact-footer">
             <button className="ocr-copy" onClick={() => void copyAndClose(text)}>
               <Icon name="copy" size={14} />
-              复制
+              {tr('复制')}
             </button>
           </div>
         </div>
@@ -210,7 +217,7 @@ export function OcrApp(): JSX.Element {
   return (
     <div className="ocr-root ocr-compact">
       <div className="ocr-dragbar">
-        <button className="ocr-icon-btn" title="关闭" onClick={() => window.snapglass.ocr.close()}>
+        <button className="ocr-icon-btn" title={tr('关闭')} onClick={() => window.snapglass.ocr.close()}>
           <Icon name="close" size={14} />
         </button>
       </div>
@@ -227,8 +234,12 @@ export function OcrApp(): JSX.Element {
           <div className="word-card">
             <div className="word-card-head">
               <strong>{wordEntry.word}</strong>
-              <span>英 {wordEntry.uk || wordEntry.phonetic || '—'}</span>
-              <span>美 {wordEntry.us || wordEntry.phonetic || '—'}</span>
+              <span>
+                {tr('英 {value}', { value: wordEntry.uk || wordEntry.phonetic || '—' })}
+              </span>
+              <span>
+                {tr('美 {value}', { value: wordEntry.us || wordEntry.phonetic || '—' })}
+              </span>
             </div>
             {wordEntry.pos.length > 0 && (
               <div className="word-pos">
@@ -253,7 +264,11 @@ export function OcrApp(): JSX.Element {
             onClick={() => setDirectionOpen((open) => !open)}
           >
             <span className={`direction-label${target ? '' : ' placeholder'}`}>
-              {target === 'en-US' ? 'CN→EN' : target === 'zh-CN' ? 'EN→CN' : '请选择'}
+              {target === 'en-US'
+                ? 'CN→EN'
+                : target === 'zh-CN'
+                  ? 'EN→CN'
+                  : tr('请选择')}
             </span>
             <svg
               className="direction-chevron"
@@ -273,7 +288,11 @@ export function OcrApp(): JSX.Element {
             </svg>
           </button>
           {directionOpen && (
-            <div className="direction-menu" role="listbox" aria-label="翻译方向">
+            <div
+              className="direction-menu"
+              role="listbox"
+              aria-label={tr('翻译方向')}
+            >
               <button
                 type="button"
                 role="option"
@@ -296,10 +315,10 @@ export function OcrApp(): JSX.Element {
           )}
         </div>
         <div className="translate-result" ref={resultRef}>
-          {translation || (translating ? '翻译中…' : '译文会显示在这里')}
+          {translation || (translating ? tr('翻译中…') : tr('译文会显示在这里'))}
         </div>
         {!canTranslate && (
-          <div className="ocr-hint">未配置翻译服务，请先在托盘设置中配置。</div>
+          <div className="ocr-hint">{tr('未配置翻译服务，请先在托盘设置中配置。')}</div>
         )}
         {error && <div className="ocr-error">{error}</div>}
       </div>

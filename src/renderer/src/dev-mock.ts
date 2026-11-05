@@ -10,6 +10,7 @@ const initialSettings: Settings = {
   launchAtLogin: false,
   onboardingCompleted: true,
   onboardingVersion: 2,
+  skippedUpdateVersion: '',
   translationProvider: 'free',
   translationEndpoint: 'https://api.openai.com/v1',
   translationModel: 'gpt-4o-mini',

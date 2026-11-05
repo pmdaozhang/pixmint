@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import type { DiagnosticsInfo, Settings, ThemeSetting, UpdateState } from '@shared/types'
 import { describeUpdate } from '@shared/update'
+import { t } from '@shared/i18n'
 import { Icon } from '../components/Icon'
 import './settings.css'
 
@@ -56,6 +57,9 @@ export function SettingsApp(): JSX.Element {
   const [toast, setToast] = useState('')
   const [translationKey, setTranslationKey] = useState('')
   const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
+  const language = settings?.language ?? 'zh-CN'
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
 
   const flash = (message: string): void => {
     setToast(message)
@@ -102,12 +106,14 @@ export function SettingsApp(): JSX.Element {
     const next = await window.snapglass.settings.update(patch)
     setSettings(next)
     applyTheme(next.theme)
-    flash('设置已保存')
+    // 用更新后的语言生成提示，切换语言时不会残留旧语言
+    flash(t(next.language, '设置已保存'))
   }
 
-  if (!settings) return <div className="settings-loading">正在加载设置…</div>
+  if (!settings)
+    return <div className="settings-loading">{tr('正在加载设置…')}</div>
 
-  const updateView = describeUpdate(updateState, version)
+  const updateView = describeUpdate(updateState, version, language)
   const runUpdateAction = async (): Promise<void> => {
     if (updateView.actionKind === 'check') await window.snapglass.updater.check()
     else if (updateView.actionKind === 'download') await window.snapglass.updater.download()
@@ -121,10 +127,10 @@ export function SettingsApp(): JSX.Element {
           <BrandMark />
           <div>
             <h1>Pixmint</h1>
-            <p>截图 · 贴图 · OCR 翻译 · 录屏</p>
+            <p>{tr('截图 · 贴图 · OCR 翻译 · 录屏')}</p>
           </div>
         </div>
-        <button className="window-close" title="关闭" onClick={() => window.close()}>
+        <button className="window-close" title={tr('关闭')} onClick={() => window.close()}>
           <Icon name="close" size={14} />
         </button>
       </header>
@@ -133,12 +139,12 @@ export function SettingsApp(): JSX.Element {
         <section className="card">
           <div className="card-title">
             <Icon name="keyboard" size={16} />
-            快捷键
+            {tr('快捷键')}
           </div>
           <div className="row">
             <div className="row-label">
-              <strong>截图快捷键</strong>
-              <span>点击输入框后直接按下组合键</span>
+              <strong>{tr('截图快捷键')}</strong>
+              <span>{tr('点击输入框后直接按下组合键')}</span>
             </div>
             <input
               className="shortcut-input"
@@ -160,12 +166,12 @@ export function SettingsApp(): JSX.Element {
         <section className="card">
           <div className="card-title">
             <Icon name="translate" size={16} />
-            OCR 与翻译
+            {tr('OCR 与翻译')}
           </div>
           <div className="row">
             <div className="row-label">
-              <strong>翻译服务</strong>
-              <span>不配置时只使用离线 OCR 与内置词典</span>
+              <strong>{tr('翻译服务')}</strong>
+              <span>{tr('不配置时只使用离线 OCR 与内置词典')}</span>
             </div>
             <select
               id="translation-provider"
@@ -177,9 +183,9 @@ export function SettingsApp(): JSX.Element {
                 })
               }
             >
-              <option value="none">未配置</option>
-              <option value="free">免费翻译（公共接口）</option>
-              <option value="openai">OpenAI 兼容接口</option>
+              <option value="none">{tr('未配置')}</option>
+              <option value="free">{tr('免费翻译（公共接口）')}</option>
+              <option value="openai">{tr('OpenAI 兼容接口')}</option>
               <option value="deepl">DeepL</option>
             </select>
           </div>
@@ -187,8 +193,8 @@ export function SettingsApp(): JSX.Element {
             <>
               <div className="row">
                 <div className="row-label">
-                  <strong>接口地址</strong>
-                  <span>例如 https://api.openai.com/v1</span>
+                  <strong>{tr('接口地址')}</strong>
+                  <span>{tr('例如 https://api.openai.com/v1')}</span>
                 </div>
                 <input
                   id="translation-endpoint"
@@ -199,8 +205,8 @@ export function SettingsApp(): JSX.Element {
               </div>
               <div className="row">
                 <div className="row-label">
-                  <strong>模型</strong>
-                  <span>用于翻译的模型名</span>
+                  <strong>{tr('模型')}</strong>
+                  <span>{tr('用于翻译的模型名')}</span>
                 </div>
                 <input
                   id="translation-model"
@@ -214,23 +220,23 @@ export function SettingsApp(): JSX.Element {
           {settings.translationProvider === 'deepl' && (
             <div className="row">
               <div className="row-label">
-                <strong>DeepL 接口</strong>
-                <span>默认使用 api-free.deepl.com</span>
+                <strong>{tr('DeepL 接口')}</strong>
+                <span>{tr('默认使用 api-free.deepl.com')}</span>
               </div>
             </div>
           )}
           {settings.translationProvider === 'free' && (
             <div className="row">
               <div className="row-label">
-                <strong>免费翻译</strong>
-                <span>使用 Google 公共接口，无需 Key；可能被限流或不可用</span>
+                <strong>{tr('免费翻译')}</strong>
+                <span>{tr('使用 Google 公共接口，无需 Key；可能被限流或不可用')}</span>
               </div>
             </div>
           )}
           <div className="row">
             <div className="row-label">
-              <strong>目标语言</strong>
-              <span>单词卡片不受此项影响</span>
+              <strong>{tr('翻译方向')}</strong>
+              <span>{tr('只影响翻译结果')}</span>
             </div>
             <select
               id="translation-target"
@@ -242,8 +248,8 @@ export function SettingsApp(): JSX.Element {
                 })
               }
             >
-              <option value="zh-CN">简体中文</option>
-              <option value="en-US">English</option>
+              <option value="zh-CN">{tr('英文 → 中文')}</option>
+              <option value="en-US">{tr('中文 → 英文')}</option>
             </select>
           </div>
           {(settings.translationProvider === 'openai' ||
@@ -251,14 +257,22 @@ export function SettingsApp(): JSX.Element {
             <div className="row">
               <div className="row-label">
                 <strong>API Key</strong>
-                <span>{settings.hasTranslationKey ? '已加密保存到系统安全存储' : '未配置'}</span>
+                <span>
+                  {settings.hasTranslationKey
+                    ? tr('已加密保存到系统安全存储')
+                    : tr('未配置')}
+                </span>
               </div>
               <div className="key-row">
                 <input
                   id="translation-key"
                   className="text-input key-input"
                   type="password"
-                  placeholder={settings.hasTranslationKey ? '输入新 Key 可覆盖' : '粘贴 API Key'}
+                  placeholder={
+                    settings.hasTranslationKey
+                      ? tr('输入新 Key 可覆盖')
+                      : tr('粘贴 API Key')
+                  }
                   value={translationKey}
                   onChange={(event) => setTranslationKey(event.target.value)}
                 />
@@ -269,35 +283,37 @@ export function SettingsApp(): JSX.Element {
                     const saved = await window.snapglass.settings.setTranslationKey(translationKey)
                     setTranslationKey('')
                     setSettings({ ...settings, hasTranslationKey: saved })
-                    flash(saved ? 'API Key 已加密保存' : 'API Key 已清除')
+                    flash(saved ? tr('API Key 已加密保存') : tr('API Key 已清除'))
                   }}
                 >
-                  保存
+                  {tr('保存')}
                 </button>
               </div>
             </div>
           )}
           <div className="translation-hint">
-            OCR 当前使用 Windows 系统识别；PaddleOCR 与 ECDICT 数据待模型/数据可下载后接入。
+            {tr(
+              'OCR 当前使用 Windows 系统识别；PaddleOCR 与 ECDICT 数据待模型/数据可下载后接入。'
+            )}
           </div>
         </section>
 
         <section className="card">
           <div className="card-title">
             <Icon name="folder" size={16} />
-            外观与启动
+            {tr('外观与启动')}
           </div>
           <div className="row">
             <div className="row-label">
-              <strong>主题</strong>
-              <span>跟随系统或固定深浅色</span>
+              <strong>{tr('主题')}</strong>
+              <span>{tr('跟随系统或固定深浅色')}</span>
             </div>
             <div className="segmented">
               {(
                 [
-                  ['system', '跟随系统'],
-                  ['dark', '深色'],
-                  ['light', '浅色']
+                  ['system', tr('跟随系统')],
+                  ['dark', tr('深色')],
+                  ['light', tr('浅色')]
                 ] as Array<[ThemeSetting, string]>
               ).map(([value, label]) => (
                 <button
@@ -312,10 +328,11 @@ export function SettingsApp(): JSX.Element {
           </div>
           <div className="row">
             <div className="row-label">
-              <strong>界面语言</strong>
-              <span>P0 仅保存偏好，文案后续接入</span>
+              <strong>{tr('界面语言')}</strong>
+              <span>{tr('切换整个应用界面，立即生效')}</span>
             </div>
             <select
+              id="interface-language"
               className="select"
               value={settings.language}
               onChange={(event) =>
@@ -328,8 +345,8 @@ export function SettingsApp(): JSX.Element {
           </div>
           <div className="row">
             <div className="row-label">
-              <strong>开机自启</strong>
-              <span>登录系统后自动驻留托盘</span>
+              <strong>{tr('开机自启')}</strong>
+              <span>{tr('登录系统后自动驻留托盘')}</span>
             </div>
             <label className="switch">
               <input
@@ -345,7 +362,7 @@ export function SettingsApp(): JSX.Element {
         <section className="card">
           <div className="card-title">
             <Icon name="settings" size={16} />
-            关于与更新
+            {tr('关于与更新')}
             {updateView.showBadge && <span className="update-chip">NEW</span>}
           </div>
           <div className="row update-row">
@@ -403,11 +420,11 @@ export function SettingsApp(): JSX.Element {
           <section className="card">
             <div className="card-title">
               <Icon name="folder" size={16} />
-              诊断
+              {tr('诊断')}
             </div>
             <div className="row">
               <div className="row-label">
-                <strong>诊断日志</strong>
+                <strong>{tr('诊断日志')}</strong>
                 <span className="path-text">{diagnostics.logPath}</span>
               </div>
               <div className="row-actions">
@@ -415,30 +432,32 @@ export function SettingsApp(): JSX.Element {
                   className="secondary"
                   onClick={async () => {
                     const filePath = await window.snapglass.diagnostics.exportReport()
-                    if (filePath) flash('诊断报告已导出')
+                    if (filePath) flash(tr('诊断报告已导出'))
                   }}
                 >
-                  导出报告
+                  {tr('导出报告')}
                 </button>
                 <button
                   className="secondary"
                   onClick={async () => {
                     await window.snapglass.diagnostics.flush()
                     await window.snapglass.diagnostics.openLogFolder()
-                    flash('已打开日志目录')
+                    flash(tr('已打开日志目录'))
                   }}
                 >
-                  打开目录
+                  {tr('打开目录')}
                 </button>
               </div>
             </div>
             <div className="row">
               <div className="row-label">
-                <strong>崩溃报告</strong>
+                <strong>{tr('崩溃报告')}</strong>
                 <span>
-                  {diagnostics.crashReportCount} 份
+                  {tr('{count} 份', { count: diagnostics.crashReportCount })}
                   {diagnostics.latestCrashAt
-                    ? ` · 最近 ${new Date(diagnostics.latestCrashAt).toLocaleString()}`
+                    ? ` · ${tr('最近 {time}', {
+                        time: new Date(diagnostics.latestCrashAt).toLocaleString()
+                      })}`
                     : ''}
                 </span>
               </div>
@@ -447,18 +466,20 @@ export function SettingsApp(): JSX.Element {
                   className="secondary"
                   onClick={async () => {
                     await window.snapglass.diagnostics.openCrashFolder()
-                    flash('已打开崩溃报告目录')
+                    flash(tr('已打开崩溃报告目录'))
                   }}
                 >
-                  打开目录
+                  {tr('打开目录')}
                 </button>
               </div>
             </div>
             <div className="row">
               <div className="row-label">
-                <strong>兼容模式</strong>
+                <strong>{tr('兼容模式')}</strong>
                 <span>
-                  {diagnostics.safeMode ? '已启用（上次会话异常退出）' : '未启用'}
+                  {diagnostics.safeMode
+                    ? tr('已启用（上次会话异常退出）')
+                    : tr('未启用')}
                 </span>
               </div>
               <div className="row-actions">
@@ -466,10 +487,10 @@ export function SettingsApp(): JSX.Element {
                   className="secondary"
                   onClick={async () => {
                     await window.snapglass.diagnostics.flush()
-                    flash('诊断日志已写入')
+                    flash(tr('诊断日志已写入'))
                   }}
                 >
-                  立即写入日志
+                  {tr('立即写入日志')}
                 </button>
               </div>
             </div>

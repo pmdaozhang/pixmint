@@ -1,4 +1,7 @@
-import { spawn } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 /**
  * 背景：Windows 会给新建的全屏窗口播放“从小到大”的 DWM 过渡，
@@ -22,9 +25,11 @@ public class SnapGlassDwm {
 }
 "@
 $value = 1
-[SnapGlassDwm]::DwmSetWindowAttribute([IntPtr]::new([long]${hwnd}), 3, [ref]$value, 4) | Out-Null
+$result = [SnapGlassDwm]::DwmSetWindowAttribute([IntPtr]::new([long]${hwnd}), 3, [ref]$value, 4)
+Write-Output "HRESULT=$result"
 `
-    const child = spawn(
+    // 必须同步执行：窗口一旦先显示，DWM 展开动画就已经播放了。
+    const result = spawnSync(
       'powershell.exe',
       [
         '-NoLogo',
@@ -35,11 +40,23 @@ $value = 1
         '-Command',
         script
       ],
-      { windowsHide: true, stdio: 'ignore' }
+      { windowsHide: true, timeout: 4000, encoding: 'utf8' }
     )
-    child.on('error', (error) => {
-      console.warn('DISABLE_TRANSITIONS_FAILED', error)
-    })
+    if (result.error || result.status !== 0) {
+      console.warn('DISABLE_TRANSITIONS_FAILED', result.error ?? result.stderr)
+    } else {
+      console.log('DISABLE_TRANSITIONS', result.stdout.trim())
+    }
+    try {
+      appendFileSync(
+        join(tmpdir(), 'pixmint-dwm.log'),
+        `${new Date().toISOString()} ${String(result.stdout ?? '').trim()} ${String(
+          result.stderr ?? ''
+        ).trim()}\n`
+      )
+    } catch {
+      // 诊断日志失败不影响窗口创建
+    }
   } catch (error) {
     console.warn('DISABLE_TRANSITIONS_ERROR', error)
   }

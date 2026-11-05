@@ -19,6 +19,7 @@ const settings: Settings = {
   launchAtLogin: false,
   onboardingCompleted: true,
   onboardingVersion: 2,
+  skippedUpdateVersion: '',
   translationProvider: 'openai',
   translationEndpoint: 'https://api.example.com/v1',
   translationModel: 'test-model',

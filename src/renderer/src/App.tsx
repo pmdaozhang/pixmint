@@ -7,6 +7,7 @@ import { RecordPreviewApp } from './recorder/RecordPreviewApp'
 import { OnboardingApp } from './onboarding/OnboardingApp'
 import { SettingsApp } from './settings/SettingsApp'
 import { FeedbackApp } from './feedback/FeedbackApp'
+import { WhatsNewApp } from './whats-new/WhatsNewApp'
 
 function currentRoute(): string {
   return window.location.hash.replace(/^#\/?/, '').split('?')[0] || 'settings'
@@ -21,5 +22,6 @@ export default function App(): JSX.Element {
   if (route === 'record-preview') return <RecordPreviewApp />
   if (route === 'onboarding') return <OnboardingApp />
   if (route === 'feedback') return <FeedbackApp />
+  if (route === 'whats-new') return <WhatsNewApp />
   return <SettingsApp />
 }

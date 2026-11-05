@@ -3,12 +3,23 @@ import type { JSX } from 'react'
 import type { RecorderPreviewInfo } from '@shared/types'
 import { formatBytes, formatRecordingDuration } from '@shared/recording'
 import './record-preview.css'
+import { t, type Language } from '@shared/i18n'
 
 export function RecordPreviewApp(): JSX.Element {
   const [info, setInfo] = useState<RecorderPreviewInfo | null>(null)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [gifUrl, setGifUrl] = useState('')
+  const [language, setLanguage] = useState<Language>('zh-CN')
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
+
+  useEffect(() => {
+    window.snapglass.settings
+      .get()
+      .then((settings) => setLanguage(settings.language))
+      .catch(() => {})
+  }, [])
 
   const showMessage = (value: string): void => {
     setMessage(value)
@@ -72,7 +83,7 @@ export function RecordPreviewApp(): JSX.Element {
               }
             : previous
         )
-        showMessage(`已保存：${path}`)
+        showMessage(tr('已保存：{path}', { path }))
       }
     } catch (error) {
       showMessage(error instanceof Error ? error.message : String(error))
@@ -85,10 +96,10 @@ export function RecordPreviewApp(): JSX.Element {
     <div className="preview-root">
       <div className="preview-card">
         <div className="preview-head">
-          <strong>录制完成</strong>
+          <strong>{tr('录制完成')}</strong>
           <button
             className="preview-close"
-            title="关闭并删除未保存的临时文件"
+            title={tr('关闭并删除未保存的临时文件')}
             onClick={() => window.snapglass.recorderPreview.close()}
           >
             ×
@@ -114,7 +125,7 @@ export function RecordPreviewApp(): JSX.Element {
             <div className="preview-sub">
               {message ||
                 `${info.extension.toUpperCase()} · ${info.fps} FPS${
-                  info.frameCount ? ` · ${info.frameCount} 帧` : ''
+                  info.frameCount ? ` · ${tr('{count} 帧', { count: info.frameCount })}` : ''
                 }`}
             </div>
             <div className="preview-actions">
@@ -123,13 +134,13 @@ export function RecordPreviewApp(): JSX.Element {
                 disabled={saving}
                 onClick={() => void save()}
               >
-                {saving ? '保存中…' : '保存'}
+                {saving ? tr('保存中…') : tr('保存')}
               </button>
               <button
                 className="preview-btn"
                 onClick={() => window.snapglass.recorderPreview.openFolder()}
               >
-                打开文件
+                {tr('打开文件')}
               </button>
             </div>
           </div>

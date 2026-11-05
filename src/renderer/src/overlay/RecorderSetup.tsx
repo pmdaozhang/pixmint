@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { t, type Language } from '@shared/i18n'
 import type {
   Rect,
   RecorderCountdown,
@@ -13,6 +14,7 @@ interface Props {
   selection: Rect
   options: RecorderOptions
   onChange(patch: Partial<RecorderOptions>): void
+  language: Language
   onStart(): void
   onCancel(): void
 }
@@ -34,23 +36,25 @@ export function RecorderSetup({
   selection,
   options,
   onChange,
+  language,
   onStart,
   onCancel
 }: Props): JSX.Element {
   const isGif = mode === 'gif'
+  const tr = (zh: string): string => t(language, zh)
   return (
     <div className="gif-setup recorder-setup">
       <div className="gif-setup-head">
-        <strong>{isGif ? 'GIF 录制' : '视频录制'}</strong>
+        <strong>{isGif ? tr('GIF 录制') : tr('视频录制')}</strong>
         <span>
           {Math.round(selection.width)} × {Math.round(selection.height)} ·{' '}
-          {isGif ? '最长 60 秒' : '最长 10 分钟'}
+          {isGif ? tr('最长 60 秒') : tr('最长 10 分钟')}
         </span>
       </div>
       <div className={`gif-setup-grid${isGif ? '' : ' video-grid'}`}>
         {isGif ? (
           <div className="gif-field">
-            <label>帧率</label>
+            <label>{tr('帧率')}</label>
             <div className="gif-seg">
               {FPS_OPTIONS.map((fps) => (
                 <button
@@ -65,25 +69,25 @@ export function RecorderSetup({
           </div>
         ) : (
           <div className="gif-field">
-            <label>声音</label>
+            <label>{tr('声音')}</label>
             <div className="gif-seg">
               <button
                 className={options.mic ? 'on' : ''}
                 onClick={() => onChange({ mic: !options.mic })}
               >
-                麦克风
+                {tr('麦克风')}
               </button>
               <button
                 className={options.systemAudio ? 'on' : ''}
                 onClick={() => onChange({ systemAudio: !options.systemAudio })}
               >
-                系统音
+                {tr('系统音')}
               </button>
             </div>
           </div>
         )}
         <div className="gif-field">
-          <label>输出尺寸</label>
+          <label>{tr('输出尺寸')}</label>
           <div className="gif-seg">
             {SIZE_OPTIONS.map((item) => (
               <button
@@ -91,13 +95,13 @@ export function RecorderSetup({
                 className={options.size === item.value ? 'on' : ''}
                 onClick={() => onChange({ size: item.value })}
               >
-                {item.label}
+                {tr(item.label)}
               </button>
             ))}
           </div>
         </div>
         <div className="gif-field">
-          <label>倒计时</label>
+          <label>{tr('倒计时')}</label>
           <div className="gif-seg">
             {COUNTDOWN_OPTIONS.map((item) => (
               <button
@@ -105,22 +109,22 @@ export function RecorderSetup({
                 className={options.countdown === item.value ? 'on' : ''}
                 onClick={() => onChange({ countdown: item.value })}
               >
-                {item.label}
+                {tr(item.label)}
               </button>
             ))}
           </div>
         </div>
         <button className="gif-start" onClick={onStart}>
-          开始录制
+          {tr('开始录制')}
         </button>
       </div>
       <div className="gif-setup-foot">
         <span>
           {isGif
-            ? '建议先把鼠标移到选区外，避免录进点击动作。'
-            : '系统音依赖系统与平台支持，不可用时会自动静音。'}
+            ? tr('建议先把鼠标移到选区外，避免录进点击动作。')
+            : tr('系统音依赖系统与平台支持，不可用时会自动静音。')}
         </span>
-        <button onClick={onCancel}>返回工具条</button>
+        <button onClick={onCancel}>{tr('返回工具条')}</button>
       </div>
     </div>
   )

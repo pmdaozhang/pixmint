@@ -38,7 +38,8 @@
     "onnxruntime-node": "1.22.0",
     "paddleocr": "1.2.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

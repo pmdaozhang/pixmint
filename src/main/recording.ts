@@ -39,11 +39,13 @@ import { maxDurationFor, recordingFileName } from '../shared/recording'
 import { notify } from './image-utils'
 import { loadRoute } from './windows/load'
 import { logDiagnostic } from './diagnostics'
+import { t, type Language } from '../shared/i18n'
 
 export interface RecorderHost {
   setOverlayRecordingMode(webContentsId: number, active: boolean, interactive: boolean): void
   hideRecordingOverlay(webContentsId: number): void
   hideOverlay(): void
+  getLanguage(): Language
 }
 
 const CAPSULE_HEIGHT = 44
@@ -64,6 +66,10 @@ export class RecorderManager {
   private displayBounds: Rect | null = null
   private selection: Rect | null = null
   private readonly tempDir: string
+
+  private tr(zh: string, vars?: Record<string, string | number>): string {
+    return t(this.host.getLanguage(), zh, vars)
+  }
   private readonly allowedFiles = new Set<string>()
   private readonly readableFiles = new Set<string>()
   private videoStream: WriteStream | null = null
@@ -120,7 +126,7 @@ export class RecorderManager {
     this.beginTimer = setTimeout(() => {
       this.beginTimer = null
       this.sendOverlay({ type: 'cancel' })
-      this.failed('录制初始化超时，已退出')
+      this.failed(this.tr('录制初始化超时，已退出'))
     }, 10_000)
     this.registerEmergencyCancel()
     const sourceId = await this.getSourceId(payload.displayId)
@@ -232,9 +238,8 @@ export class RecorderManager {
       thumbnailUrl: meta.firstFrameDataUrl,
       note:
         meta.frameCount > 0
-          ? `共 ${meta.frameCount} 帧 · 调色板两遍量化${
-              scaled ? ' · 已缩放至 720 长边以保证流畅' : ''
-            }`
+          ? this.tr('共 {count} 帧 · 调色板两遍量化', { count: meta.frameCount }) +
+            (scaled ? this.tr(' · 已缩放至 720 长边以保证流畅') : '')
           : undefined
     })
   }
@@ -263,7 +268,7 @@ export class RecorderManager {
       if (this.videoStream !== stream) return
       console.error('VIDEO_STREAM_ERROR', error)
       this.sendOverlay({ type: 'cancel' })
-      this.failed('视频写入失败，请检查磁盘空间')
+      this.failed(this.tr('视频写入失败，请检查磁盘空间'))
     })
   }
 
@@ -346,7 +351,7 @@ export class RecorderManager {
 
   previewRead(): Uint8Array {
     const info = this.previewInfo
-    if (!info) throw new Error('没有可读取的录制结果')
+    if (!info) throw new Error(this.tr('没有可读取的录制结果'))
     return new Uint8Array(readFileSync(info.filePath))
   }
 
@@ -356,12 +361,12 @@ export class RecorderManager {
     const defaultDir = info.mode === 'gif' ? app.getPath('pictures') : app.getPath('videos')
     const filters =
       info.extension === 'gif'
-        ? [{ name: 'GIF 图片', extensions: ['gif'] }]
+        ? [{ name: this.tr('GIF 图片'), extensions: ['gif'] }]
         : info.extension === 'mp4'
-          ? [{ name: 'MP4 视频', extensions: ['mp4'] }]
-          : [{ name: 'WebM 视频', extensions: ['webm'] }]
+          ? [{ name: this.tr('MP4 视频'), extensions: ['mp4'] }]
+          : [{ name: this.tr('WebM 视频'), extensions: ['webm'] }]
     const options: Electron.SaveDialogOptions = {
-      title: info.mode === 'gif' ? '保存 GIF' : '保存视频',
+      title: info.mode === 'gif' ? this.tr('保存 GIF') : this.tr('保存视频'),
       defaultPath: join(defaultDir, info.fileName),
       filters
     }
@@ -391,22 +396,22 @@ export class RecorderManager {
     info.fileName = basename(result.filePath)
     info.mediaUrl = this.mediaUrl(result.filePath)
     info.sizeBytes = statSync(result.filePath).size
-    notify(`已保存：${result.filePath}`)
+    notify(this.tr('已保存：{path}', { path: result.filePath }))
     return result.filePath
   }
 
   previewCopy(): string {
     const info = this.previewInfo
-    if (!info) throw new Error('没有可复制的录制结果')
+    if (!info) throw new Error(this.tr('没有可复制的录制结果'))
     if (info.mode !== 'gif') {
-      throw new Error('视频不支持复制到剪贴板，请使用保存')
+      throw new Error(this.tr('视频不支持复制到剪贴板，请使用保存'))
     }
     const image = this.gifFirstFrameDataUrl
       ? nativeImage.createFromDataURL(this.gifFirstFrameDataUrl)
       : nativeImage.createFromPath(info.filePath)
-    if (image.isEmpty()) throw new Error('无法读取 GIF 首帧')
+    if (image.isEmpty()) throw new Error(this.tr('无法读取 GIF 首帧'))
     clipboard.writeImage(image)
-    return '已复制 GIF 首帧到剪贴板'
+    return this.tr('已复制 GIF 首帧到剪贴板')
   }
 
   previewRetry(): void {
@@ -463,7 +468,7 @@ export class RecorderManager {
       fetchWindowIcons: false
     })
     const source = sources.find((item) => item.display_id === String(displayId)) ?? sources[0]
-    if (!source) throw new Error('没有可用的屏幕录制源，请检查屏幕录制权限')
+    if (!source) throw new Error(this.tr('没有可用的屏幕录制源，请检查屏幕录制权限'))
     return source.id
   }
 
@@ -590,7 +595,7 @@ export class RecorderManager {
       alwaysOnTop: true,
       hasShadow: false,
       show: false,
-      title: '录制完成',
+      title: this.tr('录制完成'),
       webPreferences: {
         preload: this.preloadPath,
         contextIsolation: true,
@@ -667,7 +672,7 @@ export class RecorderManager {
       this.startTimer = null
       console.error('RECORDER_START_TIMEOUT')
       logDiagnostic('recorder', 'START_TIMEOUT 12s')
-      this.abortWithMessage('录制启动超时，已退出')
+      this.abortWithMessage(this.tr('录制启动超时，已退出'))
     }, 12_000)
   }
 
@@ -704,7 +709,7 @@ export class RecorderManager {
       const ok = globalShortcut.register('Escape', () => {
         console.log('RECORDER_ESCAPE_CANCEL')
         logDiagnostic('recorder', 'ESCAPE_CANCEL')
-        this.abortWithMessage('录制已取消')
+        this.abortWithMessage(this.tr('录制已取消'))
       })
       if (ok) this.escapeRegistered = true
       else console.warn('RECORDER_ESCAPE_SHORTCUT_FAILED')

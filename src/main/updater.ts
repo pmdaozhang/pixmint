@@ -140,7 +140,12 @@ export function installUpdate(): void {
  * 设计意图：所有环境都注册 IPC，但只在打包版 Windows 真正启用检查。
  * 关键约束：启动检查延迟 15 秒，避开冷启动和覆盖层预热。
  */
-export function initUpdater(): void {
+export interface UpdaterOptions {
+  /** 检测到新版本时回调，用于打开“更新介绍”窗口 */
+  onAvailable?: (version: string) => void
+}
+
+export function initUpdater(options: UpdaterOptions = {}): void {
   if (initialized) return
   initialized = true
 
@@ -210,6 +215,7 @@ export function initUpdater(): void {
       error: undefined,
       reason: undefined
     })
+    options.onAvailable?.(info.version)
   })
   autoUpdater.on('update-not-available', () => {
     setState({

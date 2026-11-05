@@ -35,7 +35,7 @@ Add-Type @"
 using System;using System.Runtime.InteropServices;
 public class PixmintOcrFocus { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); }
 "@
-$p = Get-Process electron | Where-Object { $_.MainWindowTitle -eq 'Electron' } | Select-Object -First 1
+$p = Get-Process electron | Where-Object { $_.MainWindowTitle -in @('Pixmint','Electron') } | Select-Object -First 1
 if ($p) { [PixmintOcrFocus]::SetForegroundWindow($p.MainWindowHandle) | Out-Null }
 Start-Sleep -Milliseconds 300
 $shell = New-Object -ComObject WScript.Shell
@@ -60,8 +60,13 @@ $shell.SendKeys('{F1}')
   })
   try {
     await sleep(500)
-    pressF1()
-    const overlay = await waitForWindow(app, '.overlay-root', 15000)
+    // F1 全局快捷键在应用初始化后才注册，启动慢时首次按键会落空，这里重试
+    let overlay = null
+    for (let attempt = 0; attempt < 6 && !overlay; attempt += 1) {
+      pressF1()
+      overlay = await waitForWindow(app, '.overlay-root', 3000).catch(() => null)
+    }
+    if (!overlay) throw new Error('timeout waiting for .overlay-root')
     await overlay.waitForSelector('.overlay-root', { timeout: 8000 })
     await overlay.waitForFunction(() => document.visibilityState === 'visible', undefined, {
       timeout: 10000

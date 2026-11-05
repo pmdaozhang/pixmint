@@ -19,7 +19,11 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await overlay.mouse.up()
   await overlay.waitForSelector('.tooldock', { timeout: 5000 })
 
-  const ocrWindowPromise = app.waitForEvent('window', { timeout: 15000 })
+  // OCR 超过 150ms 时会先弹“识别中...”toast 窗口，必须按路由挑 OCR 窗口
+  const ocrWindowPromise = app.waitForEvent('window', {
+    predicate: (page) => page.url().includes('#ocr'),
+    timeout: 15000
+  })
   await overlay.locator('.act').filter({ hasText: '识别' }).click()
   const ocrWindow = await ocrWindowPromise
   await ocrWindow.waitForSelector('.ocr-root', { timeout: 10000 })
@@ -39,7 +43,10 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await overlay.mouse.up()
   await overlay.waitForSelector('.tooldock', { timeout: 5000 })
 
-  const secondOcrPromise = app.waitForEvent('window', { timeout: 15000 })
+  const secondOcrPromise = app.waitForEvent('window', {
+    predicate: (page) => page.url().includes('#ocr'),
+    timeout: 15000
+  })
   await overlay.locator('.act').filter({ hasText: '识别' }).click()
   const secondOcr = await secondOcrPromise
   await secondOcr.waitForSelector('.ocr-root', { timeout: 10000 })

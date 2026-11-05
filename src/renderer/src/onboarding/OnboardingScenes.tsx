@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
 import clipUrl from '../assets/onboarding-clip.mp4'
+import { t, type Language } from '@shared/i18n'
 
 /**
  * 背景：引导页需要循环演示真实操作，但 React 状态每帧更新会带来额外渲染开销。
@@ -46,7 +47,14 @@ function Tags({ items }: { items: string[] }): JSX.Element {
   )
 }
 
-export function GifScene({ active }: { active: boolean }): JSX.Element {
+export function GifScene({
+  active,
+  language
+}: {
+  active: boolean
+  language: Language
+}): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   const selectRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLSpanElement | null>(null)
   const tagRef = useRef<HTMLSpanElement | null>(null)
@@ -93,13 +101,14 @@ export function GifScene({ active }: { active: boolean }): JSX.Element {
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy">
-        <div className="onb-eyebrow">02 · GIF 动画</div>
-        <h1>支持录制 GIF 动画</h1>
+        <div className="onb-eyebrow">{tr('02 · GIF 动画')}</div>
+        <h1>{tr('支持录制 GIF 动画')}</h1>
         <p className="onb-lead">
-          划定区域后点 GIF 按钮，自动录制框选区域，
-          <span className="onb-nowrap">最长 60 秒</span>。
+          {tr('划定区域后点 GIF 按钮，自动录制框选区域，')}
+          <span className="onb-nowrap">{tr('最长 60 秒')}</span>
+          {language === 'en-US' ? '' : '。'}
         </p>
-        <Tags items={['GIF 录制', '最长 60 秒']} />
+        <Tags items={[tr('GIF 录制'), tr('最长 60 秒')]} />
       </div>
 
       <div className="onb-visual">
@@ -146,7 +155,7 @@ export function GifScene({ active }: { active: boolean }): JSX.Element {
                   />
                 ))}
               </span>
-              <span className="onb-gif-hint">选区录制</span>
+              <span className="onb-gif-hint">{tr('选区录制')}</span>
             </div>
           </div>
         </div>
@@ -155,7 +164,14 @@ export function GifScene({ active }: { active: boolean }): JSX.Element {
   )
 }
 
-export function VideoScene({ active }: { active: boolean }): JSX.Element {
+export function VideoScene({
+  active,
+  language
+}: {
+  active: boolean
+  language: Language
+}): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   const boxRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLSpanElement | null>(null)
   const tagRef = useRef<HTMLSpanElement | null>(null)
@@ -196,13 +212,14 @@ export function VideoScene({ active }: { active: boolean }): JSX.Element {
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy">
-        <div className="onb-eyebrow">03 · 视频</div>
-        <h1>视频也能录制</h1>
+        <div className="onb-eyebrow">{tr('03 · 视频')}</div>
+        <h1>{tr('视频也能录制')}</h1>
         <p className="onb-lead">
-          按框选区域录制视频，支持麦克风和系统声音，
-          <span className="onb-nowrap">高清 1080P</span>。
+          {tr('按框选区域录制视频，支持麦克风和系统声音，')}
+          <span className="onb-nowrap">{tr('高清 1080P')}</span>
+          {language === 'en-US' ? '' : '。'}
         </p>
-        <Tags items={['视频录制', '高清 1080P']} />
+        <Tags items={[tr('视频录制'), tr('高清 1080P')]} />
       </div>
 
       <div className="onb-visual">
@@ -229,7 +246,14 @@ export function VideoScene({ active }: { active: boolean }): JSX.Element {
   )
 }
 
-export function OcrScene({ active }: { active: boolean }): JSX.Element {
+export function OcrScene({
+  active,
+  language
+}: {
+  active: boolean
+  language: Language
+}): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   const selectRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLSpanElement | null>(null)
   const stackRef = useRef<HTMLDivElement | null>(null)
@@ -262,10 +286,10 @@ export function OcrScene({ active }: { active: boolean }): JSX.Element {
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy">
-        <div className="onb-eyebrow">04 · 识别与翻译</div>
-        <h1>OCR、翻译页都有</h1>
-        <p className="onb-lead">框选内容，OCR 识别、翻译任你选，一键复制更方便。</p>
-        <Tags items={['OCR 识别', '中英互译']} />
+        <div className="onb-eyebrow">{tr('04 · 识别与翻译')}</div>
+        <h1>{tr('OCR、翻译页都有')}</h1>
+        <p className="onb-lead">{tr('框选内容，OCR 识别、翻译任你选，一键复制更方便。')}</p>
+        <Tags items={[tr('OCR 识别'), tr('中英互译')]} />
       </div>
 
       <div className="onb-visual onb-ocr-visual">
@@ -273,9 +297,9 @@ export function OcrScene({ active }: { active: boolean }): JSX.Element {
           <div className="onb-ocr-doc-wrap">
             <div className="onb-ocr-doc">
               <p className="onb-ocr-cn">
-                把眼前的文字，
+                {tr('把眼前的文字，')}
                 <br />
-                变成可以继续使用的文本。
+                {tr('变成可以继续使用的文本。')}
               </p>
               <p className="onb-ocr-en">Turn what you see into text you can use.</p>
             </div>
@@ -284,12 +308,12 @@ export function OcrScene({ active }: { active: boolean }): JSX.Element {
           </div>
           <div className="onb-ocr-stack" ref={stackRef}>
             <div className="onb-ocr-card">
-              <small>识别原文</small>
-              <p>把眼前的文字，变成可以继续使用的文本。</p>
+              <small>{tr('识别原文')}</small>
+              <p>{tr('把眼前的文字，变成可以继续使用的文本。')}</p>
             </div>
             <span className="onb-ocr-arrow">↓</span>
             <div className="onb-ocr-card translated">
-              <small>翻译结果</small>
+              <small>{tr('翻译结果')}</small>
               <p>Turn what you see into text you can use.</p>
             </div>
           </div>

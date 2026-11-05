@@ -38,6 +38,8 @@ export interface Settings {
   launchAtLogin: boolean
   onboardingCompleted: boolean
   onboardingVersion: number
+  /** 用户选择“跳过此版本”的更新版本号；同一版本不再弹更新介绍 */
+  skippedUpdateVersion: string
   translationProvider: 'none' | 'free' | 'openai' | 'deepl'
   translationEndpoint: string
   translationModel: string

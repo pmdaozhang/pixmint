@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, PointerEvent as ReactPointerEvent } from 'react'
 import type { ArrowMode, LineStyle, Tool } from '@shared/types'
+import { t, type Language } from '@shared/i18n'
 import { Icon } from '../components/Icon'
 import { drawArrowHead, strokePathStyled } from './annotation/draw'
 import {
@@ -35,6 +36,7 @@ interface Props {
   canUndo: boolean
   canRedo: boolean
   variant?: 'overlay' | 'pin'
+  language?: Language
   onConfirm?: () => void
 }
 
@@ -120,12 +122,15 @@ function LineStylePreview({
 function LineStylePicker({
   value,
   color,
+  language,
   onChange
 }: {
   value: LineStyle
   color: string
+  language: Language
   onChange(value: LineStyle): void
 }): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -140,7 +145,7 @@ function LineStylePicker({
     <div className="line-style-root" ref={rootRef}>
       <button
         className="ss-cell ss-drop"
-        title="线条样式"
+        title={tr('线条样式')}
         onClick={() => setOpen((value) => !value)}
       >
         <LineStylePreview style={value} color={color} width={52} height={16} />
@@ -160,7 +165,7 @@ function LineStylePicker({
             <button
               key={style.value}
               className={`ss-cell${style.value === value ? ' on' : ''}`}
-              title={style.label}
+              title={tr(style.label)}
               onClick={() => {
                 onChange(style.value)
                 setOpen(false)
@@ -177,11 +182,15 @@ function LineStylePicker({
 
 function ArrowModePicker({
   value,
+  language,
   onChange
 }: {
   value: ArrowMode
+  language: Language
   onChange(value: ArrowMode): void
 }): JSX.Element {
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -197,8 +206,8 @@ function ArrowModePicker({
     <div className="arrow-mode-root" ref={rootRef}>
       <button
         className="ss-cell ss-drop arrow-mode-trigger"
-        title={`线条端样式：${currentLabel}`}
-        aria-label={`线条端样式：${currentLabel}`}
+        title={tr('线条端样式：{label}', { label: tr(currentLabel) })}
+        aria-label={tr('线条端样式：{label}', { label: tr(currentLabel) })}
         onClick={() => setOpen((next) => !next)}
       >
         <ArrowModeIcon mode={value} />
@@ -218,7 +227,7 @@ function ArrowModePicker({
             <button
               key={mode.value}
               className={`ss-cell${mode.value === value ? ' on' : ''}`}
-              title={mode.label}
+              title={tr(mode.label)}
               role="menuitemradio"
               aria-checked={mode.value === value}
               onClick={() => {
@@ -238,17 +247,19 @@ function ArrowModePicker({
 function WidthDot({
   value,
   color,
-  onChange
+  onChange,
+  title
 }: {
   value: number
   color: string
+  title: string
   onChange(value: number): void
 }): JSX.Element {
   const size = 5 + value * 1.5
   return (
     <button
       className="ss-lead"
-      title="滚轮调节粗细"
+      title={title}
       onWheel={(event) => {
         event.preventDefault()
         const direction = event.deltaY < 0 ? 0.5 : -0.5
@@ -321,8 +332,11 @@ export function Toolbar({
   canUndo,
   canRedo,
   variant = 'overlay',
+  language = 'zh-CN',
   onConfirm
 }: Props): JSX.Element {
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
   const widthKey = options.tool === 'shape' ? 'shape' : options.tool === 'arrow' ? 'arrow' : 'pen'
   const setBrushSize = (value: number): void => {
     setOptions({
@@ -356,82 +370,82 @@ export function Toolbar({
           tool="shape"
           current={options.tool}
           icon={<Icon name="shape" />}
-          label="矩形 / 椭圆"
+          label={tr('矩形 / 椭圆')}
           onClick={onToolClick}
         />
         <ToolButton
           tool="arrow"
           current={options.tool}
           icon={<Icon name="arrow" />}
-          label="线条 / 箭头"
+          label={tr('线条 / 箭头')}
           onClick={onToolClick}
         />
         <ToolButton
           tool="mosaic"
           current={options.tool}
           icon={<Icon name="mosaic" />}
-          label="马赛克"
+          label={tr('马赛克')}
           onClick={onToolClick}
         />
         <ToolButton
           tool="text"
           current={options.tool}
           icon={<Icon name="text" />}
-          label="文字"
+          label={tr('文字')}
           onClick={onToolClick}
         />
         <ToolButton
           tool="seq"
           current={options.tool}
           icon={<Icon name="seq" />}
-          label="序号"
+          label={tr('序号')}
           onClick={onToolClick}
         />
         <span className="div" />
-        <button className="tb" title="撤销 Ctrl+Z" disabled={!canUndo} onClick={onUndo}>
+        <button className="tb" title={tr('撤销 Ctrl+Z')} disabled={!canUndo} onClick={onUndo}>
           <Icon name="undo" />
         </button>
-        <button className="tb" title="重做 Ctrl+Shift+Z" disabled={!canRedo} onClick={onRedo}>
+        <button className="tb" title={tr('重做 Ctrl+Shift+Z')} disabled={!canRedo} onClick={onRedo}>
           <Icon name="redo" />
         </button>
         <span className="div" />
         {variant === 'pin' ? (
-          <button className="act" title="完成编辑" onClick={onConfirm}>
+          <button className="act" title={tr('完成编辑')} onClick={onConfirm}>
             <Icon name="check" size={16} />
-            完成
+            {tr('完成')}
           </button>
         ) : (
           <>
-            <button className="act" title="识别选区文字" onClick={() => onAction('ocr')}>
+            <button className="act" title={tr('识别选区文字')} onClick={() => onAction('ocr')}>
               <Icon name="ocr" size={16} />
-              识别
+              {tr('识别')}
             </button>
-            <button className="act" title="识别并翻译" onClick={() => onAction('translate')}>
+            <button className="act" title={tr('识别并翻译')} onClick={() => onAction('translate')}>
               <Icon name="translate" size={16} />
-              翻译
+              {tr('翻译')}
             </button>
-            <button className="tb tb-gif" title="录制 GIF" onClick={() => onAction('gif')}>
+            <button className="tb tb-gif" title={tr('录制 GIF')} onClick={() => onAction('gif')}>
               <Icon name="gif" />
             </button>
-            <button className="tb" title="录制视频" onClick={() => onAction('video')}>
+            <button className="tb" title={tr('录制视频')} onClick={() => onAction('video')}>
               <Icon name="video" />
             </button>
             <span className="div" />
             <button className="act" onClick={() => onAction('close')}>
               <Icon name="close" size={16} />
-              关闭
+              {tr('关闭')}
             </button>
             <button className="act" onClick={() => onAction('pin')}>
               <Icon name="pin" size={16} />
-              钉图
+              {tr('钉图')}
             </button>
             <button className="act" onClick={() => onAction('save')}>
               <Icon name="save" size={16} />
-              保存
+              {tr('保存')}
             </button>
             <button className="act" onClick={() => onAction('copy')}>
               <Icon name="copy" size={16} />
-              复制
+              {tr('复制')}
             </button>
           </>
         )}
@@ -443,6 +457,7 @@ export function Toolbar({
           <WidthDot
             value={options.widths[widthKey]}
             color={options.color}
+            title={tr('滚轮调节粗细')}
             onChange={(value) =>
               setOptions({ widths: { ...options.widths, [widthKey]: value } })
             }
@@ -454,7 +469,7 @@ export function Toolbar({
             <div className="seg">
               <button
                 className={`ss-cell${options.shapeKind === 'rect' ? ' on' : ''}`}
-                title="矩形"
+                title={tr('矩形')}
                 onClick={() => setOptions({ shapeKind: 'rect' })}
               >
                 <svg viewBox="0 0 24 24" fill="none">
@@ -471,7 +486,7 @@ export function Toolbar({
               </button>
               <button
                 className={`ss-cell${options.shapeKind === 'ellipse' ? ' on' : ''}`}
-                title="椭圆"
+                title={tr('椭圆')}
                 onClick={() => setOptions({ shapeKind: 'ellipse' })}
               >
                 <svg viewBox="0 0 24 24" fill="none">
@@ -495,11 +510,13 @@ export function Toolbar({
           <>
             <ArrowModePicker
               value={options.arrowMode}
+              language={language}
               onChange={(arrowMode) => setOptions({ arrowMode })}
             />
             <LineStylePicker
               value={options.lineStyle}
               color={options.color}
+              language={language}
               onChange={(lineStyle) => setOptions({ lineStyle })}
             />
             <span className="div" />
@@ -509,10 +526,13 @@ export function Toolbar({
 
         {options.tool === 'mosaic' && (
           <>
-            <div className="mosaic-brush-control" title="马赛克画笔大小：拖动圆点或滑杆调节">
+            <div
+              className="mosaic-brush-control"
+              title={tr('马赛克画笔大小：拖动圆点或滑杆调节')}
+            >
               <span
                 className="mosaic-brush-dot"
-                title="拖动调整画笔大小"
+                title={tr('拖动调整画笔大小')}
                 onPointerDown={startBrushDrag}
                 onWheel={(event) => {
                   event.preventDefault()
@@ -526,31 +546,19 @@ export function Toolbar({
                   }}
                 />
               </span>
-              <input
-                className="mosaic-brush-range"
-                type="range"
-                min={MOSAIC_BRUSH_MIN}
-                max={MOSAIC_BRUSH_MAX}
-                step="1"
-                aria-label="马赛克画笔大小"
-                value={options.mosaicBrushSize}
-                onChange={(event) =>
-                  setOptions({ mosaicBrushSize: Number(event.target.value) })
-                }
-              />
             </div>
             <span className="div" />
             <div className="seg">
               <button
                 className={`ss-cell${options.mosaicMode === 'brush' ? ' on' : ''}`}
-                title="笔刷马赛克"
+                title={tr('笔刷马赛克')}
                 onClick={() => setOptions({ mosaicMode: 'brush' })}
               >
                 <Icon name="mosaic" />
               </button>
               <button
                 className={`ss-cell${options.mosaicMode === 'rect' ? ' on' : ''}`}
-                title="矩形马赛克"
+                title={tr('矩形马赛克')}
                 onClick={() => setOptions({ mosaicMode: 'rect' })}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -565,7 +573,7 @@ export function Toolbar({
               min={MOSAIC_DENSITY_MIN}
               max={MOSAIC_DENSITY_MAX}
               step="1"
-              title="马赛克密度：数值越大越细腻"
+              title={tr('马赛克密度：数值越大越细腻')}
               value={options.mosaicDensity}
               onChange={(event) =>
                 setOptions({
@@ -583,7 +591,7 @@ export function Toolbar({
             <div className="seg">
               <button
                 className={`ss-cell${options.textB ? ' on' : ''}`}
-                title="加粗"
+                title={tr('加粗')}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textB: !options.textB })}
               >
@@ -591,7 +599,7 @@ export function Toolbar({
               </button>
               <button
                 className={`ss-cell${options.textI ? ' on' : ''}`}
-                title="斜体"
+                title={tr('斜体')}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textI: !options.textI })}
               >
@@ -599,7 +607,7 @@ export function Toolbar({
               </button>
               <button
                 className={`ss-cell${options.textU ? ' on' : ''}`}
-                title="下划线"
+                title={tr('下划线')}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textU: !options.textU })}
               >

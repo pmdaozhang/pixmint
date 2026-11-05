@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import type { RecorderMode } from '@shared/types'
 import { formatRecordingDuration } from '@shared/recording'
+import { t, type Language } from '@shared/i18n'
 
 interface Props {
   mode: RecorderMode
@@ -8,6 +9,7 @@ interface Props {
   systemAudio: boolean
   onMicToggle(): void
   onSystemAudioToggle(): void
+  language: Language
   onStart(): void
   onCancel(): void
 }
@@ -26,19 +28,21 @@ export function RecorderBar({
   systemAudio,
   onMicToggle,
   onSystemAudioToggle,
+  language,
   onStart,
   onCancel
 }: Props): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   return (
-    <div className="rec-ctrl" aria-label="录制设置">
+    <div className="rec-ctrl" aria-label={tr('录制设置')}>
       <button
         className="rec-start"
-        title="开始录制"
-        aria-label="开始录制"
+        title={tr('开始录制')}
+        aria-label={tr('开始录制')}
         onClick={onStart}
       >
         <i />
-        开始
+        {tr('开始')}
       </button>
       <span className="tm">
         <span>{formatRecordingDuration(0)}</span>
@@ -50,18 +54,18 @@ export function RecorderBar({
             className={`rec-tog${mic ? ' on' : ''}`}
             onClick={onMicToggle}
           >
-            麦克风
+            {tr('麦克风')}
           </button>
           <button
             className={`rec-tog${systemAudio ? ' on' : ''}`}
             onClick={onSystemAudioToggle}
           >
-            系统音
+            {tr('系统音')}
           </button>
         </>
       ) : null}
       <span className="div" />
-      <button className="cb" title="取消录制" onClick={onCancel}>
+      <button className="cb" title={tr('取消录制')} onClick={onCancel}>
         <CloseIcon />
       </button>
     </div>

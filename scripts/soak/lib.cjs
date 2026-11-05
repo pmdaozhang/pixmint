@@ -99,18 +99,21 @@ function tempArtifacts() {
       if (entry.isFile() && /^(snapglass|pixmint)-/.test(entry.name)) {
         const filePath = path.join(dir, entry.name)
         try {
-          result.push({ name: entry.name, size: fs.statSync(filePath).size })
+          const stat = fs.statSync(filePath)
+          result.push({ name: entry.name, size: stat.size, mtimeMs: stat.mtimeMs })
         } catch {
-          result.push({ name: entry.name, size: 0 })
+          result.push({ name: entry.name, size: 0, mtimeMs: 0 })
         }
       }
       if (entry.isDirectory() && entry.name === 'snapglass-recording') {
         const recordingDir = path.join(dir, entry.name)
         for (const file of fs.readdirSync(recordingDir)) {
           try {
+            const stat = fs.statSync(path.join(recordingDir, file))
             result.push({
               name: `${entry.name}/${file}`,
-              size: fs.statSync(path.join(recordingDir, file)).size
+              size: stat.size,
+              mtimeMs: stat.mtimeMs
             })
           } catch {
             // 录制文件可能在统计时被清理

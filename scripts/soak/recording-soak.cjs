@@ -11,6 +11,7 @@ const {
 } = require('./lib.cjs')
 
 ;(async () => {
+  const runStartedAt = Date.now()
   const recordings = Number(process.env.PIXMINT_SOAK_RECORDINGS ?? 3)
   const seconds = Math.min(590, Math.max(1, Number(process.env.PIXMINT_SOAK_RECORD_SECONDS ?? 10)))
   const mode = process.env.PIXMINT_SOAK_RECORD_MODE === 'gif' ? 'gif' : 'video'
@@ -78,7 +79,11 @@ const {
       tempArtifacts: artifacts
     })
     await app.close()
-    const leaked = artifacts.filter((artifact) => artifact.size > 1024 * 1024)
+    // 只统计本次运行期间产生的残留；机器上历史遗留的临时文件不应让压测误报。
+    const leaked = artifacts.filter(
+      (artifact) =>
+        artifact.size > 1024 * 1024 && (artifact.mtimeMs ?? 0) >= runStartedAt - 5000
+    )
     process.exit(
       failures.length === 0 && leaked.length === 0 && privateGrowthMb <= maxPrivateMb ? 0 : 1
     )

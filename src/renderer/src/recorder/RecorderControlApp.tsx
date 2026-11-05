@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import type { RecorderState } from '@shared/types'
 import { formatRecordingDuration } from '@shared/recording'
 import './recorder-control.css'
+import { t, type Language } from '@shared/i18n'
 
 function StopIcon(): JSX.Element {
   return (
@@ -39,6 +40,16 @@ function CloseIcon(): JSX.Element {
 
 export function RecorderControlApp(): JSX.Element {
   const [state, setState] = useState<RecorderState | null>(null)
+  const [language, setLanguage] = useState<Language>('zh-CN')
+
+  useEffect(() => {
+    window.snapglass.settings
+      .get()
+      .then((settings) => setLanguage(settings.language))
+      .catch(() => {})
+  }, [])
+
+  const tr = (zh: string): string => t(language, zh)
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -59,10 +70,10 @@ export function RecorderControlApp(): JSX.Element {
       <div className="rec-control-root">
         <div className="rec-control preparing">
           <span className="rec-spinner" />
-          <span className="tm">准备中…</span>
+          <span className="tm">{tr('准备中…')}</span>
           <button
             className="cb"
-            title="取消录制"
+            title={tr('取消录制')}
             onClick={() => window.snapglass.recorderControl.command({ type: 'cancel' })}
           >
             <CloseIcon />
@@ -75,10 +86,10 @@ export function RecorderControlApp(): JSX.Element {
     return (
       <div className="rec-control-root">
         <div className="rec-control preparing">
-          <span className="tm">倒计时…</span>
+          <span className="tm">{tr('倒计时…')}</span>
           <button
             className="cb"
-            title="取消录制"
+            title={tr('取消录制')}
             onClick={() => window.snapglass.recorderControl.command({ type: 'cancel' })}
           >
             <CloseIcon />
@@ -92,7 +103,7 @@ export function RecorderControlApp(): JSX.Element {
       <div className="rec-control-root">
         <div className="rec-control encoding">
           <span className="rec-spinner" />
-          <span className="tm">正在生成…</span>
+          <span className="tm">{tr('正在生成…')}</span>
         </div>
       </div>
     )
@@ -113,7 +124,7 @@ export function RecorderControlApp(): JSX.Element {
         {isVideo && (
           <button
             className="cb"
-            title={state.phase === 'paused' ? '继续' : '暂停'}
+            title={state.phase === 'paused' ? tr('继续') : tr('暂停')}
             onClick={() =>
               window.snapglass.recorderControl.command({
                 type: state.phase === 'paused' ? 'resume' : 'pause'
@@ -125,7 +136,7 @@ export function RecorderControlApp(): JSX.Element {
         )}
         <button
           className="cb stop"
-          title="停止"
+          title={tr('停止')}
           onClick={() => window.snapglass.recorderControl.command({ type: 'stop' })}
         >
           <StopIcon />

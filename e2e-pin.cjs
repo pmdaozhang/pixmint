@@ -44,11 +44,13 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     const visible = BrowserWindow.getAllWindows().find((window) => window.isVisible())
     return visible ? visible.getBounds() : null
   })
+  // 窗口 = 图片 + 20px 阴影 + 顶部 34px 操作条，图片本体仍应落在框选原点
+  const ACTION_BAR_HEIGHT = 34
   console.log('PIN_BOUNDS', before)
   if (
     !before ||
     Math.abs(before.x + 20 - 100) > 6 ||
-    Math.abs(before.y + 20 - 90) > 6
+    Math.abs(before.y + 20 + ACTION_BAR_HEIGHT - 90) > 6
   ) {
     throw new Error('pin is not placed at the selection origin')
   }

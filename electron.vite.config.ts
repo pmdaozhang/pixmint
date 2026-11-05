@@ -23,7 +23,19 @@ function devCspPlugin(): Plugin {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        // OCR 推理跑在 utilityProcess 里，需要和主进程分开打包成独立入口。
+        input: {
+          index: resolve('src/main/index.ts'),
+          'ocr-worker': resolve('src/main/ocr/worker.ts')
+        },
+        output: {
+          entryFileNames: '[name].js'
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]

@@ -12,12 +12,13 @@ interface PinState {
   width: number
   height: number
   opacity: number
-  ignoreMouse: boolean
   dragging: boolean
   normalBounds: Electron.Rectangle | null
 }
 
 const SHADOW_PADDING = 20
+// 钉图右上角操作条：放在图片上方，不遮挡内容
+const ACTION_BAR_HEIGHT = 34
 const EDIT_TOOLBAR_HEIGHT = 104
 const EDIT_TOOLBAR_WIDTH = 739
 const EDIT_GAP = 8
@@ -34,20 +35,22 @@ export class PinManager {
       width,
       height,
       workArea.width,
-      workArea.height,
+      workArea.height - ACTION_BAR_HEIGHT,
       SHADOW_PADDING
     )
     const pinWidth = size.width
     const pinHeight = size.height
     const totalWidth = size.totalWidth
-    const totalHeight = size.totalHeight
+    // 窗口比图片多出顶部操作条的高度
+    const totalHeight = size.totalHeight + ACTION_BAR_HEIGHT
     const x = clamp(
       position.x - SHADOW_PADDING,
       workArea.x,
       workArea.x + workArea.width - totalWidth
     )
+    // 向上多让出操作条，图片仍落在用户框选的位置
     const y = clamp(
-      position.y - SHADOW_PADDING,
+      position.y - SHADOW_PADDING - ACTION_BAR_HEIGHT,
       workArea.y,
       workArea.y + workArea.height - totalHeight
     )
@@ -87,7 +90,6 @@ export class PinManager {
       width: pinWidth,
       height: pinHeight,
       opacity: 1,
-      ignoreMouse: false,
       dragging: false,
       normalBounds: null
     }
@@ -155,14 +157,6 @@ export class PinManager {
     return state.opacity
   }
 
-  toggleIgnoreMouse(webContentsId: number): boolean {
-    const state = this.pins.get(webContentsId)
-    if (!state) return false
-    state.ignoreMouse = !state.ignoreMouse
-    state.window.setIgnoreMouseEvents(state.ignoreMouse, { forward: true })
-    return state.ignoreMouse
-  }
-
   dragStart(webContentsId: number): void {
     const state = this.pins.get(webContentsId)
     if (!state) return
@@ -187,14 +181,18 @@ export class PinManager {
     const bounds = state.window.getBounds()
     const next = nextPinSize(state.width, state.height, direction)
     const centerX = bounds.x + bounds.width / 2
-    const centerY = bounds.y + bounds.height / 2
+    // 以图片区域中心缩放，顶部操作条不参与，避免图片上下漂移
+    const imageCenterY =
+      bounds.y + SHADOW_PADDING + ACTION_BAR_HEIGHT + state.height / 2
     const totalWidth = next.width + SHADOW_PADDING * 2
-    const totalHeight = next.height + SHADOW_PADDING * 2
+    const totalHeight = next.height + ACTION_BAR_HEIGHT + SHADOW_PADDING * 2
     state.width = next.width
     state.height = next.height
     state.window.setBounds({
       x: Math.round(centerX - totalWidth / 2),
-      y: Math.round(centerY - totalHeight / 2),
+      y: Math.round(
+        imageCenterY - SHADOW_PADDING - ACTION_BAR_HEIGHT - next.height / 2
+      ),
       width: totalWidth,
       height: totalHeight
     })
@@ -219,7 +217,11 @@ export class PinManager {
       )
       const height = Math.min(
         workArea.height,
-        state.height + EDIT_TOOLBAR_HEIGHT + EDIT_GAP + SHADOW_PADDING * 2
+        state.height +
+          ACTION_BAR_HEIGHT +
+          EDIT_TOOLBAR_HEIGHT +
+          EDIT_GAP +
+          SHADOW_PADDING * 2
       )
       state.window.setBounds({
         x: clamp(bounds.x, workArea.x, workArea.x + workArea.width - width),
@@ -241,7 +243,7 @@ export class PinManager {
     }
     return {
       width: state.width + SHADOW_PADDING * 2,
-      height: state.height + SHADOW_PADDING * 2,
+      height: state.height + ACTION_BAR_HEIGHT + SHADOW_PADDING * 2,
       imageWidth: state.width,
       imageHeight: state.height,
       toolbarWidth: EDIT_TOOLBAR_WIDTH
@@ -277,13 +279,6 @@ export class PinManager {
           void this.save(webContentsId)
         }
       },
-      {
-        label: '鼠标穿透',
-        type: 'checkbox',
-        checked: state.ignoreMouse,
-        click: () => this.toggleIgnoreMouse(webContentsId)
-      },
-      { type: 'separator' },
       { label: '关闭贴图', click: () => this.close(webContentsId) }
     ])
     menu.popup({ window: state.window })

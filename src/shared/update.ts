@@ -1,4 +1,5 @@
 import type { UpdateState } from './types'
+import { t, type Language } from './i18n'
 
 export type UpdateActionKind = 'check' | 'download' | 'install' | 'none'
 export type UpdateTone = 'neutral' | 'ok' | 'new' | 'error'
@@ -81,14 +82,16 @@ export function isNoPublishedReleaseError(error: unknown): boolean {
 
 /**
  * 背景：electron-updater 的错误语义混在英文 message 里，直接给用户看没有可操作性。
- * 设计意图：按常见网络、404、校验、磁盘和安装失败归类成中文提示。
+ * 设计意图：按常见网络、404、校验、磁盘和安装失败归类成可读提示。
  * 关键约束：未知错误保留原始信息，便于诊断，不吞掉细节。
  */
-export function mapUpdateError(error: unknown): string {
+export function mapUpdateError(error: unknown, language: Language = 'zh-CN'): string {
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
   const message = error instanceof Error ? error.message : String(error)
   const lower = message.toLowerCase()
   if (isNoPublishedReleaseError(error)) {
-    return '更新源暂无发布版本'
+    return tr('更新源暂无发布版本')
   }
   if (
     lower.includes('404') ||
@@ -96,14 +99,14 @@ export function mapUpdateError(error: unknown): string {
     lower.includes('not found') ||
     lower.includes('cannot find channel')
   ) {
-    return '更新源不可用，请稍后重试'
+    return tr('更新源不可用，请稍后重试')
   }
   if (
     lower.includes('sha512') ||
     lower.includes('checksum') ||
     lower.includes('checksum mismatch')
   ) {
-    return '安装包校验失败，已阻止安装'
+    return tr('安装包校验失败，已阻止安装')
   }
   if (
     lower.includes('enotfound') ||
@@ -113,19 +116,19 @@ export function mapUpdateError(error: unknown): string {
     lower.includes('network') ||
     lower.includes('net::')
   ) {
-    return '检查更新失败：无法连接更新源'
+    return tr('检查更新失败：无法连接更新源')
   }
   if (lower.includes('enospc') || lower.includes('no space')) {
-    return '磁盘空间不足，无法下载更新'
+    return tr('磁盘空间不足，无法下载更新')
   }
   if (
     lower.includes('enoent') ||
     lower.includes('install') ||
     lower.includes('installer')
   ) {
-    return '安装失败，请手动下载最新版本'
+    return tr('安装失败，请手动下载最新版本')
   }
-  return `检查更新失败：${message}`
+  return tr('检查更新失败：{message}', { message })
 }
 
 /**
@@ -133,7 +136,13 @@ export function mapUpdateError(error: unknown): string {
  * 设计意图：单一纯函数输出完整视图模型，渲染层只负责绑定事件。
  * 关键约束：不读取全局状态；同一输入必须得到同一输出，便于单测和回归。
  */
-export function describeUpdate(state: UpdateState, currentVersion: string): UpdateView {
+export function describeUpdate(
+  state: UpdateState,
+  currentVersion: string,
+  language: Language = 'zh-CN'
+): UpdateView {
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
   const version = state.version ?? ''
   const title = currentVersion ? `Pixmint v${currentVersion}` : 'Pixmint'
   const base = {
@@ -150,47 +159,49 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
     case 'checking':
       return {
         ...base,
-        description: '正在检查更新…',
-        actionLabel: '检查中…',
+        description: tr('正在检查更新…'),
+        actionLabel: tr('检查中…'),
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
-        note: '正在连接更新源，通常不超过 15 秒'
+        note: tr('正在连接更新源，通常不超过 15 秒')
       }
     case 'up-to-date':
       return {
         ...base,
-        description: '已是最新版本',
-        actionLabel: '再次检查',
+        description: tr('已是最新版本'),
+        actionLabel: tr('再次检查'),
         actionKind: 'check',
         actionVariant: 'secondary',
         actionDisabled: false,
         tone: 'ok',
         note:
           state.reason === 'no-release'
-            ? '更新源暂无发布记录 · 发布新版本后会自动检测'
-            : '更新源 GitHub Releases · 已检查最新版本'
+            ? tr('更新源暂无发布记录 · 发布新版本后会自动检测')
+            : tr('更新源 GitHub Releases · 已检查最新版本')
       }
     case 'available':
       return {
         ...base,
-        description: `发现新版本 ${version}`,
-        actionLabel: '下载更新',
+        description: tr('发现新版本 {version}', { version }),
+        actionLabel: tr('下载更新'),
         actionKind: 'download',
         actionVariant: 'primary',
         actionDisabled: false,
         showBadge: true,
         tone: 'new',
         note: state.sizeBytes
-          ? `安装包约 ${formatBytes(state.sizeBytes)} · 下载完成后会校验 SHA-512`
-          : '下载完成后会校验 SHA-512'
+          ? tr('安装包约 {size} · 下载完成后会校验 SHA-512', {
+              size: formatBytes(state.sizeBytes)
+            })
+          : tr('下载完成后会校验 SHA-512')
       }
     case 'downloading': {
       const progress = state.progress ?? { percent: 0, transferred: 0, total: 0 }
       return {
         ...base,
-        description: `正在下载 ${version}`,
-        actionLabel: '下载中…',
+        description: tr('正在下载 {version}', { version }),
+        actionLabel: tr('下载中…'),
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
@@ -199,58 +210,62 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
         progressPercent: progress.percent,
         progressLabel:
           progress.total > 0
-            ? `正在下载 ${version} · ${formatBytes(progress.transferred)} / ${formatBytes(progress.total)}`
-            : `正在下载 ${version}`,
-        note: '下载在后台进行，可以继续使用截图和 OCR'
+            ? tr('正在下载 {version} · {transferred} / {total}', {
+                version,
+                transferred: formatBytes(progress.transferred),
+                total: formatBytes(progress.total)
+              })
+            : tr('正在下载 {version}', { version }),
+        note: tr('下载在后台进行，可以继续使用截图和 OCR')
       }
     }
     case 'verifying':
       return {
         ...base,
-        description: '正在校验安装包…',
-        actionLabel: '校验中…',
+        description: tr('正在校验安装包…'),
+        actionLabel: tr('校验中…'),
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
         tone: 'new',
         showProgress: true,
         progressPercent: 100,
-        progressLabel: '安装包已下载 · 正在校验 SHA-512',
-        note: '校验失败会阻止安装并提示重试'
+        progressLabel: tr('安装包已下载 · 正在校验 SHA-512'),
+        note: tr('校验失败会阻止安装并提示重试')
       }
     case 'downloaded':
       return {
         ...base,
-        description: `${version} 已下载并校验完成，重启后安装`,
-        actionLabel: '重启并安装',
+        description: tr('{version} 已下载并校验完成，重启后安装', { version }),
+        actionLabel: tr('重启并安装'),
         actionKind: 'install',
         actionVariant: 'primary',
         actionDisabled: false,
         tone: 'ok',
         showProgress: true,
         progressPercent: 100,
-        progressLabel: '安装包已校验',
-        note: '重启会关闭当前窗口，安装完成后自动重新启动 Pixmint'
+        progressLabel: tr('安装包已校验'),
+        note: tr('重启会关闭当前窗口，安装完成后自动重新启动 Pixmint')
       }
     case 'installing':
       return {
         ...base,
-        description: `正在安装 ${version}，应用即将重启…`,
-        actionLabel: '安装中…',
+        description: tr('正在安装 {version}，应用即将重启…', { version }),
+        actionLabel: tr('安装中…'),
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
         tone: 'new',
         showProgress: true,
         progressPercent: 100,
-        progressLabel: '正在替换程序文件',
-        note: '请不要手动关闭进程，安装完成后会自动启动'
+        progressLabel: tr('正在替换程序文件'),
+        note: tr('请不要手动关闭进程，安装完成后会自动启动')
       }
     case 'error':
       return {
         ...base,
-        description: state.error ?? '检查更新失败',
-        actionLabel: '重试',
+        description: state.error ?? tr('检查更新失败'),
+        actionLabel: tr('重试'),
         actionKind: 'check',
         actionVariant: 'secondary',
         actionDisabled: false,
@@ -258,16 +273,16 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
         showProgress: Boolean(state.progress),
         progressPercent: state.progress?.percent ?? 0,
         progressLabel: state.progress
-          ? `已下载 ${formatBytes(state.progress.transferred)}`
+          ? tr('已下载 {size}', { size: formatBytes(state.progress.transferred) })
           : '',
-        note: '已写入诊断日志，可稍后重试',
+        note: tr('已写入诊断日志，可稍后重试'),
         noteTone: 'error'
       }
     case 'disabled':
       return {
         ...base,
-        description: state.error ?? '当前环境不检查更新',
-        actionLabel: '检查更新',
+        description: state.error ?? tr('当前环境不检查更新'),
+        actionLabel: tr('检查更新'),
         actionKind: 'none',
         actionVariant: 'secondary',
         actionDisabled: true,
@@ -277,12 +292,12 @@ export function describeUpdate(state: UpdateState, currentVersion: string): Upda
     default:
       return {
         ...base,
-        description: '检查更新，获取最新功能与修复',
-        actionLabel: '检查更新',
+        description: tr('检查更新，获取最新功能与修复'),
+        actionLabel: tr('检查更新'),
         actionKind: 'check',
         actionVariant: 'secondary',
         actionDisabled: false,
-        note: '更新源 GitHub Releases · 下载后校验 SHA-512 · 重启后完成安装'
+        note: tr('更新源 GitHub Releases · 下载后校验 SHA-512 · 重启后完成安装')
       }
   }
 }

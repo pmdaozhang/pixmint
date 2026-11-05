@@ -3,6 +3,8 @@ const path = require('node:path')
 
 const PROJECT = __dirname
 const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electron.exe')
+// 钉图窗口在图片上方预留的操作条高度，与 src/main/windows/pin.ts 保持一致
+const ACTION_BAR_HEIGHT = 34
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function selectRegion(overlay, start, end) {
@@ -27,10 +29,16 @@ async function pinSelection(app, overlay) {
   return pinWindow
 }
 
+/** 钉图改为手动 OCR：先点右上角"识别文字"，再等文字层。 */
+async function triggerPinOcr(pinWindow) {
+  await pinWindow.locator('.pin-actions button[title="识别文字"]').click()
+}
+
 async function runTextSelection(app, overlay) {
   await selectRegion(overlay, { x: 400, y: 300 }, { x: 1500, y: 780 })
   const pinWindow = await pinSelection(app, overlay)
   try {
+    await triggerPinOcr(pinWindow)
     await pinWindow.waitForSelector('.pin-text-line', { timeout: 20000 })
   } catch (error) {
     const state = await pinWindow
@@ -105,6 +113,8 @@ async function runTextSelection(app, overlay) {
   await pinWindow.waitForSelector('.pin-edit-toolbar .tooldock', { timeout: 8000 })
   await pinWindow.locator('.pin-edit-toolbar .act').filter({ hasText: '完成' }).click()
   await pinWindow.waitForSelector('.pin-edit-toolbar', { state: 'detached', timeout: 8000 })
+  // 编辑后文字层会清空，需要再次手动识别
+  await triggerPinOcr(pinWindow)
   await pinWindow.waitForSelector('.pin-text-line', { timeout: 12000 })
   const textAfterEdit = (await pinWindow.locator('.pin-text-layer').innerText()).replace(
     /\s+/g,
@@ -172,7 +182,9 @@ async function runShortSelection(app, overlay) {
   console.log('PIN_TEXT_SHORT', { imageBox, natural, objectFit, bounds })
   if (!imageBox || !bounds) throw new Error('short pin window is missing')
   if (objectFit !== 'contain') throw new Error('pin image must use object-fit: contain')
-  if (bounds.height >= 80) throw new Error('short pin window is still stretched')
+  if (bounds.height >= 80 + ACTION_BAR_HEIGHT) {
+    throw new Error('short pin window is still stretched')
+  }
   const displayedRatio = imageBox.width / imageBox.height
   const naturalRatio = natural.width / natural.height
   if (Math.abs(displayedRatio - naturalRatio) > 0.05) {
@@ -203,6 +215,7 @@ async function runPinStress(app, overlay) {
       { x: startX + 360 + index, y: startY + 100 + index }
     )
     const pinWindow = await pinSelection(app, overlay)
+    await triggerPinOcr(pinWindow).catch(() => undefined)
     await pinWindow
       .waitForSelector('.pin-text-line', { timeout: 4000 })
       .catch(() => undefined)
@@ -235,6 +248,7 @@ async function runOcrFailure(app, overlay) {
   await sleep(350)
   await selectRegion(overlay, { x: 420, y: 440 }, { x: 900, y: 560 })
   const pinWindow = await pinSelection(app, overlay)
+  await triggerPinOcr(pinWindow)
   await pinWindow.waitForSelector('.pin-text-status', { timeout: 8000 })
   const status = await pinWindow.locator('.pin-text-status').innerText()
   console.log('PIN_TEXT_FAILURE_STATUS', status)
@@ -255,11 +269,14 @@ async function runOcrFailure(app, overlay) {
 }
 
 ;(async () => {
+  // 从 electron-as-node 启动时，子进程不能继承这个变量，否则会变成 node 而不是应用
+  const childEnv = { ...process.env }
+  delete childEnv.ELECTRON_RUN_AS_NODE
   const app = await electron.launch({
     executablePath: ELECTRON,
     args: ['.', '--smoke-overlay-ocr'],
     cwd: PROJECT,
-    env: { ...process.env }
+    env: childEnv
   })
   try {
     const overlay = await app.firstWindow()

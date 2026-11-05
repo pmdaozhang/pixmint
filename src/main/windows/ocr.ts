@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme } from 'electron'
+import { BrowserWindow } from 'electron'
 import type { OcrInit } from '../../shared/types'
 import { appIcon } from '../app-icon'
 import { loadRoute } from './load'
@@ -28,8 +28,9 @@ export class OcrManager {
       height: isTranslate ? 320 : estimateOcrHeight(init.text),
       frame: false,
       thickFrame: false,
-      transparent: false,
-      backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e28' : '#fafafc',
+      // 透明窗口 + CSS 圆角，避免四角露出窗口底色
+      transparent: true,
+      backgroundColor: '#00000000',
       roundedCorners: false,
       hasShadow: false,
       resizable: false,

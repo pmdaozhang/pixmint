@@ -13,6 +13,7 @@ import { RecorderBar } from './RecorderBar'
 import { RecorderSession } from './RecorderSession'
 import { RESIZE_DIRS } from './selection-geometry'
 import { Toolbar } from './Toolbar'
+import { t } from '@shared/i18n'
 import { useOverlayImageSession } from './useOverlayImageSession'
 import { useOverlayKeyboard } from './useOverlayKeyboard'
 import { useOverlaySelection } from './useOverlaySelection'
@@ -312,7 +313,7 @@ export function OverlayApp(): JSX.Element {
     const mode = recorderModeRef.current
     if (!mode || !init || !selection || recordPhaseRef.current !== 'idle') return
     if (selection.width < 64 || selection.height < 64) {
-      showToast('选区太小，至少需要 64 × 64')
+      showToast(t(init?.settings?.language, '选区太小，至少需要 64 × 64'))
       return
     }
     const options: RecorderOptions = {
@@ -335,11 +336,12 @@ export function OverlayApp(): JSX.Element {
           options
         }),
         9_000,
-        '录制初始化超时，请重试'
+        t(init?.settings?.language, '录制初始化超时，请重试')
       )
       if (recordCancelledRef.current) return
 
       const session = new RecorderSession(init, selection, options, {
+        language: init.settings.language,
         onState: (patch) => {
           window.snapglass.recorder.state(patch)
           if (patch.message) showToast(patch.message)
@@ -376,7 +378,7 @@ export function OverlayApp(): JSX.Element {
         }
       })
       sessionRef.current = session
-      await withTimeout(session.prepare(sourceId), 9_000, '录制初始化超时，请重试')
+      await withTimeout(session.prepare(sourceId), 9_000, t(init?.settings?.language, '录制初始化超时，请重试'))
       if (recordCancelledRef.current) return
 
       setRecordPhase('countdown')
@@ -384,7 +386,7 @@ export function OverlayApp(): JSX.Element {
       window.snapglass.recorder.state({
         phase: 'countdown',
         elapsedMs: 0,
-        message: '3 秒后开始'
+        message: t(init?.settings?.language, '3 秒后开始')
       })
       for (let remain = 3; remain > 0; remain -= 1) {
         if (recordCancelledRef.current) return
@@ -532,7 +534,7 @@ export function OverlayApp(): JSX.Element {
     })
     if (!blob) return
     window.snapglass.overlay.autoCopy(new Uint8Array(await blob.arrayBuffer()))
-    showToast('截图已自动复制')
+    showToast(t(init?.settings?.language, '截图已自动复制'))
   }, [drawSelection, showToast])
 
   useEffect(() => {
@@ -615,7 +617,7 @@ export function OverlayApp(): JSX.Element {
       <div className="overlay-preparing">
         <div className="prepare-pill">
           <span className="prepare-spinner" />
-          正在截取屏幕…
+          {t(undefined, '正在截取屏幕…')}
         </div>
       </div>
     )
@@ -623,9 +625,9 @@ export function OverlayApp(): JSX.Element {
   if (!init) return <div className="overlay-idle" />
 
   const toolbarTop = selection
-    ? selection.y + selection.height + 12 + 110 < window.innerHeight
-      ? selection.y + selection.height + 12
-      : Math.max(8, selection.y - 112)
+    ? selection.y + selection.height + 16 + 104 < window.innerHeight
+      ? selection.y + selection.height + 16
+      : Math.max(8, selection.y - 104)
     : 0
   const toolbarLeft = selection
     ? Math.max(
@@ -637,7 +639,7 @@ export function OverlayApp(): JSX.Element {
       )
     : 0
   const showRecordingChrome = recorderModeActive && recordPhase !== 'result'
-  const recorderLabel = recorderMode === 'gif' ? 'GIF' : '视频'
+  const recorderLabel = recorderMode === 'gif' ? 'GIF' : t(init.settings.language, '视频')
   const recBarLeft = selection
     ? selection.x + selection.width / 2
     : 0
@@ -657,6 +659,20 @@ export function OverlayApp(): JSX.Element {
       onPointerDown={onSelectDown}
       onPointerMove={onSelectMove}
       onPointerUp={onSelectUp}
+      onDoubleClick={(event) => {
+        if (phase !== 'editing' || !selection) return
+        const target = event.target as HTMLElement
+        // 工具条、录制条、文本输入框和标注画布各有自己的双击行为，不在这里处理
+        if (
+          target.closest(
+            '.toolbar-position, .tooldock, .rec-ctrl, .gif-setup, .text-draft, .anno-canvas'
+          )
+        ) {
+          return
+        }
+        event.preventDefault()
+        onAction('copy')
+      }}
       onPointerLeave={() => {
         if (brushCursorRef.current) brushCursorRef.current.style.display = 'none'
         if (phase === 'selecting' && !isDragging()) {
@@ -731,6 +747,7 @@ export function OverlayApp(): JSX.Element {
                 options={options}
                 selectionDragging={selectionDragging}
                 moveCursor="grab"
+                onEmptyDoubleClick={() => onAction('copy')}
                 onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
               />
@@ -740,6 +757,7 @@ export function OverlayApp(): JSX.Element {
             <div className="rec-bar-position" style={{ left: recBarLeft, top: recBarTop }}>
               <RecorderBar
                 mode={recorderMode}
+                language={init.settings.language}
                 mic={recorderOptions.mic}
                 systemAudio={recorderOptions.systemAudio}
                 onMicToggle={() =>
@@ -781,14 +799,14 @@ export function OverlayApp(): JSX.Element {
                 <i />
                 <span>
                   {recordPhase === 'preparing'
-                    ? `准备中 · ${recorderLabel}`
+                    ? t(init.settings.language, '准备中 · {label}', { label: recorderLabel })
                     : recordPhase === 'idle' || recordPhase === 'countdown'
-                      ? `待机 · ${recorderLabel}`
+                      ? t(init.settings.language, '待机 · {label}', { label: recorderLabel })
                     : recordPhase === 'recording' || recordPhase === 'paused'
                       ? `REC · ${recorderLabel}`
                       : recordPhase === 'encoding'
-                        ? '正在生成'
-                        : `待机 · ${recorderLabel}`}
+                        ? t(init.settings.language, '正在生成')
+                        : t(init.settings.language, '待机 · {label}', { label: recorderLabel })}
                 </span>
               </span>
               {recordPhase === 'countdown' && countdownNumber > 0 && (
@@ -799,7 +817,7 @@ export function OverlayApp(): JSX.Element {
               {recordPhase === 'encoding' && (
                 <div className="recording-encoding">
                   <span className="prepare-spinner" />
-                  正在生成…
+                  {t(init.settings.language, '正在生成…')}
                 </div>
               )}
             </div>
@@ -823,6 +841,7 @@ export function OverlayApp(): JSX.Element {
           <Toolbar
             options={options}
             setOptions={setOptions}
+            language={init.settings.language}
             submenuOpen={submenuOpen}
             onToolClick={onToolClick}
             onAction={onAction}

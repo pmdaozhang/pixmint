@@ -49,6 +49,8 @@ interface Props {
   moveCursor?: 'grab' | 'crosshair'
   onTextInputStart(annotation?: TextAnno): void
   onHistoryChange(canUndo: boolean, canRedo: boolean): void
+  /** 双击空白区域（未命中任何标注）时触发，用于快速结束截图 */
+  onEmptyDoubleClick?(): void
 }
 
 interface TextDraft {
@@ -71,7 +73,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       selectionDragging = false,
       moveCursor = 'crosshair',
       onTextInputStart,
-      onHistoryChange
+      onHistoryChange,
+      onEmptyDoubleClick
     },
     ref
   ) {
@@ -640,7 +643,10 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
         { x: event.clientX - rect.left, y: event.clientY - rect.top },
         options.tool
       )
-      if (index < 0) return
+      if (index < 0) {
+        onEmptyDoubleClick?.()
+        return
+      }
       const annotation = annotationsRef.current[index]
       if (annotation.type === 'text') {
         beginTextEdit(annotation)

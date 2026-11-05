@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import type { LineStyle, Settings, ThemeSetting } from '@shared/types'
 import { drawArrowHead, strokePathStyled } from '../overlay/annotation/draw'
 import { GifScene, OcrScene, VideoScene } from './OnboardingScenes'
+import { t, type Language } from '@shared/i18n'
 import './onboarding.css'
 
 const ONBOARDING_VERSION = 2
@@ -174,18 +175,30 @@ function CaptureDemo(): JSX.Element {
   )
 }
 
-function StepOne({ shortcut, active }: { shortcut: string; active: boolean }): JSX.Element {
+function StepOne({
+  shortcut,
+  active,
+  language
+}: {
+  shortcut: string
+  active: boolean
+  language: Language
+}): JSX.Element {
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy">
-        <div className="onb-eyebrow">04 · 快捷键</div>
+        <div className="onb-eyebrow">{tr('04 · 快捷键')}</div>
         <h1>
-          按一下 {shortcut}，
+          {tr('按一下 {key}，', { key: shortcut })}
           <br />
-          截下眼前的画面。
+          {tr('截下眼前的画面。')}
         </h1>
         <p className="onb-lead">
-          Pixmint 会安静地待在系统托盘。需要截图时，按下默认快捷键即可直接框选区域。
+          {tr(
+            'Pixmint 会安静地待在系统托盘。需要截图时，按下默认快捷键即可直接框选区域。'
+          )}
         </p>
 
         <div className="onb-shortcut-card">
@@ -199,21 +212,24 @@ function StepOne({ shortcut, active }: { shortcut: string; active: boolean }): J
             {shortcut}
           </span>
           <span className="onb-shortcut-copy">
-            <strong>默认截图快捷键</strong>
-            <span>之后可在设置中修改</span>
+            <strong>{tr('默认截图快捷键')}</strong>
+            <span>{tr('之后可在设置中修改')}</span>
           </span>
         </div>
 
         <div className="onb-feature-row">
-          <span>框选截图</span>
+          <span>{tr('框选截图')}</span>
           <i />
-          <span>标注</span>
+          <span>{tr('标注')}</span>
           <i />
-          <span>OCR 识别</span>
+          <span>{tr('OCR 识别')}</span>
         </div>
       </div>
 
-      <div className="onb-visual onb-visual-one" aria-label="按快捷键呼出区域截图示意">
+      <div
+        className="onb-visual onb-visual-one"
+        aria-label={tr('按快捷键呼出区域截图示意')}
+      >
         <div className="onb-desk-window">
           <div className="onb-desk-top">
             <i />
@@ -242,7 +258,7 @@ function StepOne({ shortcut, active }: { shortcut: string; active: boolean }): J
         <div className="onb-pressed-bubble" aria-hidden="true">
           <i />
           <span>
-            <b>{shortcut}</b> 已按下 · 正在框选
+            {tr('{key} 已按下 · 正在框选', { key: shortcut })}
           </span>
         </div>
       </div>
@@ -253,23 +269,28 @@ function StepOne({ shortcut, active }: { shortcut: string; active: boolean }): J
 function StepTwo({
   demoKey,
   active,
+  language,
   onReplay
 }: {
   demoKey: number
   active: boolean
+  language: Language
   onReplay(): void
 }): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
   return (
     <div className={`onb-page${active ? ' active' : ''}`} aria-hidden={!active}>
       <div className="onb-copy onb-copy-two">
-        <div className="onb-eyebrow">05 · 划线工具</div>
+        <div className="onb-eyebrow">{tr('05 · 划线工具')}</div>
         <h1>
-          拖一下，
+          {tr('拖一下，')}
           <br />
-          或者点两下。
+          {tr('或者点两下。')}
         </h1>
         <p className="onb-lead">
-          按住鼠标拖拽可以自由画线；也可以先单击起点，再单击终点，拉出一条直线。
+          {tr(
+            '按住鼠标拖拽可以自由画线；也可以先单击起点，再单击终点，拉出一条直线。'
+          )}
         </p>
 
         <div className="onb-method-list">
@@ -286,8 +307,8 @@ function StepTwo({
               </svg>
             </span>
             <span>
-              <strong>按住拖拽</strong>
-              <span>想画多长，就拖多长</span>
+              <strong>{tr('按住拖拽')}</strong>
+              <span>{tr('想画多长，就拖多长')}</span>
             </span>
           </div>
 
@@ -300,17 +321,21 @@ function StepTwo({
               </svg>
             </span>
             <span>
-              <strong>单击两次</strong>
-              <span>第一次定起点，第二次定终点</span>
+              <strong>{tr('单击两次')}</strong>
+              <span>{tr('第一次定起点，第二次定终点')}</span>
             </span>
           </div>
         </div>
 
         <div className="onb-style-note">
-          <div className="onb-style-head">线条风格</div>
-          <div className="onb-style-row" aria-label="软件中的线条风格选项">
+          <div className="onb-style-head">{tr('线条风格')}</div>
+          <div className="onb-style-row" aria-label={tr('软件中的线条风格选项')}>
             {STYLE_OPTIONS.map((option) => (
-              <LineStyleOption key={option.value} style={option.value} label={option.label} />
+              <LineStyleOption
+                key={option.value}
+                style={option.value}
+                label={tr(option.label)}
+              />
             ))}
           </div>
         </div>
@@ -321,16 +346,21 @@ function StepTwo({
             <path d="M12 10.5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             <circle cx="12" cy="7.8" r="1" fill="currentColor" />
           </svg>
-          <span>画好后，切回线条工具仍可拖动；文字可拖动，单击继续编辑。</span>
+          <span>
+            {tr('画好后，切回线条工具仍可拖动；文字可拖动，单击继续编辑。')}
+          </span>
         </div>
       </div>
 
-      <div className="onb-visual onb-visual-two" aria-label="划线工具两种用法动画">
+      <div
+        className="onb-visual onb-visual-two"
+        aria-label={tr('划线工具两种用法动画')}
+      >
         <div className="onb-draw-stage">
           <div className="onb-demo-content" key={demoKey}>
             <div className="onb-mode-chips" aria-hidden="true">
-              <span className="onb-chip onb-chip-drag">按住拖拽</span>
-              <span className="onb-chip onb-chip-two">单击两次</span>
+              <span className="onb-chip onb-chip-drag">{tr('按住拖拽')}</span>
+              <span className="onb-chip onb-chip-two">{tr('单击两次')}</span>
             </div>
 
             <div className="onb-draw-canvas">
@@ -438,7 +468,7 @@ function StepTwo({
             </div>
           </div>
 
-          <span className="onb-mode-caption">两种方式都会循环演示</span>
+          <span className="onb-mode-caption">{tr('两种方式都会循环演示')}</span>
           <button className="onb-replay" type="button" onClick={onReplay}>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 9a8 8 0 1 1-.6 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -450,7 +480,7 @@ function StepTwo({
                 strokeLinejoin="round"
               />
             </svg>
-            重播
+            {tr('重播')}
           </button>
         </div>
       </div>
@@ -484,6 +514,9 @@ export function OnboardingApp(): JSX.Element {
   }, [step])
 
   const shortcut = settings?.shortcut.replace('CommandOrControl', 'Ctrl') || 'F1'
+  const language: Language = settings?.language ?? 'zh-CN'
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
 
   const finish = async (): Promise<void> => {
     if (finishing) return
@@ -501,14 +534,14 @@ export function OnboardingApp(): JSX.Element {
 
   return (
     <div className="onboarding-root">
-      <section className="onb-card" aria-label="Pixmint 首次使用引导">
+      <section className="onb-card" aria-label={tr('Pixmint 首次使用引导')}>
         <header className="onb-top">
           <div className="onb-brand">
             <BrandMark />
             Pixmint
           </div>
 
-          <div className="onb-stepper" aria-label="引导进度">
+          <div className="onb-stepper" aria-label={tr('引导进度')}>
             {Array.from({ length: 5 }, (_, index) => (
               <Fragment key={index}>
                 {index > 0 && <span className="onb-step-line" />}
@@ -517,7 +550,7 @@ export function OnboardingApp(): JSX.Element {
                   className={`onb-step-dot${step === index + 1 ? ' active' : ''}${
                     step > index + 1 ? ' done' : ''
                   }`}
-                  aria-label={`第 ${index + 1} 页`}
+                  aria-label={tr('第 {n} 页', { n: index + 1 })}
                   onClick={() => setStep(index + 1)}
                 >
                   {index + 1}
@@ -527,18 +560,19 @@ export function OnboardingApp(): JSX.Element {
           </div>
 
           <button className="onb-skip" type="button" onClick={() => void finish()}>
-            跳过
+            {tr('跳过')}
           </button>
         </header>
 
         <div className="onb-pages">
-          <GifScene active={step === 1} />
-          <VideoScene active={step === 2} />
-          <OcrScene active={step === 3} />
-          <StepOne shortcut={shortcut} active={step === 4} />
+          <GifScene active={step === 1} language={language} />
+          <VideoScene active={step === 2} language={language} />
+          <OcrScene active={step === 3} language={language} />
+          <StepOne shortcut={shortcut} active={step === 4} language={language} />
           <StepTwo
             demoKey={demoKey}
             active={step === 5}
+            language={language}
             onReplay={() => setDemoKey((value) => value + 1)}
           />
         </div>
@@ -552,7 +586,7 @@ export function OnboardingApp(): JSX.Element {
           <div className="onb-foot-actions">
             {step > 1 && (
               <button className="onb-ghost" type="button" onClick={() => setStep(step - 1)}>
-                上一步
+                {tr('上一步')}
               </button>
             )}
             <button
@@ -564,7 +598,7 @@ export function OnboardingApp(): JSX.Element {
                 else void finish()
               }}
             >
-              {step < 5 ? '下一步' : '开始使用'}
+              {step < 5 ? tr('下一步') : tr('开始使用')}
             </button>
           </div>
         </footer>

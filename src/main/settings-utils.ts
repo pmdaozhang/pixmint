@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   launchAtLogin: false,
   onboardingCompleted: false,
   onboardingVersion: 0,
+  skippedUpdateVersion: '',
   translationProvider: 'free',
   translationEndpoint: 'https://api.openai.com/v1',
   translationModel: 'gpt-4o-mini',
@@ -50,6 +51,7 @@ export function normalizeSettings(input: unknown): Settings {
     onboardingCompleted,
     // 旧版本只有布尔标记：已完成视为第 1 版引导，未完成视为 0，升级后能再看到一次新版引导。
     onboardingVersion: integerOr(source.onboardingVersion, onboardingCompleted ? 1 : 0, 0, 99),
+    skippedUpdateVersion: stringOr(source.skippedUpdateVersion, '', 32),
     translationProvider: enumOr(
       source.translationProvider,
       PROVIDERS,

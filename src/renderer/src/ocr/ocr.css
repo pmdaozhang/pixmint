@@ -29,13 +29,13 @@
 
 .ocr-dragbar {
   -webkit-app-region: drag;
-  height: 28px;
+  height: 30px;
   flex: none;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   position: relative;
-  padding: 6px 8px 0;
+  padding: 8px 10px 0;
 }
 
 .ocr-dragbar::before {
@@ -50,8 +50,8 @@
 .ocr-dragbar .ocr-icon-btn {
   -webkit-app-region: no-drag;
   position: absolute;
-  right: 8px;
-  top: 6px;
+  right: 10px;
+  top: 8px;
 }
 
 .ocr-compact-body {
@@ -293,18 +293,22 @@
 
 .ocr-icon-btn {
   -webkit-app-region: no-drag;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-2);
+  color: var(--text-3);
+  background: transparent;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .ocr-icon-btn:hover {
-  background: rgba(255, 69, 58, 0.85);
-  color: #fff;
+  background: rgba(255, 69, 58, 0.14);
+  color: #ff453a;
 }
 
 .ocr-scroll {

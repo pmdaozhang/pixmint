@@ -15,8 +15,10 @@ import {
   gifFrameDelay,
   pickVideoMime
 } from '@shared/recording'
+import { t, type Language } from '@shared/i18n'
 
 export interface RecorderSessionCallbacks {
+  language: Language
   onState(patch: RecorderStatePatch): void
   onGifDone(bytes: Uint8Array, meta: GifDoneMeta): void
   onVideoBegin(meta: VideoDoneMeta): Promise<void>
@@ -95,6 +97,10 @@ export class RecorderSession {
   private outputWidth = 2
   private outputHeight = 2
 
+  private tr(zh: string): string {
+    return t(this.callbacks.language, zh)
+  }
+
   constructor(
     init: OverlayInit,
     selection: Rect,
@@ -145,7 +151,7 @@ export class RecorderSession {
     if (this.cancelled) {
       this.stream.getTracks().forEach((track) => track.stop())
       this.stream = null
-      throw new Error('录制已取消')
+      throw new Error(this.tr('录制已取消'))
     }
     const video = document.createElement('video')
     video.muted = true
@@ -153,23 +159,23 @@ export class RecorderSession {
     video.style.cssText =
       'position:fixed;left:-10000px;top:-10000px;width:2px;height:2px;opacity:0;pointer-events:none'
     const metadata = new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error('屏幕画面加载超时')), 6000)
+      const timer = window.setTimeout(() => reject(new Error(this.tr('屏幕画面加载超时'))), 6000)
       video.onloadedmetadata = (): void => {
         window.clearTimeout(timer)
         resolve()
       }
       video.onerror = (): void => {
         window.clearTimeout(timer)
-        reject(new Error('无法读取屏幕画面，请检查屏幕录制权限'))
+        reject(new Error(this.tr('无法读取屏幕画面，请检查屏幕录制权限')))
       }
     })
     video.srcObject = this.stream
     document.body.appendChild(video)
     this.video = video
     await metadata
-    if (this.cancelled) throw new Error('录制已取消')
+    if (this.cancelled) throw new Error(this.tr('录制已取消'))
     await video.play()
-    if (this.cancelled) throw new Error('录制已取消')
+    if (this.cancelled) throw new Error(this.tr('录制已取消'))
 
     const scaleX = video.videoWidth / this.init.bounds.width
     const scaleY = video.videoHeight / this.init.bounds.height
@@ -193,7 +199,7 @@ export class RecorderSession {
     canvas.width = this.outputWidth
     canvas.height = this.outputHeight
     const ctx = canvas.getContext('2d', { willReadFrequently: this.options.mode === 'gif' })
-    if (!ctx) throw new Error('无法创建录制画布')
+    if (!ctx) throw new Error(this.tr('无法创建录制画布'))
     this.canvas = canvas
     this.ctx = ctx
     this.drawFrame()
@@ -254,11 +260,11 @@ export class RecorderSession {
         fps: this.options.fps
       })
     } else {
-      if (!this.videoMeta || !this.mediaRecorder) throw new Error('视频录制器尚未准备好')
+      if (!this.videoMeta || !this.mediaRecorder) throw new Error(this.tr('视频录制器尚未准备好'))
       await withTimeout(
         this.callbacks.onVideoBegin(this.videoMeta),
         5_000,
-        '视频写入初始化超时，请重试'
+        this.tr('视频写入初始化超时，请重试')
       )
       console.log('RECORDER_VIDEO_STREAM_READY')
       this.mediaRecorder.start(1000)
@@ -369,7 +375,10 @@ export class RecorderSession {
     const max = this.options.mode === 'gif' ? MAX_GIF_DURATION_MS : MAX_VIDEO_DURATION_MS
     if (elapsed >= max) {
       this.callbacks.onState({
-        message: this.options.mode === 'gif' ? '已达 1 分钟上限' : '已达 10 分钟上限'
+        message:
+        this.options.mode === 'gif'
+          ? this.tr('已达 1 分钟上限')
+          : this.tr('已达 10 分钟上限')
       })
       void this.stop()
     }
@@ -459,12 +468,14 @@ export class RecorderSession {
   }
 
   private finishGif(): Promise<WorkerDone> {
-    if (!this.worker) return Promise.reject(new Error('GIF 编码器未启动'))
+    if (!this.worker) {
+      return Promise.reject(new Error(this.tr('GIF 编码器未启动')))
+    }
     if (this.workerError) return Promise.reject(this.workerError)
     return new Promise<WorkerDone>((resolve, reject) => {
       const timer = window.setTimeout(() => {
         this.gifDone = null
-        reject(new Error('GIF 编码超时'))
+        reject(new Error(this.tr('GIF 编码超时')))
       }, 30_000)
       this.gifDone = {
         resolve: (value) => {
@@ -481,9 +492,9 @@ export class RecorderSession {
   }
 
   private async prepareVideoRecorder(): Promise<void> {
-    if (!this.canvas) throw new Error('录制画布未准备好')
+    if (!this.canvas) throw new Error(this.tr('录制画布未准备好'))
     const mime = pickVideoMime((candidate) => MediaRecorder.isTypeSupported(candidate))
-    if (!mime) throw new Error('当前系统不支持视频录制编码')
+    if (!mime) throw new Error(this.tr('当前系统不支持视频录制编码'))
 
     const audioTracks: MediaStreamTrack[] = []
     const notes: string[] = []
@@ -496,7 +507,7 @@ export class RecorderSession {
         this.audioStreams.push(mic)
         audioTracks.push(...mic.getAudioTracks())
       } catch {
-        notes.push('麦克风不可用')
+        notes.push(this.tr('麦克风不可用'))
       }
     }
     if (this.options.systemAudio) {
@@ -504,7 +515,7 @@ export class RecorderSession {
       if (systemTracks.length > 0 && !this.systemAudioUnavailable) {
         audioTracks.push(...systemTracks)
       } else {
-        notes.push('系统音不可用')
+        notes.push(this.tr('系统音不可用'))
       }
     }
 
@@ -553,14 +564,14 @@ export class RecorderSession {
     }
     recorder.onerror = (event): void => {
       console.error('RECORDER_MEDIA_ERROR', event)
-      this.callbacks.onError('视频录制失败')
+      this.callbacks.onError(this.tr('视频录制失败'))
     }
     this.mediaRecorder = recorder
   }
 
   private async finishVideo(elapsed: number): Promise<void> {
     const recorder = this.mediaRecorder
-    if (!recorder) throw new Error('视频录制器未启动')
+    if (!recorder) throw new Error(this.tr('视频录制器未启动'))
     await new Promise<void>((resolve) => {
       if (recorder.state === 'inactive') {
         resolve()
@@ -571,7 +582,7 @@ export class RecorderSession {
     })
     await this.chunkChain
     await delayPromise(30)
-    if (!this.videoMeta) throw new Error('视频元数据缺失')
+    if (!this.videoMeta) throw new Error(this.tr('视频元数据缺失'))
     this.callbacks.onVideoDone({ ...this.videoMeta, durationMs: elapsed })
   }
 

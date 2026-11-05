@@ -12,6 +12,8 @@
 .pin-image-wrap {
   position: absolute;
   inset: 20px;
+  /* 顶部让出 34px 操作条，图片本体不被按钮遮挡 */
+  top: 54px;
 }
 
 .pin-image {
@@ -60,7 +62,7 @@
 
 .pin-text-status {
   position: absolute;
-  top: 0;
+  top: 27px;
   left: 20px;
   z-index: 2;
   padding: 2px 7px;
@@ -75,6 +77,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 编辑模式下操作条隐藏，但仍保留同高度，保证图片位置不跳 */
+  padding-top: 54px;
   cursor: default;
   user-select: none;
 }
@@ -113,8 +117,9 @@
 
 .pin-actions {
   position: absolute;
-  top: 26px;
-  right: 26px;
+  /* 放在图片上方的操作条里，不再压住内容 */
+  top: 24px;
+  right: 20px;
   z-index: 2;
   display: flex;
   gap: 4px;

@@ -13,6 +13,7 @@ const {
 ;(async () => {
   const cycles = Number(process.env.PIXMINT_SOAK_OVERLAY_CYCLES ?? 200)
   const app = await launch(['--smoke-overlay'])
+  app.process().stdout?.on('data', (chunk) => process.stdout.write(String(chunk)))
   const failures = []
   const durations = []
   try {
@@ -27,7 +28,13 @@ const {
         const overlay = await waitForWindow(app, '.overlay-root', 8000)
         await overlay.waitForSelector('.overlay-root', { timeout: 8000 })
         await selectRegion(overlay, 120, 100, 620, 420)
-        await overlay.keyboard.press('Escape')
+        try {
+          await overlay.keyboard.press('Escape')
+        } catch (error) {
+          // 内存回收会销毁并重建覆盖层窗口，Playwright 持有的旧句柄可能已失效。
+          // 只要会话确实结束就不算功能失败。
+          if (!String(error).includes('has been closed')) throw error
+        }
         await waitForInactive(app)
       } catch (error) {
         failures.push({ iteration: index, error: String(error) })

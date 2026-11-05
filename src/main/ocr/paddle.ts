@@ -13,7 +13,7 @@ const DET_MODEL = 'PP-OCRv5_mobile_det_infer.onnx'
 const REC_MODEL = 'PP-OCRv5_mobile_rec_infer.onnx'
 const DICT_FILE = 'ppocrv5_dict.txt'
 
-let servicePromise: Promise<PaddleOcrService> | null = null
+let servicePromise: { dir: string; promise: Promise<PaddleOcrService> } | null = null
 
 /**
  * 背景：Windows OCR 对 14–16px 中英混排、代码字段和小数点不稳定。
@@ -21,15 +21,25 @@ let servicePromise: Promise<PaddleOcrService> | null = null
  * 关键约束：模型和原生 ONNX 运行时都随包分发，不联网；服务和模型只加载一次。
  */
 export async function recognizePaddle(image: NativeImage): Promise<OcrResult> {
-  const service = await getService()
   const size = image.getSize()
   const rgba = bgraToRgbaInPlace(image.toBitmap())
+  return recognizePaddleRgba(size.width, size.height, rgba, modelDir())
+}
+
+/**
+ * 背景：OCR 移到 utilityProcess 后，子进程拿不到 Electron 的 nativeImage。
+ * 设计意图：把"解码 + 缩放"留在主进程，子进程只接收 RGBA 与模型目录。
+ * 关键约束：rgba 必须已是 RGBA 顺序；模型目录由调用方显式传入，避免子进程依赖 app。
+ */
+export async function recognizePaddleRgba(
+  width: number,
+  height: number,
+  rgba: Uint8Array,
+  modelsDir: string
+): Promise<OcrResult> {
+  const service = await getService(modelsDir)
   const started = Date.now()
-  const results = await service.recognize({
-    width: size.width,
-    height: size.height,
-    data: rgba
-  })
+  const results = await service.recognize({ width, height, data: rgba })
   const processed = service.processRecognition(results)
   const lines = processed.lines
     .map((line) => line.map((item) => item.text).join(' ').trim())
@@ -64,25 +74,30 @@ export async function disposePaddle(): Promise<void> {
   servicePromise = null
   if (!pending) return
   try {
-    const service = await pending
+    const service = await pending.promise
     await service.destroy()
   } catch {
     // 关闭阶段不再抛错
   }
 }
 
-function getService(): Promise<PaddleOcrService> {
-  if (!servicePromise) {
-    servicePromise = createService().catch((error) => {
-      servicePromise = null
-      throw error
-    })
-  }
-  return servicePromise
+export function modelDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'ocr')
+    : join(app.getAppPath(), 'assets', 'ocr')
 }
 
-async function createService(): Promise<PaddleOcrService> {
-  const dir = modelDir()
+function getService(dir: string): Promise<PaddleOcrService> {
+  if (servicePromise?.dir === dir) return servicePromise.promise
+  const promise = createService(dir).catch((error) => {
+    if (servicePromise?.promise === promise) servicePromise = null
+    throw error
+  })
+  servicePromise = { dir, promise }
+  return promise
+}
+
+async function createService(dir: string): Promise<PaddleOcrService> {
   const started = Date.now()
   const [detectionModel, recognitionModel, dictionaryText] = await Promise.all([
     readFile(join(dir, DET_MODEL)),
@@ -107,12 +122,6 @@ async function createService(): Promise<PaddleOcrService> {
   })
   console.log('OCR_PADDLE_INIT', 'ms=' + (Date.now() - started), dir)
   return service
-}
-
-function modelDir(): string {
-  return app.isPackaged
-    ? join(process.resourcesPath, 'ocr')
-    : join(app.getAppPath(), 'assets', 'ocr')
 }
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {

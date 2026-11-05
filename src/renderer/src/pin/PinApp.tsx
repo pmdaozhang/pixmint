@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from '../overlay/AnnotationCanvas'
 import { DEFAULT_OPTIONS, type OverlayOptions } from '../overlay/options'
 import { Toolbar } from '../overlay/Toolbar'
+import { t, type Language } from '@shared/i18n'
 import { layoutPinTextLines } from './pin-text'
 import './pin.css'
 
@@ -12,7 +13,7 @@ type PinTextState = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 
 export function PinApp(): JSX.Element {
   const [init, setInit] = useState<PinInit | null>(null)
-  const [ignore, setIgnore] = useState(false)
+  const [language, setLanguage] = useState<Language>('zh-CN')
   const [toast, setToast] = useState('')
   const [dragging, setDragging] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
@@ -26,12 +27,21 @@ export function PinApp(): JSX.Element {
   const [textBlocks, setTextBlocks] = useState<OcrTextBlock[]>([])
   const [textState, setTextState] = useState<PinTextState>('idle')
   const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null)
-  const suppressDoubleClickRef = useRef(false)
   const annotationRef = useRef<AnnotationCanvasHandle | null>(null)
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const textLayerRef = useRef<HTMLDivElement | null>(null)
   const ocrCacheRef = useRef<{ imageUrl: string; blocks: OcrTextBlock[] } | null>(null)
+
+  useEffect(() => {
+    window.snapglass.settings
+      .get()
+      .then((settings) => setLanguage(settings.language))
+      .catch(() => {})
+  }, [])
+
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
 
   useEffect(() => {
     window.snapglass.pin.ready().then(setInit)
@@ -67,7 +77,7 @@ export function PinApp(): JSX.Element {
     if (!init || editing) return
     const layout = await window.snapglass.pin.setEditMode(true)
     if (!layout) {
-      flash('无法进入编辑模式')
+      flash(tr('无法进入编辑模式'))
       return
     }
     setOptions(DEFAULT_OPTIONS)
@@ -95,7 +105,7 @@ export function PinApp(): JSX.Element {
     canvas.height = image.naturalHeight
     const context = canvas.getContext('2d')
     if (!context) {
-      flash('生成编辑图片失败')
+      flash(tr('生成编辑图片失败'))
       return
     }
     context.drawImage(image, 0, 0)
@@ -105,13 +115,13 @@ export function PinApp(): JSX.Element {
       canvas.toBlob(resolve, 'image/png')
     })
     if (!blob) {
-      flash('生成编辑图片失败')
+      flash(tr('生成编辑图片失败'))
       return
     }
     const bytes = new Uint8Array(await blob.arrayBuffer())
     const ok = await window.snapglass.pin.commitEdit(bytes)
     if (!ok) {
-      flash('保存编辑失败')
+      flash(tr('保存编辑失败'))
       return
     }
     const copy = new Uint8Array(bytes)
@@ -223,36 +233,38 @@ export function PinApp(): JSX.Element {
     if (!init || !imageUrl || editing) {
       setTextBlocks([])
       setTextState('idle')
-      return
     }
+  }, [editing, imageUrl, init])
+
+  /**
+   * 背景：钉图后自动 OCR 会在图片出现时立即占用主进程资源，表现为明显卡顿。
+   * 设计意图：改为用户点击右上角 OCR 按钮后再识别；同一张图的结果仍然缓存。
+   */
+  const runPinOcr = useCallback(async (): Promise<void> => {
+    if (!init || !imageUrl || editing || textState === 'loading') return
     const cached = ocrCacheRef.current
     if (cached?.imageUrl === imageUrl) {
       setTextBlocks(cached.blocks)
       setTextState(cached.blocks.length > 0 ? 'ready' : 'empty')
+      flash(cached.blocks.length > 0 ? tr('文字已可选中') : tr('未识别到文字'))
       return
     }
-    let cancelled = false
     setTextBlocks([])
     setTextState('loading')
-    window.snapglass.pin
-      .recognizeText()
-      .then((result) => {
-        if (cancelled) return
-        const blocks = result?.blocks ?? []
-        ocrCacheRef.current = { imageUrl, blocks }
-        setTextBlocks(blocks)
-        setTextState(blocks.length > 0 ? 'ready' : 'empty')
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        console.warn('PIN_TEXT_OCR_FAILED', error)
-        setTextBlocks([])
-        setTextState('error')
-      })
-    return () => {
-      cancelled = true
+    try {
+      const result = await window.snapglass.pin.recognizeText()
+      const blocks = result?.blocks ?? []
+      ocrCacheRef.current = { imageUrl, blocks }
+      setTextBlocks(blocks)
+      setTextState(blocks.length > 0 ? 'ready' : 'empty')
+      flash(blocks.length > 0 ? tr('已识别文字，可拖选复制') : tr('未识别到文字'))
+    } catch (error) {
+      console.warn('PIN_TEXT_OCR_FAILED', error)
+      setTextBlocks([])
+      setTextState('error')
+      flash(tr('文字识别失败'))
     }
-  }, [editing, imageUrl, init])
+  }, [editing, flash, imageUrl, init, textState])
 
   const textLayout = useMemo(
     () => layoutPinTextLines(textBlocks, naturalSize, viewSize),
@@ -303,10 +315,10 @@ export function PinApp(): JSX.Element {
         event.preventDefault()
         void window.snapglass.clipboard
           .writeText(text)
-          .then(() => flash('已复制选中文字'))
+          .then(() => flash(tr('已复制选中文字')))
           .catch((error: unknown) => {
             console.warn('PIN_TEXT_COPY_FAILED', error)
-            flash('复制文字失败')
+            flash(tr('复制文字失败'))
           })
         return
       }
@@ -367,25 +379,11 @@ export function PinApp(): JSX.Element {
         } catch {
           // pointer capture 可能已释放
         }
-        if (drag.moved) {
-          suppressDoubleClickRef.current = true
-          window.setTimeout(() => {
-            suppressDoubleClickRef.current = false
-          }, 260)
-        }
       }}
       onWheel={(event) => {
         if (editing) return
         event.preventDefault()
         void window.snapglass.pin.zoom(event.deltaY < 0 ? 1 : -1)
-      }}
-      onDoubleClick={async (event) => {
-        if (editing) return
-        if ((event.target as HTMLElement).closest('.pin-actions, .pin-text-line')) return
-        if (suppressDoubleClickRef.current) return
-        const next = await window.snapglass.pin.toggleIgnore()
-        setIgnore(next)
-        flash(next ? '鼠标穿透已开启，可从托盘恢复' : '鼠标穿透已关闭')
       }}
       onContextMenu={(event) => {
         if (editing) return
@@ -426,6 +424,7 @@ export function PinApp(): JSX.Element {
               canUndo={canUndo}
               canRedo={canRedo}
               variant="pin"
+              language={language}
               onConfirm={() => {
                 void confirmEdit()
               }}
@@ -467,35 +466,44 @@ export function PinApp(): JSX.Element {
         )
       )}
       {!editing && textState === 'loading' && (
-        <span className="pin-text-status">识别文字中…</span>
+        <span className="pin-text-status">{tr('识别文字中…')}</span>
       )}
       {!editing && textState === 'error' && (
-        <span className="pin-text-status">文字识别不可用</span>
+        <span className="pin-text-status">{tr('文字识别不可用')}</span>
       )}
       {!editing && (
         <div className="pin-actions">
           <button
-            title="复制"
+            title={tr('识别文字')}
             onClick={(event) => {
               event.stopPropagation()
-              void window.snapglass.pin.copy().then(() => flash('已复制'))
+              void runPinOcr()
+            }}
+          >
+            <Icon name="ocr" size={14} />
+          </button>
+          <button
+            title={tr('复制')}
+            onClick={(event) => {
+              event.stopPropagation()
+              void window.snapglass.pin.copy().then(() => flash(tr('已复制')))
             }}
           >
             <Icon name="copy" size={14} />
           </button>
           <button
-            title="保存"
+            title={tr('保存')}
             onClick={(event) => {
               event.stopPropagation()
               void window.snapglass.pin
                 .save()
-                .then((filePath) => flash(filePath ? '已保存' : '保存失败'))
+                .then((filePath) => flash(filePath ? tr('已保存') : tr('保存失败')))
             }}
           >
             <Icon name="save" size={14} />
           </button>
           <button
-            title="关闭"
+            title={tr('关闭')}
             onClick={(event) => {
               event.stopPropagation()
               window.snapglass.pin.close()
@@ -505,7 +513,6 @@ export function PinApp(): JSX.Element {
           </button>
         </div>
       )}
-      {ignore && <span className="pin-badge">鼠标穿透</span>}
       {toast && <span className="pin-toast">{toast}</span>}
     </div>
   )

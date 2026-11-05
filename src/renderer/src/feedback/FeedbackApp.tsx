@@ -11,6 +11,7 @@ import {
   type FeedbackSubmitResult
 } from '@shared/feedback'
 import './feedback.css'
+import { t, type Language } from '@shared/i18n'
 
 type Phase = 'idle' | 'submitting' | 'sent' | 'queued'
 
@@ -46,23 +47,27 @@ function isSupportedMime(value: string): value is FeedbackImageMimeType {
   return (FEEDBACK_IMAGE_MIME_TYPES as readonly string[]).includes(value)
 }
 
-function errorMessage(code?: string): string {
-  if (!code) return '提交失败，请稍后再试。'
-  if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code]
-  if (/network|fetch|timeout|socket/i.test(code)) return '网络不可用，反馈会进入发送队列。'
-  return '提交失败，请稍后再试。'
+function errorMessage(code: string | undefined, language: Language): string {
+  if (!code) return t(language, '提交失败，请稍后再试。')
+  if (ERROR_MESSAGES[code]) return t(language, ERROR_MESSAGES[code])
+  if (/network|fetch|timeout|socket/i.test(code)) {
+    return t(language, '网络不可用，反馈会进入发送队列。')
+  }
+  return t(language, '提交失败，请稍后再试。')
 }
 
-function attachmentErrorMessage(code?: string): string {
-  if (!code) return '截图上传失败，文字反馈已保存。'
+function attachmentErrorMessage(code: string | undefined, language: Language): string {
+  if (!code) return t(language, '截图上传失败，文字反馈已保存。')
   if (code === 'http_404' || code === 'http_501') {
-    return '后台附件接口尚未就绪，文字反馈已保存。'
+    return t(language, '后台附件接口尚未就绪，文字反馈已保存。')
   }
-  if (code === 'image_too_large') return '有截图超过 5MB，文字反馈已保存。'
+  if (code === 'image_too_large') {
+    return t(language, '有截图超过 5MB，文字反馈已保存。')
+  }
   if (/network|fetch|timeout|socket/i.test(code)) {
-    return '截图上传时网络中断，文字反馈已保存。'
+    return t(language, '截图上传时网络中断，文字反馈已保存。')
   }
-  return '截图上传失败，文字反馈已保存。'
+  return t(language, '截图上传失败，文字反馈已保存。')
 }
 
 function canvasToBlob(
@@ -190,6 +195,16 @@ export function FeedbackApp(): JSX.Element {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [requestId, setRequestId] = useState(() => crypto.randomUUID())
+  const [language, setLanguage] = useState<Language>('zh-CN')
+  const tr = (zh: string, vars?: Record<string, string | number>): string =>
+    t(language, zh, vars)
+
+  useEffect(() => {
+    window.snapglass.settings
+      .get()
+      .then((settings) => setLanguage(settings.language))
+      .catch(() => {})
+  }, [])
   const imagesRef = useRef<PastedImage[]>([])
   const phaseRef = useRef<Phase>('idle')
   const toastTimer = useRef<number | null>(null)
@@ -229,7 +244,7 @@ export function FeedbackApp(): JSX.Element {
       const current = imagesRef.current
       const available = FEEDBACK_MAX_IMAGES - current.length
       if (available <= 0) {
-        showToast(`最多只能粘贴 ${FEEDBACK_MAX_IMAGES} 张截图`)
+        showToast(tr('最多只能粘贴 {count} 张截图', { count: FEEDBACK_MAX_IMAGES }))
         return
       }
       const accepted = imageFiles.slice(0, available)
@@ -240,15 +255,18 @@ export function FeedbackApp(): JSX.Element {
           id: crypto.randomUUID(),
           file,
           url: URL.createObjectURL(file),
-          name: file.name || `截图 ${start + index + 1}`
+          name: file.name || tr('截图 {index}', { index: start + index + 1 })
         }))
       ]
       imagesRef.current = next
       setImages(next)
       showToast(
         imageFiles.length > available
-          ? `最多 ${FEEDBACK_MAX_IMAGES} 张，已保留前 ${accepted.length} 张`
-          : `已粘贴 ${accepted.length} 张截图`
+          ? tr('最多 {count} 张，已保留前 {kept} 张', {
+            count: FEEDBACK_MAX_IMAGES,
+            kept: accepted.length
+          })
+          : tr('已粘贴 {count} 张截图', { count: accepted.length })
       )
     },
     [showToast]
@@ -293,7 +311,7 @@ export function FeedbackApp(): JSX.Element {
       } else {
         phaseRef.current = 'idle'
         setPhase('idle')
-        setError(errorMessage(event.error))
+        setError(errorMessage(event.error, language))
       }
     })
   }, [requestId])
@@ -349,7 +367,7 @@ export function FeedbackApp(): JSX.Element {
       } else {
         phaseRef.current = 'idle'
         setPhase('idle')
-        setError(errorMessage(next.error))
+        setError(errorMessage(next.error, language))
       }
     } catch (submitError) {
       phaseRef.current = 'idle'
@@ -357,7 +375,7 @@ export function FeedbackApp(): JSX.Element {
       setError(
         submitError instanceof Error && submitError.message === 'image_too_large'
           ? ERROR_MESSAGES.image_too_large
-          : '截图处理失败，请移除后重试。'
+          : tr('截图处理失败，请移除后重试。')
       )
     }
   }
@@ -377,7 +395,7 @@ export function FeedbackApp(): JSX.Element {
             <span>FEEDBACK</span>
           </div>
         </div>
-        <button className="feedback-close" type="button" aria-label="关闭" onClick={() => window.close()}>
+        <button className="feedback-close" type="button" aria-label={tr('关闭')} onClick={() => window.close()}>
           <CloseIcon />
         </button>
       </header>
@@ -386,13 +404,14 @@ export function FeedbackApp(): JSX.Element {
         <div className="feedback-form">
           <div className="feedback-body">
             <div className="feedback-intro">
-              <h1>意见反馈</h1>
-              <p>遇到问题，或者有想做的功能，都可以告诉我们。截图能帮助定位得更快。</p>
+              <h1>{tr('意见反馈')}</h1>
+              <p>{tr('遇到问题，或者有想做的功能，都可以告诉我们。截图能帮助定位得更快。')}</p>
             </div>
 
             <div className="field-heading">
               <label htmlFor="feedback-content">
-                反馈内容<span className="required">必填</span>
+                {tr('反馈内容')}
+                <span className="required">{tr('必填')}</span>
               </label>
               <span>
                 {content.length} / {FEEDBACK_MAX_MESSAGE_LENGTH}
@@ -401,16 +420,16 @@ export function FeedbackApp(): JSX.Element {
 
             <div className="composer">
               {images.length > 0 && (
-                <div className="thumbnail-strip" role="list" aria-label="已粘贴的截图">
+                <div className="thumbnail-strip" role="list" aria-label={tr('已粘贴的截图')}>
                   {images.map((image, index) => (
                     <div className="thumbnail" key={image.id} role="listitem">
                       <div className="thumbnail-frame">
-                        <img src={image.url} alt={`截图 ${index + 1}`} />
+                        <img src={image.url} alt={tr('截图 {index}', { index: index + 1 })} />
                       </div>
                       <button
                         className="thumb-remove"
                         type="button"
-                        aria-label={`移除截图 ${index + 1}`}
+                        aria-label={tr('移除截图 {index}', { index: index + 1 })}
                         onClick={() => removeImage(image.id)}
                       >
                         <svg
@@ -437,7 +456,7 @@ export function FeedbackApp(): JSX.Element {
                 maxLength={FEEDBACK_MAX_MESSAGE_LENGTH}
                 value={content}
                 disabled={submitting}
-                placeholder="描述你遇到的问题或建议。截图后直接按 Ctrl+V，粘贴进来。"
+                placeholder={tr('描述你遇到的问题或建议。截图后直接按 Ctrl+V，粘贴进来。')}
                 onChange={(event) => setContent(event.target.value)}
               />
             </div>
@@ -445,10 +464,13 @@ export function FeedbackApp(): JSX.Element {
             <div className="paste-meta">
               <span className="paste-help">
                 <kbd className="keycap">{pasteModifier}</kbd> + <kbd className="keycap">V</kbd>
-                直接粘贴截图，超过 5MB 自动压缩
+                {tr('直接粘贴截图，超过 5MB 自动压缩')}
               </span>
               <span className={`image-count ${images.length >= FEEDBACK_MAX_IMAGES ? 'full' : ''}`}>
-                {images.length} / {FEEDBACK_MAX_IMAGES} 张
+                {tr('{current} / {max} 张', {
+                  current: images.length,
+                  max: FEEDBACK_MAX_IMAGES
+                })}
               </span>
             </div>
 
@@ -473,13 +495,13 @@ export function FeedbackApp(): JSX.Element {
                 <rect x="4" y="10" width="16" height="10" rx="2" />
                 <path d="M8 10V7a4 4 0 0 1 8 0v3" />
               </svg>
-              提交内容、版本号、系统版本和截图会发送到 Pixmint 反馈后台。
+              {tr('提交内容、版本号、系统版本和截图会发送到 Pixmint 反馈后台。')}
             </div>
           </div>
 
           <footer className="feedback-footer">
             <button className="button-secondary" type="button" onClick={() => window.close()}>
-              取消
+              {tr('取消')}
             </button>
             <button
               className="button-primary"
@@ -490,10 +512,10 @@ export function FeedbackApp(): JSX.Element {
               {submitting ? (
                 <>
                   <span className="spinner" aria-hidden="true" />
-                  正在提交…
+                  {tr('正在提交…')}
                 </>
               ) : (
-                '提交反馈'
+                tr('提交反馈')
               )}
             </button>
           </footer>
@@ -523,42 +545,48 @@ export function FeedbackApp(): JSX.Element {
             )}
           </div>
 
-          <h2>{phase === 'queued' ? '已加入发送队列' : '反馈已发送'}</h2>
+          <h2>{phase === 'queued' ? tr('已加入发送队列') : tr('反馈已发送')}</h2>
           <p>
             {phase === 'queued'
-              ? '网络暂时不可用，文字反馈会在恢复后自动发送。'
-              : '谢谢你帮助 Pixmint 变得更好。我们会认真读完每一条反馈。'}
+              ? tr('网络暂时不可用，文字反馈会在恢复后自动发送。')
+              : tr('谢谢你帮助 Pixmint 变得更好。我们会认真读完每一条反馈。')}
           </p>
 
           {phase === 'sent' && attachmentsFailed === 0 && (
             <div className="result-chip">
               <CheckIcon size={12} />
               {result?.attachments && result.attachments.uploaded > 0
-                ? `已提交文字与 ${result.attachments.uploaded} 张截图`
-                : '已提交文字反馈'}
+                ? tr('已提交文字与 {count} 张截图', {
+                    count: result.attachments.uploaded
+                  })
+                : tr('已提交文字反馈')}
             </div>
           )}
 
           {phase === 'sent' && attachmentsFailed > 0 && (
             <div className="result-warning">
-              <strong>文字已提交，{attachmentsFailed} 张截图未上传</strong>
-              <span>{attachmentErrorMessage(attachmentError)}</span>
+              <strong>
+                {tr('文字已提交，{count} 张截图未上传', { count: attachmentsFailed })}
+              </strong>
+              <span>{attachmentErrorMessage(attachmentError, language)}</span>
             </div>
           )}
 
           {phase === 'queued' && images.length > 0 && (
             <div className="result-warning">
-              <strong>截图不会跨重启保留</strong>
-              <span>网络恢复后会在当前运行期间继续上传；关闭 Pixmint 前请保持联网。</span>
+              <strong>{tr('截图不会跨重启保留')}</strong>
+              <span>
+                {tr('网络恢复后会在当前运行期间继续上传；关闭 Pixmint 前请保持联网。')}
+              </span>
             </div>
           )}
 
           <div className="result-actions">
             <button className="button-secondary" type="button" onClick={resetForAnother}>
-              再写一条
+              {tr('再写一条')}
             </button>
             <button className="button-primary" type="button" onClick={() => window.close()}>
-              完成
+              {tr('完成')}
             </button>
           </div>
         </div>

@@ -47,7 +47,6 @@ export interface SnapglassApi {
     save(): Promise<string | null>
     recognizeText(): Promise<OcrResult | null>
     setOpacity(opacity: number): Promise<number>
-    toggleIgnore(): Promise<boolean>
     zoom(direction: 1 | -1): Promise<{ width: number; height: number }>
     dragStart(): void
     dragMove(dx: number, dy: number): void
@@ -123,5 +122,8 @@ export interface SnapglassApi {
     download(): Promise<UpdateState>
     install(): Promise<void>
     onState(callback: (state: UpdateState) => void): () => void
+  }
+  whatsNew: {
+    resize(height: number): void
   }
 }

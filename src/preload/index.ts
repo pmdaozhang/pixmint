@@ -57,7 +57,6 @@ const api: SnapglassApi = {
     save: () => ipcRenderer.invoke('pin:save'),
     recognizeText: () => ipcRenderer.invoke('pin:recognize-text') as Promise<OcrResult | null>,
     setOpacity: (opacity: number) => ipcRenderer.invoke('pin:set-opacity', opacity),
-    toggleIgnore: () => ipcRenderer.invoke('pin:toggle-ignore'),
     zoom: (direction: 1 | -1) => ipcRenderer.invoke('pin:zoom', direction),
     dragStart: () => ipcRenderer.send('pin:drag-start'),
     dragMove: (dx: number, dy: number) => ipcRenderer.send('pin:drag-move', dx, dy),
@@ -150,6 +149,9 @@ const api: SnapglassApi = {
       ipcRenderer.on('feedback:status', listener)
       return () => ipcRenderer.removeListener('feedback:status', listener)
     }
+  },
+  whatsNew: {
+    resize: (height: number) => ipcRenderer.send('whats-new:resize', height)
   },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,

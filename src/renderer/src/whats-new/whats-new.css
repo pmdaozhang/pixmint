@@ -1,0 +1,180 @@
+.wn-root {
+  width: 100%;
+  height: 100%;
+  padding: 28px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.wn-card {
+  width: 100%;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.wn-head {
+  -webkit-app-region: drag;
+  flex: none;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px 0 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wn-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wn-logo {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.wn-logo svg {
+  width: 17px;
+  height: 17px;
+}
+
+.wn-close {
+  -webkit-app-region: no-drag;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.wn-close:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.wn-body {
+  flex: none;
+  max-height: 520px;
+  overflow: auto;
+  padding: 30px 36px 20px;
+}
+
+.wn-eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.wn-body h1 {
+  margin: 0 0 12px;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.wn-lead {
+  margin: 0 0 18px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.wn-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.wn-progress-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  font: 11px var(--mono);
+  color: var(--text-2);
+}
+
+.wn-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.wn-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+.wn-error {
+  margin-top: 16px;
+  color: #ff453a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wn-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+}
+
+.wn-secondary,
+.wn-primary {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-size: 12.5px;
+}
+
+.wn-secondary {
+  color: var(--text-2);
+}
+
+.wn-secondary:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.wn-primary {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.wn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
