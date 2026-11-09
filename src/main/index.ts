@@ -479,17 +479,6 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
     }
     overlayManager.prewarm([displayInfo])
     void overlayManager.warmup(displayInfo)
-    // 空闲一段时间后 Chromium/GPU 可能把停在外面的覆盖层变冷，
-    // 表现为“放一会儿第一次按 F1 才慢”。定时做一次隐藏预热。
-    setInterval(() => {
-      if (overlayManager.isActive()) return
-      const current = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-      void overlayManager.warmup({
-        id: current.id,
-        bounds: current.bounds,
-        scaleFactor: current.scaleFactor
-      })
-    }, 60_000)
     if (flags.captureOnce) {
       setTimeout(() => {
         void startCapture()

@@ -248,6 +248,24 @@ export function OverlayApp(): JSX.Element {
     return () => window.clearInterval(timer)
   }, [init])
 
+  // 覆盖层长时间停在屏幕外时，渲染层可能被系统判定为空闲。
+  // 主进程不要定时 show/hide 窗口（渲染层卡住时会阻塞主线程），
+  // 这里用渲染层自己的轻量定时器保持事件循环活跃。
+  useEffect(() => {
+    if (init) return
+    const timer = window.setInterval(() => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1
+      canvas.height = 1
+      const context = canvas.getContext('2d')
+      if (context) {
+        context.fillStyle = '#000'
+        context.fillRect(0, 0, 1, 1)
+      }
+    }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [init])
+
   useEffect(() => {
     if (!init || recorderMode) return
     const measure = (): void => {
