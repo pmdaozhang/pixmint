@@ -4,6 +4,7 @@ import {
   globalShortcut,
   nativeTheme,
   net,
+  powerMonitor,
   protocol,
   safeStorage,
   screen,
@@ -53,6 +54,7 @@ import {
   startCapture as startCaptureFlow,
   type CaptureDeps
 } from './services/capture-service'
+import { CaptureGate } from './services/capture-gate'
 import type { SmokeContext } from './runtime/smoke'
 import {
   runCaptureSmoke,
@@ -131,6 +133,7 @@ let usageService: UsageService
 let tray: Tray | null = null
 let trayActions: TrayActions | null = null
 let preloadPath = ''
+const captureGate = new CaptureGate()
 
 function applySystemSettings(): void {
   const settings = settingsStore.get()
@@ -190,7 +193,9 @@ function smokeContext(): SmokeContext {
 }
 
 async function startCapture(mode?: RecorderMode): Promise<void> {
-  return startCaptureFlow(captureDeps(), mode)
+  // 截图流程期间连续按 F1 直接忽略，避免多个 prepare/start 互相清状态；
+  // 覆盖层已经显示后 gate 已释放，再按 F1 仍然按原来的“关闭覆盖层”处理。
+  return captureGate.run(() => startCaptureFlow(captureDeps(), mode))
 }
 
 function initServices(): void {
@@ -266,6 +271,13 @@ function initServices(): void {
   })
   platformServices.capture.prewarm()
   platformServices.windowQuery.prewarm()
+  // 睡眠/休眠经常把常驻 PowerShell 助手一起带走。唤醒后主动重启，
+  // 避免用户醒来第一次按 F1 才触发冷启动或回退。
+  powerMonitor.on('resume', () => {
+    logDiagnostic('main', 'system resumed; prewarming sidecars')
+    platformServices.capture.prewarm()
+    platformServices.windowQuery.prewarm()
+  })
   feedbackService = new FeedbackService({ onStatus: sendFeedbackStatus })
   feedbackService.start()
   registerIpc({

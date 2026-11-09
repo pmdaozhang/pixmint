@@ -13,6 +13,8 @@ export interface SidecarClientOptions {
   launch: () => SidecarLaunchConfig
   defaultTimeoutMs: number
   onLog?: (message: string) => void
+  /** 当前子进程意外退出或超时被杀后触发，调用方可借此重新预热。 */
+  onExit?: () => void
   spawnImpl?: typeof spawn
 }
 
@@ -82,6 +84,7 @@ export class SidecarClient {
         if (wasCurrent) {
           this.child = null
           this.finish(null)
+          this.options.onExit?.()
         }
       })
       child.on('exit', (code, signal) => {
@@ -90,6 +93,7 @@ export class SidecarClient {
           this.child = null
           this.lines.clear()
           this.finish(null)
+          this.options.onExit?.()
         }
         this.log(`exited code=${code ?? 'null'} signal=${signal ?? 'null'}`)
       })

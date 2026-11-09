@@ -75,6 +75,9 @@ function removeCaptureScript(): void {
   scriptPath = ''
 }
 
+const WARM_TIMEOUT_MS = 450
+const PREWARM_TIMEOUT_MS = 2500
+
 /**
  * 背景：desktopCapturer 单次调用固定要 0.6-0.8 秒，F1 需要更快的冻结画面。
  * 设计意图：保留常驻 PowerShell + GDI CopyFromScreen，但把进程生命周期交给通用 SidecarClient。
@@ -83,6 +86,9 @@ function removeCaptureScript(): void {
 export class FastCapture {
   private warmed = false
   private disposed = false
+  /** 预热请求进行中时不能再发截图请求，否则 SidecarClient 会取消预热。 */
+  private prewarming = false
+  private capturing = false
   private readonly client = new SidecarClient({
     name: 'fast-capture',
     launch: () => ({
@@ -98,29 +104,80 @@ export class FastCapture {
       ]
     }),
     defaultTimeoutMs: 900,
-    onLog: (message) => logDiagnostic('fast-capture', message, 'warn')
+    onLog: (message) => logDiagnostic('fast-capture', message, 'warn'),
+    // 系统睡眠/会话切换会杀掉常驻 PowerShell；退出后立刻后台重启，
+    // 不把冷启动拖到下一次 F1。
+    onExit: () => {
+      this.warmed = false
+      this.startPrewarm()
+    }
   })
 
   prewarm(): void {
     if (this.disposed) return
+    this.startPrewarm()
+  }
+
+  /**
+   * 后台预热。系统睡眠/切换会话后常驻 PowerShell 可能被系统杀掉，
+   * 这里用独立的较长超时重新拉起，避免下一次 F1 仍按 450ms 的热态超时去等冷启动。
+   */
+  private startPrewarm(): void {
+    if (this.disposed || this.prewarming || this.capturing) return
+    this.prewarming = true
     this.client.ensureStarted()
-    void this.capture({ x: 0, y: 0, width: 1, height: 1 }, 2000).then((dataUrl) => {
-      this.warmed = Boolean(dataUrl)
-    })
+    void this.client
+      .request('0,0,1,1', PREWARM_TIMEOUT_MS)
+      .then((payload) => {
+        if (this.disposed) return
+        this.warmed = Boolean(payload && payload !== 'ERROR')
+        logDiagnostic(
+          'fast-capture',
+          this.warmed ? 'prewarm ok' : 'prewarm failed',
+          this.warmed ? 'info' : 'warn'
+        )
+      })
+      .catch((error: unknown) => {
+        this.warmed = false
+        logDiagnostic('fast-capture', `prewarm error: ${String(error)}`, 'warn')
+      })
+      .finally(() => {
+        this.prewarming = false
+      })
   }
 
   async capture(rect: Rect, timeout?: number): Promise<string | null> {
     if (this.disposed) return null
+    // 助手不在或还没热起来时不要阻塞 F1：立即回退 desktopCapturer，
+    // 同时在后台重新预热，下一次按键就能恢复快速路径。
+    if (!this.warmed || this.prewarming || !this.client.isRunning) {
+      logDiagnostic('fast-capture', 'helper not warm; falling back', 'warn')
+      this.startPrewarm()
+      return null
+    }
     const x = Math.round(rect.x)
     const y = Math.round(rect.y)
     const width = Math.round(rect.width)
     const height = Math.round(rect.height)
-    const payload = await this.client.request(
-      `${x},${y},${width},${height}`,
-      timeout ?? (this.warmed ? 450 : 900)
-    )
-    if (!payload || payload === 'ERROR') return null
-    return `data:image/png;base64,${payload}`
+    this.capturing = true
+    let needsPrewarm = false
+    try {
+      const payload = await this.client.request(
+        `${x},${y},${width},${height}`,
+        timeout ?? WARM_TIMEOUT_MS
+      )
+      if (!payload) {
+        // 超时后 SidecarClient 已经重启了子进程，必须按冷态重新预热。
+        this.warmed = false
+        needsPrewarm = true
+        return null
+      }
+      if (payload === 'ERROR') return null
+      return `data:image/png;base64,${payload}`
+    } finally {
+      this.capturing = false
+      if (needsPrewarm) this.startPrewarm()
+    }
   }
 
   dispose(): void {

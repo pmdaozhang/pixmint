@@ -98,4 +98,25 @@ describe('SidecarClient', () => {
       client.dispose()
     }
   })
+
+  it('notifies when the current sidecar exits so it can be prewarmed again', () => {
+    const child = new FakeChild(() => null, true)
+    let exits = 0
+    const client = new SidecarClient({
+      name: 'test-sidecar',
+      launch: () => ({ command: 'fake-sidecar', args: [] }),
+      defaultTimeoutMs: 50,
+      onExit: () => {
+        exits += 1
+      },
+      spawnImpl: (() => child) as unknown as typeof import('node:child_process').spawn
+    })
+    try {
+      client.ensureStarted()
+      child.emit('exit', null, 'SIGTERM')
+      expect(exits).toBe(1)
+    } finally {
+      client.dispose()
+    }
+  })
 })
