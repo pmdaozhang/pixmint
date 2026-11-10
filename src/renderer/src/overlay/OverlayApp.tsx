@@ -63,7 +63,6 @@ export function OverlayApp(): JSX.Element {
   const [captureClean, setCaptureClean] = useState(false)
   const {
     init,
-    preparing,
     imageReady,
     canvasRef: imageCanvasRef,
     load: loadSessionImage,
@@ -80,6 +79,8 @@ export function OverlayApp(): JSX.Element {
   const pendingRecordModeRef = useRef<RecorderMode | null>(null)
   const recordCancelledRef = useRef(false)
   const autoCopiedRef = useRef(false)
+  // 诊断：记录最后一次 pointerup 时间，用于量“松手 → 工具栏首帧”的耗时。
+  const lastPointerUpAtRef = useRef(0)
 
   const {
     selection,
@@ -146,8 +147,13 @@ export function OverlayApp(): JSX.Element {
     document.documentElement.dataset.theme = theme
   }, [cancelSnap, resetRecorderState, resetSelection])
 
+  // 主进程在新会话里会紧接着发送 overlay:init；窗口显示时的可见性回调
+  // 不能抢先再加载一次图片，否则同一次 F1 会解码两遍 PNG。
+  const awaitingInitRef = useRef(false)
+
   const applyInit = useCallback(
     (data: OverlayInit) => {
+      awaitingInitRef.current = false
       loadSessionImage(data, () => resetUiForInit(data))
     },
     [loadSessionImage, resetUiForInit]
@@ -169,7 +175,10 @@ export function OverlayApp(): JSX.Element {
 
   const applyPrepare = useCallback(
     (settings: Settings) => {
-      clearSessionImage(() => resetUiForPrepare(settings), true)
+      // 紧接着会收到 overlay:init，先标记住，避免窗口显示时重复加载。
+      awaitingInitRef.current = true
+      // 截图期间窗口是隐藏的，这里只重置状态，不再进入“准备中”遮罩。
+      clearSessionImage(() => resetUiForPrepare(settings), false)
     },
     [clearSessionImage, resetUiForPrepare]
   )
@@ -185,6 +194,7 @@ export function OverlayApp(): JSX.Element {
   }, [cancelSnap, resetRecorderState, resetSelection])
 
   const applyReset = useCallback(() => {
+    awaitingInitRef.current = false
     clearSessionImage(resetUiForReset, false)
   }, [clearSessionImage, resetUiForReset])
 
@@ -201,6 +211,8 @@ export function OverlayApp(): JSX.Element {
       .catch((reason: unknown) => setError(String(reason)))
     const onVisible = (): void => {
       if (document.visibilityState !== 'visible') return
+      // 主进程刚 prepare 过，init 马上就到；这里重复加载会多解码一次 PNG。
+      if (awaitingInitRef.current) return
       // 录制期间控制条会抢焦点，不能让覆盖层重新初始化并丢掉选区。
       if (recorderModeRef.current) return
       if (selectionRef.current) return
@@ -223,9 +235,14 @@ export function OverlayApp(): JSX.Element {
     if (!init || !imageReady) return
     let first = 0
     let second = 0
+    const prepareStartedAt = performance.now()
     // 等两帧，确保新截图已经真正绘制到窗口 surface 上再通知主进程显示。
     first = window.requestAnimationFrame(() => {
       second = window.requestAnimationFrame(() => {
+        const paintMs = performance.now() - prepareStartedAt
+        if (paintMs > 300) {
+          console.warn('OVERLAY_PREPARED_SLOW', Math.round(paintMs))
+        }
         window.snapglass.overlay.prepared()
       })
     })
@@ -248,24 +265,6 @@ export function OverlayApp(): JSX.Element {
     return () => window.clearInterval(timer)
   }, [init])
 
-  // 覆盖层长时间停在屏幕外时，渲染层可能被系统判定为空闲。
-  // 主进程不要定时 show/hide 窗口（渲染层卡住时会阻塞主线程），
-  // 这里用渲染层自己的轻量定时器保持事件循环活跃。
-  useEffect(() => {
-    if (init) return
-    const timer = window.setInterval(() => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 1
-      canvas.height = 1
-      const context = canvas.getContext('2d')
-      if (context) {
-        context.fillStyle = '#000'
-        context.fillRect(0, 0, 1, 1)
-      }
-    }, 30_000)
-    return () => window.clearInterval(timer)
-  }, [init])
-
   useEffect(() => {
     if (!init || recorderMode) return
     const measure = (): void => {
@@ -280,6 +279,55 @@ export function OverlayApp(): JSX.Element {
     observer.observe(dock)
     return () => observer.disconnect()
   }, [init, recorderMode, submenuOpen])
+
+  // 诊断：渲染线程长任务。覆盖层窗口常驻，从挂载起全程监听；
+  // >300ms 的长任务会同时拖慢遮罩出现和工具栏绘制。
+  useEffect(() => {
+    if (typeof PerformanceObserver === 'undefined') return
+    try {
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.duration > 300) {
+            console.warn('OVERLAY_LONGTASK', Math.round(entry.duration), entry.name)
+          }
+        }
+      })
+      observer.observe({ entryTypes: ['longtask'] })
+      return () => observer.disconnect()
+    } catch {
+      return undefined
+    }
+  }, [])
+
+  // 诊断：框选松手 → 工具栏首帧真正绘制的耗时。正常应在百毫秒内；
+  // 若超过 300ms，说明渲染线程被长任务/GC 堵住或合成器出问题。
+  useEffect(() => {
+    const onUp = (): void => {
+      lastPointerUpAtRef.current = performance.now()
+    }
+    window.addEventListener('pointerup', onUp, true)
+    return () => window.removeEventListener('pointerup', onUp, true)
+  }, [])
+
+  useEffect(() => {
+    if (phase !== 'editing') return
+    const upAt = lastPointerUpAtRef.current
+    if (!upAt) return
+    let first = 0
+    let second = 0
+    first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => {
+        const paintMs = performance.now() - upAt
+        if (paintMs > 300) {
+          console.warn('OVERLAY_TOOLBAR_PAINT_SLOW', Math.round(paintMs))
+        }
+      })
+    })
+    return () => {
+      window.cancelAnimationFrame(first)
+      window.cancelAnimationFrame(second)
+    }
+  }, [phase])
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -329,7 +377,13 @@ export function OverlayApp(): JSX.Element {
 
   const startRecording = useCallback(async () => {
     const mode = recorderModeRef.current
-    if (!mode || !init || !selection || recordPhaseRef.current !== 'idle') return
+    if (!mode || !init || !selection || recordPhaseRef.current !== 'idle') {
+      console.warn(
+        'RECORDER_START_IGNORED',
+        `mode=${String(mode)} init=${Boolean(init)} selection=${Boolean(selection)} phase=${recordPhaseRef.current}`
+      )
+      return
+    }
     if (selection.width < 64 || selection.height < 64) {
       showToast(t(init?.settings?.language, '选区太小，至少需要 64 × 64'))
       return
@@ -548,37 +602,42 @@ export function OverlayApp(): JSX.Element {
   )
 
   /**
-   * 背景：大选区自动复制时，同步 toDataURL 会在渲染线程里编码整张 PNG。
-   * 设计意图：改用异步 toBlob 并直接传字节，避免生成和保留大体积 data URL。
-   * 关键约束：自动复制只做一次；失败只记录日志，不能阻断标注和录制。
+   * 背景：自动复制原先在渲染线程重新裁剪并编码整张 PNG，松手后立刻执行。
+   * 实测一次大选区编码会占用渲染主线程 549ms，工具栏和标注都会跟着卡。
+   * 设计意图：渲染层只上报选区矩形，主进程用已经截好的原图裁剪后写剪贴板，
+   * 渲染线程零编码、零大体积 IPC；触发时间也推到工具栏首帧之后。
+   * 关键约束：自动复制只做一次；会话重置时必须取消还没触发的计时。
    */
-  const autoCopySelection = useCallback(async (): Promise<void> => {
-    const canvas = drawSelection(false)
-    if (!canvas) return
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/png')
-    })
-    if (!blob) return
-    window.snapglass.overlay.autoCopy(new Uint8Array(await blob.arrayBuffer()))
+  const autoCopyTimerRef = useRef(0)
+  const cancelPendingAutoCopy = useCallback(() => {
+    if (!autoCopyTimerRef.current) return
+    window.clearTimeout(autoCopyTimerRef.current)
+    autoCopyTimerRef.current = 0
+  }, [])
+
+  const autoCopySelection = useCallback((): void => {
+    const current = selectionRef.current
+    if (!current) return
+    window.snapglass.overlay.autoCopy(current)
     showToast(t(init?.settings?.language, '截图已自动复制'))
-  }, [drawSelection, showToast])
+  }, [init, selectionRef, showToast])
 
   useEffect(() => {
     if (phase !== 'editing' || !selection || !init || autoCopiedRef.current) return
     autoCopiedRef.current = true
-    let cancelled = false
-    // 延后一帧再编码，先让选区边框和遮罩完成首次绘制。
-    const timer = window.setTimeout(() => {
-      if (cancelled) return
-      void autoCopySelection().catch((error: unknown) => {
-        console.warn('AUTO_COPY_FAILED', error)
-      })
-    }, 120)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
+    // 延后到工具栏首帧画完之后，不和选区边框、工具条抢首帧。
+    autoCopyTimerRef.current = window.setTimeout(() => {
+      autoCopyTimerRef.current = 0
+      autoCopySelection()
+    }, 300)
   }, [phase, selection, init, autoCopySelection])
+
+  useEffect(() => {
+    if (phase === 'editing') return
+    cancelPendingAutoCopy()
+  }, [phase, cancelPendingAutoCopy])
+
+  useEffect(() => () => cancelPendingAutoCopy(), [cancelPendingAutoCopy])
 
   const onAction = useCallback(
     (
@@ -638,16 +697,6 @@ export function OverlayApp(): JSX.Element {
   }, [init, hideFrozenImage, imageCanvasRef])
 
   if (error) return <div className="overlay-error">{error}</div>
-  if (preparing && !init) {
-    return (
-      <div className="overlay-preparing">
-        <div className="prepare-pill">
-          <span className="prepare-spinner" />
-          {t(undefined, '正在截取屏幕…')}
-        </div>
-      </div>
-    )
-  }
   if (!init) return <div className="overlay-idle" />
 
   const toolbarTop = selection

@@ -868,24 +868,8 @@
 .overlay-preparing {
   position: fixed;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgba(13, 13, 13, 0.38);
   cursor: progress;
-}
-
-.prepare-pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow);
-  font-size: 12px;
-  color: var(--text);
 }
 
 .prepare-spinner {

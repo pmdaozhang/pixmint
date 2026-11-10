@@ -8,6 +8,8 @@ import type {
   LicenseActivation,
   LicenseDevice,
   LicenseStatus,
+  ManualOrder,
+  ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
   PurchaseOrderResult
@@ -23,6 +25,7 @@ import type {
   RecorderControlCommand,
   RecorderState,
   RecorderStatePatch,
+  Rect,
   Settings,
   DiagnosticsInfo,
   UpdateState,
@@ -55,7 +58,7 @@ const api: SnapglassApi = {
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),
-    autoCopy: (pngBytes: Uint8Array) => ipcRenderer.send('overlay:auto-copy', pngBytes),
+    autoCopy: (selection: Rect) => ipcRenderer.send('overlay:auto-copy', selection),
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')
   },
@@ -146,6 +149,8 @@ const api: SnapglassApi = {
     openCrashFolder: () =>
       ipcRenderer.invoke('diagnostics:open-crash-folder') as Promise<string>,
     flush: () => ipcRenderer.invoke('diagnostics:flush') as Promise<void>,
+    disableSafeMode: () =>
+      ipcRenderer.invoke('diagnostics:disable-safe-mode') as Promise<boolean>,
     exportReport: () =>
       ipcRenderer.invoke('diagnostics:export-report') as Promise<string | null>
   },
@@ -184,6 +189,29 @@ const api: SnapglassApi = {
       ipcRenderer.invoke('purchase:create-order', plan, provider) as Promise<PurchaseOrder>,
     orderStatus: (orderId: string, orderToken: string) =>
       ipcRenderer.invoke('purchase:order-status', orderId, orderToken) as Promise<PurchaseOrderResult>,
+    createManualOrder: (
+      plan: 'monthly' | 'yearly' | 'lifetime',
+      provider: PaymentProvider,
+      email: string
+    ) =>
+      ipcRenderer.invoke(
+        'purchase:create-manual-order',
+        plan,
+        provider,
+        email
+      ) as Promise<ManualOrder>,
+    submitManualOrder: (orderId: string, orderToken: string) =>
+      ipcRenderer.invoke(
+        'purchase:submit-manual-order',
+        orderId,
+        orderToken
+      ) as Promise<ManualOrder>,
+    manualOrderStatus: (orderId: string, orderToken: string) =>
+      ipcRenderer.invoke(
+        'purchase:manual-order-status',
+        orderId,
+        orderToken
+      ) as Promise<ManualOrderResult>,
     resize: (height: number) => ipcRenderer.send('purchase:resize', height)
   },
   updater: {

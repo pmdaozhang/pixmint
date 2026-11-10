@@ -1,4 +1,9 @@
-import { captureDisplay, captureDisplays, captureDisplayFast } from '../../capture'
+import {
+  captureDisplay,
+  captureDisplays,
+  captureDisplayFast,
+  prewarmNativeCapture
+} from '../../capture'
 import { fastCapture } from '../../fast-capture'
 import { recognizeImageDataUrl } from '../../ocr'
 import type { WindowSnapHelper } from '../../window-snap'
@@ -16,7 +21,10 @@ export function createWin32PlatformServices(windowSnap: WindowSnapHelper): Platf
       captureDisplay,
       captureAll: captureDisplays,
       captureFast: captureDisplayFast,
-      prewarm: () => fastCapture.prewarm(),
+      prewarm: () => {
+        prewarmNativeCapture()
+        fastCapture.prewarm()
+      },
       dispose: () => fastCapture.dispose()
     },
     windowQuery: {

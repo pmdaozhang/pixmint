@@ -2,6 +2,8 @@ import type {
   LicenseActivation,
   LicenseDevice,
   LicenseStatus,
+  ManualOrder,
+  ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
   PurchaseOrderResult
@@ -108,7 +110,7 @@ export class LicenseService {
         code: record.code || null,
         email: record.email || null,
         devicesUsed: record.devicesUsed ?? 0,
-        devicesMax: record.devicesMax ?? 3,
+        devicesMax: record.devicesMax ?? 5,
         needsRefresh: false,
         offline: false
       }
@@ -127,7 +129,7 @@ export class LicenseService {
         code: record.code || null,
         email: record.email || null,
         devicesUsed: record.devicesUsed ?? 0,
-        devicesMax: record.devicesMax ?? 3,
+        devicesMax: record.devicesMax ?? 5,
         needsRefresh: false,
         offline: false,
         reason: verified.reason
@@ -141,7 +143,7 @@ export class LicenseService {
       code: record.code || null,
       email: record.email || null,
       devicesUsed: record.devicesUsed ?? 0,
-      devicesMax: record.devicesMax ?? 3,
+      devicesMax: record.devicesMax ?? 5,
       needsRefresh: verified.needsRefresh,
       offline: verified.needsRefresh
     }
@@ -283,6 +285,51 @@ export class LicenseService {
   async orderStatus(orderId: string, orderToken: string): Promise<PurchaseOrderResult> {
     const response = await this.request<OrderStatusResponse>(
       `/pay/orders/${encodeURIComponent(orderId)}?token=${encodeURIComponent(orderToken)}`,
+      undefined,
+      'GET'
+    )
+    if (response.status === 'paid' && response.token) {
+      const record = this.options.store.get()
+      const now = this.now()
+      this.options.store.save({
+        token: response.token,
+        code: response.code ?? record.code,
+        lastRefreshAt: now,
+        lastSeenAt: now
+      })
+    }
+    return response
+  }
+
+  async createManualOrder(
+    plan: 'monthly' | 'yearly' | 'lifetime',
+    provider: PaymentProvider,
+    email: string
+  ): Promise<ManualOrder> {
+    const response = await this.request<ManualOrder>('/manual/orders', {
+      plan,
+      provider,
+      email: email.trim(),
+      deviceId: this.options.deviceId(),
+      deviceName: process.platform
+    })
+    this.options.store.save({ email: email.trim() })
+    return response
+  }
+
+  async submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder> {
+    return this.request<ManualOrder>(
+      `/manual/orders/${encodeURIComponent(orderId)}/submit`,
+      { token: orderToken }
+    )
+  }
+
+  async manualOrderStatus(
+    orderId: string,
+    orderToken: string
+  ): Promise<ManualOrderResult> {
+    const response = await this.request<ManualOrderResult>(
+      `/manual/orders/${encodeURIComponent(orderId)}?token=${encodeURIComponent(orderToken)}`,
       undefined,
       'GET'
     )

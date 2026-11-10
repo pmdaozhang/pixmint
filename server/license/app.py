@@ -36,12 +36,14 @@ DAY = 86_400
 TRIAL_DAYS = 7
 INVITE_REWARD_DAYS = 90
 INVITE_REWARD_CAP = 12
-MAX_DEVICES = 3
+MAX_DEVICES = 5
+MANUAL_ORDER_TTL = DAY
+MANUAL_ORDER_LIMIT = 8
 
 PLANS = {
     "monthly": {"price": 900, "days": 30, "title": "Pixmint Pro 月付"},
     "yearly": {"price": 8000, "days": 365, "title": "Pixmint Pro 年付"},
-    "lifetime": {"price": 19800, "days": None, "title": "Pixmint Pro 终身"},
+    "lifetime": {"price": 5800, "days": None, "title": "Pixmint Pro 终身"},
 }
 
 
@@ -138,7 +140,15 @@ CREATE TABLE IF NOT EXISTS orders (
   pay_form TEXT,
   created_at INTEGER NOT NULL,
   paid_at INTEGER,
-  refunded_at INTEGER
+  refunded_at INTEGER,
+  device_name TEXT,
+  submitted_at INTEGER,
+  confirmed_at INTEGER,
+  reject_reason TEXT,
+  expires_at INTEGER,
+  email_status TEXT,
+  email_error TEXT,
+  channel TEXT
 );
 CREATE TABLE IF NOT EXISTS licenses (
   id TEXT PRIMARY KEY,
@@ -196,7 +206,40 @@ def open_db(path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    ensure_columns(
+        conn,
+        "orders",
+        {
+            "device_name": "TEXT",
+            "submitted_at": "INTEGER",
+            "confirmed_at": "INTEGER",
+            "reject_reason": "TEXT",
+            "expires_at": "INTEGER",
+            "email_status": "TEXT",
+            "email_error": "TEXT",
+            "channel": "TEXT",
+        },
+    )
+    # 一个订单最多签发一张授权；重复点击“确认收款”时由唯一索引兜底。
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_licenses_order_id"
+        " ON licenses(order_id) WHERE order_id IS NOT NULL"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_orders_provider_status"
+        " ON orders(provider, status, created_at DESC)"
+    )
+    conn.commit()
     return conn
+
+
+def ensure_columns(
+    conn: sqlite3.Connection, table: str, columns: dict[str, str]
+) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    for name, declaration in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
 
 
 def db() -> sqlite3.Connection:
@@ -297,6 +340,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         kid=os.environ.get("PIXMINT_LICENSE_KID", "prod-1"),
         base_url=os.environ.get("PIXMINT_BASE_URL", "https://data.hugproducthub.top"),
         admin_token=os.environ.get("PIXMINT_ADMIN_TOKEN", ""),
+        orders_token=os.environ.get("PIXMINT_ORDERS_TOKEN", ""),
+        manual_qr_base=os.environ.get(
+            "PIXMINT_MANUAL_QR_BASE", "https://pixmint.hugproducthub.top/manual-qr"
+        ),
         mbd_app_id=os.environ.get("MBD_APP_ID", ""),
         mbd_app_key=os.environ.get("MBD_APP_KEY", ""),
         mbd_base=os.environ.get("MBD_API_BASE", "https://newapi.mbd.pub"),
@@ -346,8 +393,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                 "purchaseEnabled": pay.enabled,
                 "providers": ["alipay", "wechat"],
                 "plans": {
-                    key: {"price": value["price"], "days": value["days"]}
-                    for key, value in PLANS.items()
+                    "lifetime": {
+                        "price": PLANS["lifetime"]["price"],
+                        "days": PLANS["lifetime"]["days"],
+                    }
                 },
             }
         )
@@ -439,6 +488,171 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             if license_row:
                 result["code"] = license_row["code"]
                 result["token"] = sign_bound_license(license_row, order["device_id"])
+        return jsonify(result)
+
+    # -- 人工收款订单 ------------------------------------------------------
+
+    def manual_qr_urls() -> dict[str, str]:
+        base = str(app.config["manual_qr_base"]).rstrip("/")
+        return {"alipay": f"{base}/alipay.png", "wechat": f"{base}/wechat.png"}
+
+    def new_manual_order_id() -> str:
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        day = time.strftime("%y%m%d", time.localtime())
+        for _ in range(20):
+            candidate = f"PM{day}-{''.join(secrets.choice(alphabet) for _ in range(4))}"
+            if not one("SELECT 1 FROM orders WHERE order_id = ?", (candidate,)):
+                return candidate
+        return f"PM{day}-{secrets.token_hex(3).upper()}"
+
+    def refresh_manual_order(order: sqlite3.Row | None) -> sqlite3.Row | None:
+        if (
+            order
+            and order["provider"] == "manual"
+            and order["status"] == "pending_payment"
+            and order["expires_at"]
+            and order["expires_at"] < now_ts()
+        ):
+            db().execute(
+                "UPDATE orders SET status = 'expired'"
+                " WHERE order_id = ? AND status = 'pending_payment'",
+                (order["order_id"],),
+            )
+            db().commit()
+            return one("SELECT * FROM orders WHERE order_id = ?", (order["order_id"],))
+        return order
+
+    def manual_order_payload(order: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "orderId": order["order_id"],
+            "orderToken": order["order_token"],
+            "orderNumber": order["order_id"],
+            "status": order["status"],
+            "plan": order["sku"],
+            "channel": order["channel"],
+            "amountCents": order["amount_cents"],
+            "email": order["email"],
+            "expiresAt": (order["expires_at"] or 0) * 1000,
+            "qrUrls": manual_qr_urls(),
+            "rejectReason": order["reject_reason"],
+        }
+
+    def clean_email(value: Any) -> str:
+        text = clean_text(value, 200).strip().lower()
+        return text
+
+    def valid_email(text: str) -> bool:
+        return "@" in text and "." in text.rsplit("@", 1)[-1]
+
+    @app.post("/v1/manual/orders")
+    def create_manual_order() -> Any:
+        body = json_body()
+        plan = clean_text(body.get("plan"), 20)
+        if plan not in PLANS:
+            return error("未知套餐", "bad_plan")
+        channel = clean_text(body.get("provider"), 20)
+        if channel not in ("alipay", "wechat"):
+            return error("不支持的支付方式", "bad_provider")
+        email = clean_email(body.get("email"))
+        if not valid_email(email):
+            return error("邮箱格式不正确", "bad_email")
+        try:
+            device_id = clean_device(body.get("deviceId"))
+        except ValueError:
+            return error("设备标识无效", "bad_device")
+        device_name = clean_text(body.get("deviceName"), 60)
+
+        existing = one(
+            "SELECT * FROM orders WHERE provider = 'manual' AND device_id = ?"
+            " AND status IN ('pending_payment', 'reviewing')"
+            " ORDER BY created_at DESC LIMIT 1",
+            (device_id,),
+        )
+        existing = refresh_manual_order(existing)
+        if existing and existing["status"] in ("pending_payment", "reviewing"):
+            if (
+                existing["sku"] == plan
+                and existing["channel"] == channel
+                and (existing["email"] or "") == email
+            ):
+                return jsonify(manual_order_payload(existing))
+            if existing["status"] == "reviewing":
+                return error("已有待确认订单，请先联系客服", "order_reviewing", 409)
+            db().execute(
+                "UPDATE orders SET status = 'expired' WHERE order_id = ?",
+                (existing["order_id"],),
+            )
+            db().commit()
+
+        recent = one(
+            "SELECT COUNT(*) AS total FROM orders WHERE provider = 'manual'"
+            " AND device_id = ? AND created_at > ?",
+            (device_id, now_ts() - 10 * 60),
+        )["total"]
+        if recent >= MANUAL_ORDER_LIMIT:
+            return error("下单过于频繁，请稍后再试", "rate_limited", 429)
+
+        order_id = new_manual_order_id()
+        order_token = secrets.token_urlsafe(24)
+        expires_at = now_ts() + MANUAL_ORDER_TTL
+        db().execute(
+            "INSERT INTO orders (order_id, order_token, provider, channel, sku,"
+            " amount_cents, status, device_id, device_name, email, created_at, expires_at)"
+            " VALUES (?, ?, 'manual', ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?)",
+            (
+                order_id,
+                order_token,
+                channel,
+                plan,
+                PLANS[plan]["price"],
+                device_id,
+                device_name,
+                email,
+                now_ts(),
+                expires_at,
+            ),
+        )
+        db().commit()
+        order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+        return jsonify(manual_order_payload(order))
+
+    @app.post("/v1/manual/orders/<order_id>/submit")
+    def submit_manual_order(order_id: str) -> Any:
+        body = json_body()
+        token = clean_text(body.get("token"), 200)
+        order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+        if not order or not hmac.compare_digest(order["order_token"], token):
+            return error("订单不存在", "not_found", 404)
+        order = refresh_manual_order(order)
+        if order["status"] == "expired":
+            return error("订单已过期，请重新下单", "expired", 410)
+        if order["status"] == "pending_payment":
+            db().execute(
+                "UPDATE orders SET status = 'reviewing', submitted_at = ?"
+                " WHERE order_id = ? AND status = 'pending_payment'",
+                (now_ts(), order_id),
+            )
+            db().commit()
+            order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+        return jsonify(manual_order_payload(order))
+
+    @app.get("/v1/manual/orders/<order_id>")
+    def manual_order_status(order_id: str) -> Any:
+        token = clean_text(request.args.get("token"), 200)
+        order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+        if not order or not hmac.compare_digest(order["order_token"], token):
+            return error("订单不存在", "not_found", 404)
+        order = refresh_manual_order(order)
+        result = manual_order_payload(order)
+        result.pop("orderToken", None)
+        result.pop("qrUrls", None)
+        if order["status"] == "paid":
+            license_row = ensure_license_for_order(order)
+            if license_row:
+                result["code"] = license_row["code"]
+                result["token"] = sign_bound_license(license_row, order["device_id"])
+                result["emailSent"] = order["email_status"] == "sent"
+                result["emailError"] = order["email_error"]
         return jsonify(result)
 
     @app.post("/v1/pay/webhook/mbd")
@@ -748,6 +962,209 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         return wrapper
 
+    def require_orders_admin(view):
+        """数据台订单页使用独立 token，只允许访问人工订单接口。"""
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            header = request.headers.get("Authorization", "")
+            if not header.startswith("Bearer "):
+                return error("未授权", "unauthorized", 401)
+            token = header[len("Bearer ") :]
+            allowed = [
+                item
+                for item in (app.config["admin_token"], app.config["orders_token"])
+                if item
+            ]
+            if not allowed or not any(hmac.compare_digest(token, item) for item in allowed):
+                return error("未授权", "unauthorized", 401)
+            return view(*args, **kwargs)
+
+        return wrapper
+
+    def admin_manual_order_view(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "orderId": row["order_id"],
+            "orderNumber": row["order_id"],
+            "status": row["status"],
+            "plan": row["sku"],
+            "amountCents": row["amount_cents"],
+            "channel": row["channel"],
+            "email": row["email"],
+            "deviceId": row["device_id"],
+            "deviceName": row["device_name"],
+            "createdAt": row["created_at"],
+            "submittedAt": row["submitted_at"],
+            "paidAt": row["paid_at"],
+            "confirmedAt": row["confirmed_at"],
+            "rejectReason": row["reject_reason"],
+            "expiresAt": row["expires_at"],
+            "emailStatus": row["email_status"],
+            "emailError": row["email_error"],
+            "licenseCode": row["license_code"],
+        }
+
+    @app.get("/v1/admin/manual/orders")
+    @require_orders_admin
+    def admin_manual_orders() -> Any:
+        status = clean_text(request.args.get("status"), 30)
+        query_text = clean_text(request.args.get("q"), 100)
+        clauses = ["o.provider = 'manual'"]
+        params: list[Any] = []
+        if status and status in (
+            "pending_payment",
+            "reviewing",
+            "paid",
+            "rejected",
+            "expired",
+        ):
+            clauses.append("o.status = ?")
+            params.append(status)
+        if query_text:
+            like = f"%{query_text}%"
+            clauses.append(
+                "(o.order_id LIKE ? OR o.email LIKE ? OR o.device_id LIKE ?)"
+            )
+            params.extend([like, like, like])
+        rows = query(
+            "SELECT o.*, l.code AS license_code FROM orders o"
+            " LEFT JOIN licenses l ON l.order_id = o.order_id"
+            " WHERE " + " AND ".join(clauses) +
+            " ORDER BY o.created_at DESC LIMIT 200",
+            tuple(params),
+        )
+        for row in rows:
+            refresh_manual_order(row)
+        rows = query(
+            "SELECT o.*, l.code AS license_code FROM orders o"
+            " LEFT JOIN licenses l ON l.order_id = o.order_id"
+            " WHERE " + " AND ".join(clauses) +
+            " ORDER BY o.created_at DESC LIMIT 200",
+            tuple(params),
+        )
+        summary_rows = query(
+            "SELECT status, COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total"
+            " FROM orders WHERE provider = 'manual' GROUP BY status"
+        )
+        summary = {
+            row["status"]: {"count": row["count"], "amountCents": row["total"]}
+            for row in summary_rows
+        }
+        return jsonify(
+            {
+                "orders": [admin_manual_order_view(row) for row in rows],
+                "summary": summary,
+            }
+        )
+
+    @app.post("/v1/admin/manual/orders/<order_id>/confirm")
+    @require_orders_admin
+    def admin_manual_confirm(order_id: str) -> Any:
+        body = json_body()
+        order = one(
+            "SELECT * FROM orders WHERE order_id = ? AND provider = 'manual'",
+            (order_id,),
+        )
+        if not order:
+            return error("订单不存在", "not_found", 404)
+        if order["status"] in ("rejected", "refunded"):
+            return error("该订单已关闭，不能再确认", "closed", 409)
+        email = clean_email(body.get("email")) or (order["email"] or "")
+        if not valid_email(email):
+            return error("邮箱格式不正确", "bad_email")
+        send_email_flag = body.get("sendEmail", True) is not False
+
+        license_row = one("SELECT * FROM licenses WHERE order_id = ?", (order_id,))
+        if order["status"] != "paid":
+            if order["status"] not in ("pending_payment", "reviewing"):
+                return error("订单状态不允许确认", "bad_status", 409)
+            if not license_row:
+                try:
+                    license_row = create_license(
+                        order_id=order_id,
+                        plan=order["sku"],
+                        device_id=order["device_id"],
+                        expires_at=None,
+                        trial=False,
+                    )
+                except sqlite3.IntegrityError:
+                    # 并发点击确认时唯一索引会拦住第二次，回读已签发的授权。
+                    db().rollback()
+                    license_row = one(
+                        "SELECT * FROM licenses WHERE order_id = ?", (order_id,)
+                    )
+            db().execute(
+                "UPDATE orders SET status = 'paid', paid_at = COALESCE(paid_at, ?),"
+                " confirmed_at = ?, email = ? WHERE order_id = ?",
+                (now_ts(), now_ts(), email, order_id),
+            )
+            db().commit()
+            order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+        elif not license_row:
+            license_row = ensure_license_for_order(order)
+        if not license_row:
+            return error("授权签发失败", "license_failed", 500)
+
+        email_sent = False
+        email_error: str | None = None
+        if send_email_flag:
+            if app.config["smtp_host"] and app.config["smtp_from"]:
+                try:
+                    send_email(app, email, license_row)
+                    email_sent = True
+                    db().execute(
+                        "UPDATE orders SET email = ?, email_status = 'sent',"
+                        " email_error = NULL WHERE order_id = ?",
+                        (email, order_id),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    email_error = str(exc)[:300]
+                    db().execute(
+                        "UPDATE orders SET email = ?, email_status = 'failed',"
+                        " email_error = ? WHERE order_id = ?",
+                        (email, email_error, order_id),
+                    )
+                db().commit()
+            else:
+                email_error = "邮件服务未配置"
+                db().execute(
+                    "UPDATE orders SET email = ?, email_status = 'unconfigured',"
+                    " email_error = ? WHERE order_id = ?",
+                    (email, email_error, order_id),
+                )
+                db().commit()
+
+        return jsonify(
+            {
+                "ok": True,
+                "orderId": order_id,
+                "status": "paid",
+                "code": license_row["code"],
+                "emailSent": email_sent,
+                "emailError": email_error,
+            }
+        )
+
+    @app.post("/v1/admin/manual/orders/<order_id>/reject")
+    @require_orders_admin
+    def admin_manual_reject(order_id: str) -> Any:
+        body = json_body()
+        order = one(
+            "SELECT * FROM orders WHERE order_id = ? AND provider = 'manual'",
+            (order_id,),
+        )
+        if not order:
+            return error("订单不存在", "not_found", 404)
+        if order["status"] == "paid":
+            return error("已付款订单不能拒绝", "already_paid", 409)
+        reason = clean_text(body.get("reason"), 300) or "未收到对应款项"
+        db().execute(
+            "UPDATE orders SET status = 'rejected', reject_reason = ?, confirmed_at = ?"
+            " WHERE order_id = ? AND status != 'paid'",
+            (reason, now_ts(), order_id),
+        )
+        db().commit()
+        return jsonify({"ok": True, "orderId": order_id, "status": "rejected"})
+
     @app.get("/v1/admin/orders")
     @require_admin
     def admin_orders() -> Any:
@@ -933,15 +1350,42 @@ padding:0 20px;border:0;border-radius:10px;background:#111;color:#fff;font-size:
 
 
 def send_email(app: Flask, email: str, license_row: sqlite3.Row) -> None:
+    order = None
+    if license_row["order_id"]:
+        order = one(
+            "SELECT * FROM orders WHERE order_id = ?", (license_row["order_id"],)
+        )
+    order_id = license_row["order_id"] or "试用授权"
+    plan_label = {
+        "monthly": "月付",
+        "yearly": "年付",
+        "lifetime": "终身",
+    }.get(license_row["plan"], license_row["plan"])
+    expiry = (
+        f"有效期至：{iso(license_row['expires_at'])}\n"
+        if license_row["expires_at"]
+        else "有效期：终身\n"
+    )
     message = EmailMessage()
-    message["Subject"] = "Pixmint Pro 激活码"
+    message["Subject"] = (
+        f"【Pixmint】Pro 激活码 · 订单 {order_id}"
+        if order
+        else "【Pixmint】Pro 激活码"
+    )
     message["From"] = app.config["smtp_from"]
     message["To"] = email
     message.set_content(
-        "感谢购买 Pixmint Pro！\n\n"
-        f"激活码：\n{license_row['code']}\n\n"
-        f"订单号：{license_row['order_id'] or '试用授权'}\n"
-        "换电脑时在应用内输入这个激活码即可，一个激活码最多绑定 3 台设备。\n"
+        "你好，\n\n"
+        f"感谢购买 Pixmint Pro（{plan_label}）。\n"
+        f"订单号：{order_id}\n"
+        f"{expiry}\n"
+        "你的激活码（请整段复制，不要漏字符）：\n"
+        f"{license_row['code']}\n\n"
+        "使用方法：\n"
+        "打开 Pixmint → 升级 Pro → 已有激活码 → 粘贴 → 激活。\n\n"
+        "一个激活码最多绑定 5 台设备；换电脑时输入同一个激活码即可。\n"
+        "遇到问题直接回复本邮件。\n\n"
+        "—— Pixmint\n"
     )
     port = app.config["smtp_port"]
     if port == 465:

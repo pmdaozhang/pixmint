@@ -149,7 +149,10 @@ function applySystemSettings(): void {
 function registerShortcut(settings: Settings): void {
   globalShortcut.unregisterAll()
   try {
+    // 诊断：记录快捷键回调真正进入主进程的时间。F1 到截图的耗时里，
+    // 这一段（按键 → 回调）之前完全没有日志，慢的时候会被误判成截图链路慢。
     const ok = globalShortcut.register(settings.shortcut, () => {
+      logDiagnostic('main', `shortcut ${settings.shortcut} fired ${Date.now()}`)
       void startCapture()
     })
     if (!ok) {
@@ -162,6 +165,24 @@ function registerShortcut(settings: Settings): void {
   } catch {
     notify(t(settings.language, '快捷键 {key} 无效', { key: settings.shortcut }))
   }
+}
+
+/**
+ * 诊断：主进程事件循环卡顿。Windows 会把没有可见窗口的托盘进程降级调度，
+ * 或主线程被同步任务堵住时，全局快捷键回调和所有 IPC 都会排队。
+ * 每秒打一次点，实际间隔超过 1.15 秒就记一条 warn，直接暴露这段不可见的延迟。
+ */
+function startMainLoopLagProbe(): void {
+  let last = Date.now()
+  const timer = setInterval(() => {
+    const now = Date.now()
+    const lag = now - last - 1000
+    last = now
+    if (lag > 150) {
+      logDiagnostic('main', `event loop lag ${lag}ms`, 'warn')
+    }
+  }, 1000)
+  timer.unref?.()
 }
 
 function captureDeps(): CaptureDeps {
@@ -328,6 +349,7 @@ function initServices(): void {
     })
   })
   logDiagnostic('main', `Pixmint ${app.getVersion()} started`)
+  startMainLoopLagProbe()
   console.log('DIAGNOSTICS_LOG', diagnosticsPath())
   if (safeModeThisRun) {
     notify(

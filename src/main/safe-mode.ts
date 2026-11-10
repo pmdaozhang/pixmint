@@ -1,9 +1,15 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { logDiagnostic } from './diagnostics'
+import {
+  SAFE_MODE_CLEAN_SESSIONS_TO_EXIT,
+  shouldExitSafeMode
+} from './runtime/safe-mode-policy'
 
 const SAFE_MODE_FILE = 'recording-safe-mode.json'
 const SESSION_LOCK_FILE = 'recording-session.lock'
+const CLEAN_SESSIONS_FILE = 'recording-clean-sessions.json'
 
 /**
  * 背景：Windows 透明覆盖层和视频编码都依赖 GPU 路径，极少数驱动组合会让
@@ -60,8 +66,76 @@ export function enableSafeMode(reason: string): void {
       JSON.stringify({ enabled: true, reason, at: new Date().toISOString() }, null, 2),
       'utf8'
     )
+    resetCleanSessionCount()
   } catch (error) {
     console.warn('SAFE_MODE_WRITE_FAILED', error)
+  }
+}
+
+/**
+ * 背景：兼容模式一旦写入就永久生效，用户无法退出，表现为“修了多次还是慢”。
+ * 设计意图：提供显式退出能力，并清空干净会话计数。
+ * 关键约束：只删除标记，不触碰其他诊断文件；下次启动才恢复硬件加速。
+ */
+export function disableSafeMode(): boolean {
+  let removed = false
+  try {
+    const path = filePath(SAFE_MODE_FILE)
+    if (existsSync(path)) {
+      unlinkSync(path)
+      removed = true
+    }
+  } catch (error) {
+    console.warn('SAFE_MODE_DISABLE_FAILED', error)
+  }
+  resetCleanSessionCount()
+  return removed
+}
+
+/**
+ * 背景：兼容模式可能是某次被杀进程误触发的，长期挂着会一直软件合成。
+ * 设计意图：连续多次正常结束覆盖层会话后自动退出兼容模式，避免永久粘滞。
+ * 关键约束：只统计正常收尾的会话；异常退出仍然保持兼容模式。
+ */
+export function noteCleanOverlaySession(): void {
+  if (!safeModeRequested()) return
+  try {
+    const current = readCleanSessionCount()
+    const next = current + 1
+    if (!shouldExitSafeMode(next)) {
+      ensureDataDir()
+      writeFileSync(filePath(CLEAN_SESSIONS_FILE), JSON.stringify({ count: next }), 'utf8')
+      return
+    }
+    disableSafeMode()
+    logDiagnostic(
+      'safe-mode',
+      `after ${next} clean overlay sessions, compatibility mode disabled (takes effect next launch)`,
+      'warn'
+    )
+    console.log('SAFE_MODE_AUTO_DISABLED', next)
+  } catch (error) {
+    console.warn('SAFE_MODE_CLEAN_COUNT_FAILED', error)
+  }
+}
+
+function readCleanSessionCount(): number {
+  const path = filePath(CLEAN_SESSIONS_FILE)
+  if (!existsSync(path)) return 0
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { count?: unknown }
+    return typeof parsed.count === 'number' && parsed.count > 0 ? Math.floor(parsed.count) : 0
+  } catch {
+    return 0
+  }
+}
+
+function resetCleanSessionCount(): void {
+  try {
+    const path = filePath(CLEAN_SESSIONS_FILE)
+    if (existsSync(path)) unlinkSync(path)
+  } catch (error) {
+    console.warn('SAFE_MODE_CLEAN_RESET_FAILED', error)
   }
 }
 
@@ -106,3 +180,5 @@ export function endOverlaySession(): void {
     console.warn('OVERLAY_SESSION_UNLOCK_FAILED', error)
   }
 }
+
+export { SAFE_MODE_CLEAN_SESSIONS_TO_EXIT }

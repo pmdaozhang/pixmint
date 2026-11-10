@@ -4,8 +4,8 @@ import {
   PURCHASE_PLANS,
   type LicenseDevice,
   type LicenseStatus,
-  type PaymentProvider,
-  type PurchaseOrder
+  type ManualOrder,
+  type PaymentProvider
 } from '@shared/license'
 import type { Settings, ThemeSetting } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
@@ -14,10 +14,10 @@ import './purchase.css'
 
 const SHADOW_PADDING = 56
 const MIN_WINDOW_HEIGHT = 480
-const MAX_WINDOW_HEIGHT = 880
+const MAX_WINDOW_HEIGHT = 960
 
 type PlanId = 'monthly' | 'yearly' | 'lifetime'
-type Step = 'plans' | 'pay' | 'done' | 'activate' | 'invite' | 'devices'
+type Step = 'plans' | 'manual_pay' | 'review' | 'done' | 'activate' | 'invite' | 'devices'
 
 const FEATURE_LABEL: Record<UsageFeature, string> = {
   ocr: 'OCR 识别',
@@ -71,7 +71,7 @@ const PLAN_META: Record<
   yearly: { name: '按年', price: '80', unit: '/ 年', note: '365 天完整 Pro', badge: '省 26%' },
   lifetime: {
     name: '终身',
-    price: '198',
+    price: '58',
     unit: '',
     note: '一次付费 · 永久使用 · 1.x 免费更新',
     badge: '最划算'
@@ -139,11 +139,15 @@ export function PurchaseApp(): JSX.Element {
   const [step, setStep] = useState<Step>('plans')
   const [plan, setPlan] = useState<PlanId>('lifetime')
   const [provider, setProvider] = useState<PaymentProvider>('alipay')
-  const [order, setOrder] = useState<PurchaseOrder | null>(null)
+  const [order, setOrder] = useState<ManualOrder | null>(null)
   const [code, setCode] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [qrError, setQrError] = useState(false)
+  const [qrRetry, setQrRetry] = useState(0)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState('')
   const [devices, setDevices] = useState<LicenseDevice[]>([])
   const [deviceBusy, setDeviceBusy] = useState(false)
   const [confirmUnbind, setConfirmUnbind] = useState('')
@@ -213,39 +217,63 @@ export function PurchaseApp(): JSX.Element {
     }
   }, [step, message, usage, status])
 
-  // 支付轮询
+  const finishPaid = useCallback(
+    async (result: {
+      code?: string
+      emailSent?: boolean
+      emailError?: string | null
+    }) => {
+      if (result.code) setCode(result.code)
+      setEmailSent(result.emailSent === true)
+      setEmailError(result.emailError ?? '')
+      const nextStatus = await window.snapglass.license.status().catch(() => null)
+      if (nextStatus) setStatus(nextStatus)
+      const nextUsage = await window.snapglass.usage.get().catch(() => null)
+      if (nextUsage) setUsage(nextUsage)
+      setStep('done')
+    },
+    []
+  )
+
+  // 人工收款订单轮询：管理员确认后自动激活，不需要用户再粘贴激活码。
   useEffect(() => {
-    if (step !== 'pay' || !order) return
+    if (step !== 'review' || !order) return
     let active = true
-    const timer = window.setInterval(() => {
-      void window.snapglass.purchase
-        .orderStatus(order.orderId, order.orderToken)
-        .then(async (next) => {
-          if (!active) return
-          if (next.status === 'paid') {
-            active = false
-            window.clearInterval(timer)
-            if (next.code) setCode(next.code)
-            const nextStatus = await window.snapglass.license.status().catch(() => null)
-            if (nextStatus) setStatus(nextStatus)
-            setStep('done')
-            return
-          }
-          if (next.status === 'expired' || next.status === 'refunded') {
-            active = false
-            window.clearInterval(timer)
-            setMessage(
-              next.status === 'expired'
-                ? tr('二维码已过期，请重新下单')
-                : tr('订单已退款')
-            )
-            setStep('plans')
-          }
-        })
-        .catch(() => {
-          // 网络抖动时继续轮询，不打断支付
-        })
-    }, 2000)
+    let timer = 0
+    const check = async (): Promise<void> => {
+      try {
+        const next = await window.snapglass.purchase.manualOrderStatus(
+          order.orderId,
+          order.orderToken
+        )
+        if (!active) return
+        if (next.status === 'paid') {
+          active = false
+          window.clearInterval(timer)
+          await finishPaid(next)
+          return
+        }
+        if (next.status === 'rejected') {
+          active = false
+          window.clearInterval(timer)
+          setMessage(next.rejectReason || tr('订单未通过审核，请重新下单'))
+          setStep('plans')
+          return
+        }
+        if (next.status === 'expired') {
+          active = false
+          window.clearInterval(timer)
+          setMessage(tr('订单已过期，请重新下单'))
+          setStep('plans')
+        }
+      } catch {
+        // 网络抖动时继续轮询，不打断人工确认
+      }
+    }
+    void check()
+    timer = window.setInterval(() => {
+      void check()
+    }, 5000)
     return () => {
       active = false
       window.clearInterval(timer)
@@ -256,19 +284,47 @@ export function PurchaseApp(): JSX.Element {
   const featureLimit = feature && usage ? (usage.limits[feature] ?? 0) : 0
   const exhausted = Boolean(feature && usage && usage.remaining[feature] === 0)
 
-  const buy = useCallback(async () => {
+  const startManualOrder = useCallback(async () => {
+    const value = email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setMessage(tr('请填写正确的邮箱，用于接收激活码'))
+      return
+    }
     setBusy(true)
     setMessage('')
+    setQrError(false)
+    setQrRetry(0)
     try {
-      const created = await window.snapglass.purchase.createOrder(plan, provider)
+      const created = await window.snapglass.purchase.createManualOrder(
+        plan,
+        provider,
+        value
+      )
       setOrder(created)
-      setStep('pay')
+      setStep('manual_pay')
     } catch (error) {
-      setMessage(readableError(error) || tr('支付暂未开放，请稍后再试'))
+      setMessage(readableError(error) || tr('下单失败，请稍后再试'))
     } finally {
       setBusy(false)
     }
-  }, [plan, provider, tr])
+  }, [email, plan, provider, tr])
+
+  const submitManualPayment = useCallback(async () => {
+    if (!order) return
+    setBusy(true)
+    setMessage('')
+    try {
+      await window.snapglass.purchase.submitManualOrder(
+        order.orderId,
+        order.orderToken
+      )
+      setStep('review')
+    } catch (error) {
+      setMessage(readableError(error) || tr('提交失败，请稍后再试'))
+    } finally {
+      setBusy(false)
+    }
+  }, [order, tr])
 
   const activate = useCallback(async () => {
     const value = code.trim()
@@ -367,9 +423,14 @@ export function PurchaseApp(): JSX.Element {
     setMessage(tr('激活码已复制'))
   }
 
-  const qrSrc = order?.qrSvg
-    ? `data:image/svg+xml;utf8,${encodeURIComponent(order.qrSvg)}`
-    : order?.qrDataUrl ?? ''
+  const copyOrderNumber = (): void => {
+    if (!order) return
+    void navigator.clipboard.writeText(order.orderNumber)
+    setMessage(tr('订单号已复制'))
+  }
+
+  const formatAmount = (cents: number): string =>
+    `¥${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
 
   return (
     <div className="pc-root">
@@ -418,7 +479,7 @@ export function PurchaseApp(): JSX.Element {
                 </div>
               )}
 
-              <div className="pc-plans">
+              <div className={`pc-plans${PURCHASE_PLANS.length === 1 ? ' single' : ''}`}>
                 {PURCHASE_PLANS.map((item) => {
                   const meta = PLAN_META[item.id]
                   const selected = plan === item.id
@@ -480,6 +541,19 @@ export function PurchaseApp(): JSX.Element {
                 ))}
               </div>
 
+              <div className="pc-email pc-email-inline">
+                <label htmlFor="pc-buy-email">{tr('接收激活码的邮箱')}</label>
+                <input
+                  id="pc-buy-email"
+                  className="pc-input"
+                  type="email"
+                  value={email}
+                  placeholder="you@example.com"
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+                <p>{tr('付款确认后会自动把激活码发到这个邮箱')}</p>
+              </div>
+
               <div className="pc-provider">
                 <span>{tr('支付方式')}</span>
                 <div className="pc-seg">
@@ -502,8 +576,13 @@ export function PurchaseApp(): JSX.Element {
 
               {message && <div className="pc-message">{message}</div>}
 
-              <button className="pc-primary" type="button" disabled={busy} onClick={() => void buy()}>
-                {busy ? tr('正在创建订单…') : tr('立即购买')}
+              <button
+                className="pc-primary"
+                type="button"
+                disabled={busy}
+                onClick={() => void startManualOrder()}
+              >
+                {busy ? tr('正在创建订单…') : tr('生成订单并付款')}
               </button>
 
               <div className="pc-links">
@@ -517,25 +596,92 @@ export function PurchaseApp(): JSX.Element {
             </>
           )}
 
-          {step === 'pay' && order && (
+          {step === 'manual_pay' && order && (
             <>
               <div className="pc-eyebrow">{tr('扫码支付')}</div>
-              <h1>{tr('用手机扫码完成支付')}</h1>
+              <h1>{tr('支付 {amount}', { amount: formatAmount(order.amountCents) })}</h1>
               <p className="pc-lead">
-                {tr('支付成功后会自动激活，本窗口无需其他操作。')}
+                {tr('{plan} · 付款后人工确认，通常 10 分钟内完成', {
+                  plan: tr(PLAN_META[order.plan].name)
+                })}
               </p>
+              <div className="pc-order-no">
+                <span>{tr('订单号')}</span>
+                <code>{order.orderNumber}</code>
+                <button type="button" onClick={copyOrderNumber}>
+                  {tr('复制')}
+                </button>
+              </div>
               <div className="pc-qr">
-                {qrSrc ? (
-                  <img src={qrSrc} alt={tr('支付二维码')} />
+                {!qrError ? (
+                  <img
+                    key={`${order.orderId}-${qrRetry}`}
+                    src={order.qrUrls[order.channel]}
+                    alt={tr('收款二维码')}
+                    onError={() => setQrError(true)}
+                  />
                 ) : (
                   <div className="pc-qr-fallback">
-                    {order.payUrl ?? tr('二维码生成中…')}
+                    <p>{tr('收款码加载失败，请检查网络')}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQrError(false)
+                        setQrRetry((value) => value + 1)
+                      }}
+                    >
+                      {tr('重新加载')}
+                    </button>
                   </div>
                 )}
               </div>
               <div className="pc-pay-note">
-                {provider === 'alipay' ? tr('请使用支付宝扫码') : tr('请使用微信扫码；如无法支付，请在手机浏览器打开')}
+                {order.channel === 'alipay' ? tr('请使用支付宝扫码') : tr('请使用微信扫码')}
               </div>
+              <ol className="pc-steps">
+                <li>{tr('扫码付款 {amount}', { amount: formatAmount(order.amountCents) })}</li>
+                <li>{tr('付款备注填写订单号 {order}', { order: order.orderNumber })}</li>
+                <li>{tr('回到此窗口点「我已完成支付」')}</li>
+              </ol>
+              <p className="pc-fineprint">
+                {tr('虚拟商品，付款后不支持退款。人工确认通常 10 分钟内完成。')}
+              </p>
+              <button
+                className="pc-primary"
+                type="button"
+                disabled={busy}
+                onClick={() => void submitManualPayment()}
+              >
+                {busy ? tr('正在提交…') : tr('我已完成支付')}
+              </button>
+              <button className="pc-secondary" type="button" onClick={() => setStep('plans')}>
+                {tr('返回套餐')}
+              </button>
+            </>
+          )}
+
+          {step === 'review' && order && (
+            <>
+              <div className="pc-eyebrow">{tr('等待确认')}</div>
+              <h1>{tr('正在核对付款')}</h1>
+              <p className="pc-lead">
+                {tr(
+                  '已收到你的付款信息，人工确认通常 10 分钟内完成。此窗口会自动更新，无需重复操作。'
+                )}
+              </p>
+              <div className="pc-order-no">
+                <span>{tr('订单号')}</span>
+                <code>{order.orderNumber}</code>
+                <button type="button" onClick={copyOrderNumber}>
+                  {tr('复制')}
+                </button>
+              </div>
+              <div className="pc-pay-note">
+                {tr('确认后会自动激活，并把激活码发送到 {email}', {
+                  email: order.email
+                })}
+              </div>
+              {message && <div className="pc-message">{message}</div>}
               <button className="pc-secondary" type="button" onClick={() => setStep('plans')}>
                 {tr('返回套餐')}
               </button>
@@ -563,7 +709,17 @@ export function PurchaseApp(): JSX.Element {
               )}
 
               <div className="pc-email">
-                <label htmlFor="pc-email-input">{tr('输入邮箱，把激活码发给你')}</label>
+                <label htmlFor="pc-email-input">{tr('邮箱（用于接收激活码）')}</label>
+                {emailSent && (
+                  <p className="pc-pay-note">
+                    {tr('激活码已发送至 {email}', { email })}
+                  </p>
+                )}
+                {emailError && (
+                  <div className="pc-message">
+                    {tr('自动发信失败：{error}', { error: emailError })}
+                  </div>
+                )}
                 <div className="pc-email-row">
                   <input
                     id="pc-email-input"
@@ -573,10 +729,10 @@ export function PurchaseApp(): JSX.Element {
                     onChange={(event) => setEmail(event.target.value)}
                   />
                   <button type="button" disabled={busy || !email.trim()} onClick={() => void sendEmail()}>
-                    {tr('发送')}
+                    {tr('重新发送')}
                   </button>
                 </div>
-                <p>{tr('换电脑时输入这个激活码即可，一个激活码最多绑定 3 台设备。')}</p>
+                <p>{tr('换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。')}</p>
               </div>
 
               <button className="pc-secondary" type="button" onClick={() => setStep('devices')}>
@@ -638,7 +794,7 @@ export function PurchaseApp(): JSX.Element {
               <div className="pc-eyebrow">{tr('授权设备')}</div>
               <h1>{tr('管理设备')}</h1>
               <p className="pc-lead">
-                {tr('一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。')}
+                {tr('一个激活码最多绑定 5 台设备；解绑后该设备下次使用需要重新激活。')}
               </p>
               {deviceBusy && devices.length === 0 ? (
                 <div className="pc-message">{tr('正在加载设备…')}</div>

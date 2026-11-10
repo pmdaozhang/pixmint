@@ -62,7 +62,10 @@ export interface DisplayCapture {
   displayId: number
   bounds: Rect
   scaleFactor: number
+  /** 兼容路径（desktopCapturer / 测试假画面）的 data URL；快速路径留空。 */
   imageDataUrl: string
+  /** 快速路径直接传 PNG 字节，避免 base64 编解码和超大字符串 IPC。 */
+  imageBytes?: Uint8Array
   imageWidth: number
   imageHeight: number
 }

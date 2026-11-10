@@ -7,6 +7,7 @@ import type {
 } from '../../shared/types'
 import { withTimeout } from '../../shared/async'
 import { addBreadcrumb } from '../breadcrumbs'
+import { logDiagnostic } from '../diagnostics'
 import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from '../image-utils'
 import type { PlatformServices } from '../platform'
 import type { RecorderManager } from '../recording'
@@ -59,6 +60,7 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
       bounds: display.bounds,
       scaleFactor: display.scaleFactor
     })
+    const preparedAt = Date.now()
     const started = Date.now()
     const fast = await deps.platformServices.capture.captureFast(display)
     console.log('CAPTURE_KIND', fast ? 'fast' : 'fallback')
@@ -69,6 +71,7 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
         5000,
         t(deps.settingsStore.get().language, '截图超时，请检查屏幕录制权限')
       ))
+    const capturedAt = Date.now()
     console.log('CAPTURE_MS', Date.now() - started)
     addBreadcrumb('capture', 'captured', {
       fast: Boolean(fast),
@@ -77,6 +80,14 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     deps.getTray()?.closeContextMenu()
     await overlayManager.start(capture, mode)
+    const total = Date.now() - triggered
+    logDiagnostic(
+      'capture',
+      `timing total=${total} prepare=${preparedAt - triggered} capture=${
+        capturedAt - preparedAt
+      } fast=${Boolean(fast)} overlayStart=${total - (capturedAt - triggered)}`,
+      total > 800 || !fast ? 'warn' : 'info'
+    )
     console.log('START_CAPTURE_TOTAL_MS', Date.now() - triggered)
   } catch (error) {
     overlayManager?.hideAll()

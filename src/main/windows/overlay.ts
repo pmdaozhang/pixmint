@@ -9,7 +9,8 @@ import type {
 import { loadRoute } from './load'
 import {
   beginOverlaySession,
-  endOverlaySession
+  endOverlaySession,
+  noteCleanOverlaySession
 } from '../safe-mode'
 import { logDiagnostic } from '../diagnostics'
 import { disableWindowTransitions } from '../native-window'
@@ -22,6 +23,7 @@ import {
 interface OverlayEntry {
   window: BrowserWindow
   displayId: number
+  bounds: Electron.Rectangle
   recordingMode: { active: boolean; interactive: boolean } | null
   rendererGone: boolean
 }
@@ -34,22 +36,15 @@ function toMb(bytes: number): number {
 }
 
 /**
- * 背景：hide()/showInactive() 会让 Windows 重播窗口展开动画，并让合成器变冷。
- * 设计意图：窗口常驻可见但完全透明，空闲时停在屏幕外；截图时只移动位置和改透明度。
- * 关键约束：屏幕外坐标必须超出所有显示器；窗口尺寸保持不变，避免渲染层重排。
+ * 背景：让全屏透明窗口常驻可见、靠定时器“保活”，在 Windows 上并不可靠——
+ * 页面长时间没有真实变化时，DWM 会放冷甚至回收窗口的合成表面，表现为
+ * 应用内部 90ms 就绪、屏幕上却要等几秒才看到遮罩。0.8.1–0.8.5 反复修的都是这个。
+ * 设计意图：覆盖层空闲时直接隐藏，不再依赖透明窗口的表面保持热态；
+ * F1 时先完成截图，再以 opacity 0 显示窗口、等渲染层画好冻结画面和遮罩，
+ * 最后切到 opacity 1。用户看到的第一帧就是完整画面，不经过任何冷表面。
+ * 关键约束：截图发生在窗口隐藏期间，覆盖层天然不会进入截图，也不再需要
+ * WDA_EXCLUDEFROMCAPTURE；录制阶段仍复用同一个透明窗口显示红框和徽章。
  */
-const OFFSCREEN_POSITION = -32000
-
-function parkWindow(window: BrowserWindow): void {
-  if (window.isDestroyed()) return
-  const bounds = window.getBounds()
-  window.setBounds({
-    x: OFFSCREEN_POSITION,
-    y: OFFSCREEN_POSITION,
-    width: bounds.width,
-    height: bounds.height
-  })
-}
 
 /** 回收延迟；压测可用环境变量缩短，生产默认 1.5 秒。 */
 function recycleDelayMs(): number {
@@ -72,12 +67,17 @@ export class OverlayManager {
   private readonly rendererReady = new Set<number>()
   private readonly readyWaiters = new Map<number, Array<() => void>>()
   private readonly prepareWaiters = new Map<number, () => void>()
+  /** 覆盖层确认“已绘制两帧”的时间，用于区分真正 ack 和 700ms 超时。 */
+  private readonly preparedAckAt = new Map<number, number>()
+  /** 递增后让进行中的启动预热失效，避免和真正的截图会话互相清状态。 */
   private warmupToken = 0
   private active = false
   private watchdogTimer: NodeJS.Timeout | null = null
   private lastHeartbeatAt = 0
   private escapeRegistered = false
   private sessionLocked = false
+  /** 本次会话的渲染层是否真的完成过绘制确认；只有这种会话才算“干净会话”。 */
+  private sessionPrepared = false
   /** 自上次重建以来的截图会话数，用于按节奏采样渲染进程内存。 */
   private sessionCount = 0
   /** 建立基线之后又完成了多少次会话。 */
@@ -119,6 +119,7 @@ export class OverlayManager {
    */
   private activateSession(webContentsId: number): void {
     this.active = true
+    this.sessionPrepared = false
     this.lastHeartbeatAt = Date.now()
     if (!this.sessionLocked) {
       beginOverlaySession()
@@ -174,13 +175,17 @@ export class OverlayManager {
     }
   }
 
-  private endSession(): void {
+  private endSession(clean = true): void {
     this.stopWatchdog()
     this.unregisterEmergencyShortcut()
     if (this.sessionLocked) {
       endOverlaySession()
       this.sessionLocked = false
+      // 只有真正绘制过两帧、且正常收尾的会话，才是“覆盖层可用”的证据；
+      // 连续几次后自动退出兼容模式，避免一次误触发永久关闭硬件加速。
+      if (clean && this.sessionPrepared) noteCleanOverlaySession()
     }
+    this.sessionPrepared = false
   }
 
   /**
@@ -193,20 +198,19 @@ export class OverlayManager {
     console.error('OVERLAY_FAILSAFE', message)
     logDiagnostic('overlay', `FAILSAFE ${message}`)
     this.active = false
-    this.endSession()
+    // 看门狗兜底说明覆盖层没有正常收尾，不能计入“干净会话”。
+    this.endSession(false)
     for (const [id, entry] of [...this.entries.entries()]) {
       if (entry.window.isDestroyed()) {
         this.removeEntry(id)
         continue
       }
-      // 背景：hide() 会让下一次 showInactive() 重新播放 Windows 的窗口展开动画，
-      // 表现为整个画面"从小放大"闪一下，并让首次工具栏等待重新合成。
-      // 设计意图：窗口常驻可见但完全透明，只切换 opacity，不再 hide/show。
       entry.window.setIgnoreMouseEvents(true)
-      entry.window.setOpacity(0)
-      entry.window.setContentProtection(false)
-      parkWindow(entry.window)
+      entry.window.setOpacity(1)
       this.send(entry, 'overlay:reset')
+      // 看门狗触发时渲染层可能已经卡死，收不到 reset；必须从主进程
+      // 直接把窗口隐藏，否则全屏遮罩会一直留在屏幕上。
+      entry.window.hide()
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
         this.removeEntry(id)
@@ -243,25 +247,35 @@ export class OverlayManager {
       this.active = false
       return
     }
+    // 显示器排列变化后，下次显示的位置也要跟着更新。
+    entry.bounds = {
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height
+    }
     for (const other of this.entries.values()) {
-      if (other.window !== entry.window) {
-        other.window.setOpacity(0)
+      if (other.window !== entry.window && !other.window.isDestroyed()) {
         other.window.setIgnoreMouseEvents(true)
+        if (other.window.isVisible()) other.window.hide()
       }
     }
-    // 保持屏幕外位置：截图发生在 prepare 之后，此时绝不能把覆盖层移进屏幕。
     this.captures.delete(id)
-    entry.window.setContentProtection(false)
-    // 覆盖层常驻可见但完全透明，截屏期间只清空内容，不 hide，
-    // 避免下一次 show() 触发 Windows 的全屏放大过场。
-    if (entry.window.isVisible()) {
-      entry.window.setOpacity(0)
-      entry.window.setIgnoreMouseEvents(true)
-    }
+    entry.window.setBounds(entry.bounds)
+    entry.window.setIgnoreMouseEvents(true)
+    if (entry.window.isVisible()) entry.window.hide()
+    // 以 0 透明度提前显示，把窗口显示/合成的耗时和截图重叠。
+    // 全透明窗口对 GDI/WGC 截屏没有任何像素贡献，冻结画面保持干净。
+    entry.window.setOpacity(0)
+    entry.window.showInactive()
+    entry.window.moveTop()
+    // 隐藏状态下先把上一次会话的 UI 重置掉，等截图完成后直接显示新画面。
     this.send(entry, 'overlay:prepare', this.getSettings())
   }
 
   markPrepared(webContentsId: number): void {
+    this.preparedAckAt.set(webContentsId, Date.now())
+    if (this.active) this.sessionPrepared = true
     const resolve = this.prepareWaiters.get(webContentsId)
     if (resolve) {
       resolve()
@@ -286,7 +300,6 @@ export class OverlayManager {
     const window = entry.window
     if (interactive) this.activateSession(webContentsId)
     if (active) {
-      window.setContentProtection(false)
       if (interactive) {
         window.setAlwaysOnTop(true, 'screen-saver')
         window.setIgnoreMouseEvents(false)
@@ -301,7 +314,6 @@ export class OverlayManager {
       window.moveTop()
       return
     }
-    window.setContentProtection(false)
     if (interactive) {
       window.setAlwaysOnTop(true, 'screen-saver')
       window.setIgnoreMouseEvents(false)
@@ -316,9 +328,10 @@ export class OverlayManager {
   hideRecordingOverlay(webContentsId: number): void {
     const entry = this.entries.get(webContentsId)
     if (!entry || entry.window.isDestroyed()) return
+    this.send(entry, 'overlay:reset')
     entry.window.setIgnoreMouseEvents(true)
-    entry.window.setContentProtection(false)
-    entry.window.setOpacity(0)
+    entry.window.setOpacity(1)
+    entry.window.hide()
     // 录制完成进入结果卡后，本次截图会话已经结束；必须复位 active，
     // 否则下一次 F1 会被 startCapture 当成“关闭旧覆盖层”而吞掉。
     this.active = false
@@ -327,6 +340,7 @@ export class OverlayManager {
 
   async start(capture: DisplayCapture, pendingRecorderMode?: RecorderMode): Promise<void> {
     const started = Date.now()
+    this.warmupToken += 1
     this.active = true
     let id = this.byDisplay.get(capture.displayId)
     if (id === undefined) {
@@ -343,60 +357,83 @@ export class OverlayManager {
     }
     this.activateSession(id)
     for (const other of this.entries.values()) {
-      if (other.window !== entry.window) {
-        other.window.setOpacity(0)
+      if (other.window !== entry.window && !other.window.isDestroyed()) {
         other.window.setIgnoreMouseEvents(true)
+        if (other.window.isVisible()) other.window.hide()
       }
     }
     entry.window.setBounds(capture.bounds)
+    entry.bounds = capture.bounds
+    const boundsAt = Date.now()
     this.captures.set(id, capture)
     console.log('OVERLAY_START', id, this.rendererReady.has(id))
     await this.waitForRenderer(id)
+    const readyAt = Date.now()
     if (!this.active || entry.window.isDestroyed()) {
       this.endSession()
       return
     }
-    entry.window.setContentProtection(false)
     entry.window.setAlwaysOnTop(true, 'screen-saver')
-    entry.window.setIgnoreMouseEvents(false)
-    // 先以完全透明状态显示窗口，让渲染进程完成图片解码和首次绘制；
-    // 收到 prepared ack 后再把 opacity 设为 1，避免旧 surface 或透明桌面被看到。
-    entry.window.setOpacity(0)
-    // 使用 showInactive 避免 Windows 对全屏窗口执行“从小到大”的显示动画；
-    // 覆盖层内容已经提前解码，直接出现即可，后续再主动 focus 接收键盘。
+    // 先保持鼠标穿透，等冻结画面真正绘制到画布后再允许框选。
+    entry.window.setIgnoreMouseEvents(true)
+    // 以 1% 透明度显示窗口：DWM 会真的合成这一帧，渲染层也能收到合成帧并完成
+    // 解码/绘制，用户肉眼看不到内容；等两帧确认后再切到 1，首帧就是完整画面。
+    entry.window.setOpacity(0.01)
     if (!entry.window.isVisible()) entry.window.showInactive()
     entry.window.moveTop()
-    entry.window.focus()
+    const nativesAt = Date.now()
+    this.preparedAckAt.delete(id)
+    const preparedStarted = Date.now()
     const prepared = this.waitForPrepared(id, 700)
     this.send(entry, 'overlay:init', {
       ...capture,
       settings: this.getSettings(),
       pendingRecorderMode
     })
+    const initAt = Date.now()
     console.log('OVERLAY_INIT_SENT', Date.now() - started)
     await prepared
+    const preparedAt = Date.now()
     if (!this.active || entry.window.isDestroyed()) {
       this.endSession()
       return
     }
     console.log('OVERLAY_PREPARED', Date.now() - started)
-    entry.window.setOpacity(1)
+    // 先抢焦点再变可见：首帧以“前台窗口”身份交给 DWM 合成，
+    // 避免可见后才切前台导致的额外呈现延迟。
+    entry.window.setIgnoreMouseEvents(false)
     entry.window.moveTop()
     entry.window.focus()
+    entry.window.setOpacity(1)
+    const shownAt = Date.now()
     console.log('OVERLAY_SHOW_MS', Date.now() - started)
+    // 一次 F1 的完整分段耗时；超过 800ms 记 warn，方便线上直接看出卡在哪一段。
+    const acked = (this.preparedAckAt.get(id) ?? 0) >= preparedStarted
+    const total = shownAt - started
+    logDiagnostic(
+      'overlay',
+      `show timing total=${total} bounds=${boundsAt - started} ready=${readyAt - boundsAt} natives=${
+        nativesAt - readyAt
+      } init=${initAt - nativesAt} prepared=${preparedAt - initAt}${
+        acked ? '' : '(timeout)'
+      } opacity=${shownAt - preparedAt}`,
+      total > 800 ? 'warn' : 'info'
+    )
   }
 
-  /** 隐藏式预热：不显示给用户，只把渲染层、图片解码和合成器走一遍。 */
+  /**
+   * 启动预热：让 React、工具条、图片解码和首帧合成先跑一遍，
+   * 避免应用启动后的第一次 F1 比后续慢一倍。全程 1% 透明度，用户看不到。
+   * 关键约束：真正的截图会话开始后立即作废，不能清掉正在使用的图片和窗口状态。
+   */
   async warmup(display: DisplayInfo): Promise<void> {
-    if (this.active) return
     const token = ++this.warmupToken
     let id = this.byDisplay.get(display.id)
     if (id === undefined) id = this.createWindow(display)
     const entry = this.entries.get(id)
     if (!entry) return
     await this.waitForRenderer(id)
-    if (token !== this.warmupToken || entry.window.isDestroyed()) return
-
+    if (token !== this.warmupToken || this.active || entry.window.isDestroyed()) return
     const fake: DisplayCapture = {
       displayId: display.id,
       bounds: display.bounds,
@@ -406,20 +443,18 @@ export class OverlayManager {
       imageHeight: 1
     }
     this.captures.set(id, fake)
-    entry.window.setContentProtection(false)
-    entry.window.setOpacity(0)
-    entry.window.showInactive()
-    const prepared = this.waitForPrepared(id, 700)
-    this.send(entry, 'overlay:init', {
-      ...fake,
-      settings: this.getSettings()
-    })
-    await prepared
-    if (token !== this.warmupToken || entry.window.isDestroyed()) return
-    this.send(entry, 'overlay:reset')
-    entry.window.setOpacity(0)
     entry.window.setIgnoreMouseEvents(true)
+    entry.window.setOpacity(0.01)
+    entry.window.showInactive()
+    entry.window.moveTop()
+    const prepared = this.waitForPrepared(id, 700)
+    this.send(entry, 'overlay:init', { ...fake, settings: this.getSettings() })
+    await prepared
+    if (token !== this.warmupToken || this.active || entry.window.isDestroyed()) return
+    this.send(entry, 'overlay:reset')
     this.captures.delete(id)
+    entry.window.setOpacity(1)
+    entry.window.hide()
   }
 
   complete(payload: OverlayCompletePayload, webContentsId: number): void {
@@ -443,11 +478,10 @@ export class OverlayManager {
         this.removeEntry(id)
         continue
       }
-      entry.window.setContentProtection(false)
       entry.window.setIgnoreMouseEvents(true)
-      entry.window.setOpacity(0)
-      parkWindow(entry.window)
+      entry.window.setOpacity(1)
       this.send(entry, 'overlay:reset')
+      entry.window.hide()
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
         this.removeEntry(id)
@@ -551,6 +585,8 @@ export class OverlayManager {
     this.sessionsSinceBaseline = 0
     this.memoryBaselineBytes = null
     this.prewarm(displays)
+    // 回收后立刻预热一次，下一次 F1 仍然走热路径。
+    if (displays[0]) void this.warmup(displays[0])
   }
 
   private send(entry: OverlayEntry, channel: string, payload?: unknown): void {
@@ -576,6 +612,7 @@ export class OverlayManager {
     this.captures.delete(webContentsId)
     this.rendererReady.delete(webContentsId)
     this.prepareWaiters.delete(webContentsId)
+    this.preparedAckAt.delete(webContentsId)
   }
 
   destroyAll(): void {
@@ -617,8 +654,8 @@ export class OverlayManager {
 
   private createWindow(display: DisplayInfo): number {
     const window = new BrowserWindow({
-      x: OFFSCREEN_POSITION,
-      y: OFFSCREEN_POSITION,
+      x: display.bounds.x,
+      y: display.bounds.y,
       width: display.bounds.width,
       height: display.bounds.height,
       frame: false,
@@ -632,7 +669,7 @@ export class OverlayManager {
       skipTaskbar: true,
       alwaysOnTop: true,
       hasShadow: false,
-      opacity: 0,
+      opacity: 1,
       show: false,
       enableLargerThanScreen: true,
       webPreferences: {
@@ -646,6 +683,11 @@ export class OverlayManager {
     })
     window.setAlwaysOnTop(true, 'screen-saver')
     window.setMenuBarVisibility(false)
+    // Windows 会把“初始创建”的全屏窗口高度压到工作区（1080 -> 1032）。
+    // 创建后必须显式 setBounds，才能覆盖任务栏区域，保证截图坐标不偏移。
+    window.setBounds(display.bounds)
+    // 窗口从未显示起就保持鼠标穿透；空闲时虽然留在屏幕内，也不能挡住点击。
+    window.setIgnoreMouseEvents(true)
     if (process.platform === 'darwin') {
       window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
     }
@@ -654,6 +696,7 @@ export class OverlayManager {
     this.entries.set(id, {
       window,
       displayId: display.id,
+      bounds: display.bounds,
       recordingMode: null,
       rendererGone: false
     })
@@ -673,6 +716,7 @@ export class OverlayManager {
       this.captures.delete(id)
       this.rendererReady.delete(id)
       this.prepareWaiters.delete(id)
+      this.preparedAckAt.delete(id)
       if (this.active) this.endSession()
     })
     loadRoute(window, 'overlay')

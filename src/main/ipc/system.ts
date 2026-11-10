@@ -53,7 +53,7 @@ export function registerSystemIpc(ctx: IpcContext): void {
   // 购买窗按内容高度自适应
   on(
     'purchase:resize',
-    z.tuple([z.number().finite().min(360).max(900)]),
+    z.tuple([z.number().finite().min(360).max(980)]),
     (event, [height]) => {
       const window = BrowserWindow.fromWebContents(event.sender)
       if (!window || window.isDestroyed()) return

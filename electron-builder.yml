@@ -20,6 +20,8 @@ files:
   - '!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxil.dll'
 asarUnpack:
   - node_modules/onnxruntime-node/**/*
+  - node_modules/node-screenshots/**/*
+  - node_modules/node-screenshots-*/**/*
 extraResources:
   - from: assets
     to: assets

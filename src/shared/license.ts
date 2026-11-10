@@ -64,9 +64,7 @@ export interface PurchasePlan {
 }
 
 export const PURCHASE_PLANS: PurchasePlan[] = [
-  { id: 'monthly', label: '9 元/月', price: 900, days: 30 },
-  { id: 'yearly', label: '80 元/年', price: 8000, days: 365 },
-  { id: 'lifetime', label: '198 元 终身', price: 19800, days: null }
+  { id: 'lifetime', label: '58 元 终身', price: 5800, days: null }
 ]
 
 export type PaymentProvider = 'alipay' | 'wechat'
@@ -91,4 +89,35 @@ export interface PurchaseOrderResult {
   status: PurchaseOrderStatus
   code?: string
   token?: string
+}
+
+export type ManualOrderStatus =
+  | 'pending_payment'
+  | 'reviewing'
+  | 'paid'
+  | 'rejected'
+  | 'expired'
+
+export interface ManualOrder {
+  orderId: string
+  orderToken: string
+  orderNumber: string
+  status: ManualOrderStatus
+  plan: 'monthly' | 'yearly' | 'lifetime'
+  channel: PaymentProvider
+  amountCents: number
+  email: string
+  /** 毫秒时间戳 */
+  expiresAt: number
+  qrUrls: Record<PaymentProvider, string>
+  rejectReason?: string | null
+}
+
+export interface ManualOrderResult {
+  status: ManualOrderStatus
+  code?: string
+  token?: string
+  emailSent?: boolean
+  emailError?: string | null
+  rejectReason?: string | null
 }

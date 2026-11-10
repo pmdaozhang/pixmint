@@ -27,8 +27,10 @@ const windowStates = (app) =>
   console.log('PREPARE_WINDOWS_DURING', JSON.stringify(during))
   const overlayDuring = during.find((state) => state.url.includes('#overlay'))
   if (!overlayDuring) throw new Error('overlay window missing')
-  if (overlayDuring.visible) {
-    throw new Error('overlay must stay hidden while the screen capture is in progress')
+  // 新架构会在截图期间以 0 透明度提前显示窗口（把显示耗时和截图重叠），
+  // 只要对用户不可见、对截屏没有像素贡献即可。
+  if (overlayDuring.visible && overlayDuring.opacity > 0.05) {
+    throw new Error('overlay must stay invisible while the screen capture is in progress')
   }
   console.log('PREPARE_OVERLAY_HIDDEN true')
 

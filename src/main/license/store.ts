@@ -38,7 +38,7 @@ const EMPTY: LicenseRecord = {
   lastRefreshAt: 0,
   lastSeenAt: 0,
   devicesUsed: 0,
-  devicesMax: 3
+  devicesMax: 5
 }
 
 export class LicenseStore {
@@ -97,7 +97,7 @@ export class LicenseStore {
           typeof parsed.lastRefreshAt === 'number' ? parsed.lastRefreshAt : 0,
         lastSeenAt: typeof parsed.lastSeenAt === 'number' ? parsed.lastSeenAt : 0,
         devicesUsed: typeof parsed.devicesUsed === 'number' ? parsed.devicesUsed : 0,
-        devicesMax: typeof parsed.devicesMax === 'number' ? parsed.devicesMax : 3
+        devicesMax: typeof parsed.devicesMax === 'number' ? parsed.devicesMax : 5
       }
     } catch {
       return { ...EMPTY }

@@ -9,11 +9,12 @@ import {
 import {
   diagnosticsPath,
   ensureDiagnosticsDirectory,
-  flushDiagnosticsSync
+  flushDiagnosticsSync,
+  logDiagnostic
 } from '../diagnostics'
 import { writeDiagnosticsExport } from '../diagnostics-export'
 import { formatStamp } from '../runtime/format-stamp'
-import { safeModeRequested } from '../safe-mode'
+import { disableSafeMode, safeModeRequested } from '../safe-mode'
 import type { IpcContext } from './types'
 import { handle } from './validate'
 
@@ -45,6 +46,16 @@ export function registerDiagnosticsIpc(ctx: IpcContext): void {
 
   handle('diagnostics:flush', z.tuple([]), () => {
     flushDiagnosticsSync()
+  })
+
+  handle('diagnostics:disable-safe-mode', z.tuple([]), () => {
+    const removed = disableSafeMode()
+    logDiagnostic(
+      'safe-mode',
+      `compatibility mode disabled by user (flag present: ${removed}; takes effect next launch)`,
+      'warn'
+    )
+    return removed
   })
 
   handle('diagnostics:export-report', z.tuple([]), async () => {

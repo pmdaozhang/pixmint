@@ -29,6 +29,8 @@ import type {
   LicenseActivation,
   LicenseDevice,
   LicenseStatus,
+  ManualOrder,
+  ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
   PurchaseOrderResult
@@ -45,7 +47,7 @@ export interface SnapglassApi {
     rendererReady(): void
     heartbeat(): void
     windowAt(x: number, y: number): Promise<Rect | null>
-                autoCopy(pngBytes: Uint8Array): void
+    autoCopy(selection: Rect): void
     complete(payload: OverlayCompletePayload): void
     cancel(): void
   }
@@ -119,6 +121,7 @@ export interface SnapglassApi {
     openLogFolder(): Promise<string>
     openCrashFolder(): Promise<string>
     flush(): Promise<void>
+    disableSafeMode(): Promise<boolean>
     exportReport(): Promise<string | null>
   }
   feedback: {
@@ -155,6 +158,13 @@ export interface SnapglassApi {
       provider: PaymentProvider
     ): Promise<PurchaseOrder>
     orderStatus(orderId: string, orderToken: string): Promise<PurchaseOrderResult>
+    createManualOrder(
+      plan: 'monthly' | 'yearly' | 'lifetime',
+      provider: PaymentProvider,
+      email: string
+    ): Promise<ManualOrder>
+    submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder>
+    manualOrderStatus(orderId: string, orderToken: string): Promise<ManualOrderResult>
     resize(height: number): void
   }
 }

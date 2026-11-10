@@ -1,6 +1,6 @@
 {
   "name": "snapglass",
-  "version": "0.8.3",
+  "version": "0.8.6",
   "private": true,
   "description": "Pixmint - cross-platform screenshot, pin, OCR and recording tool",
   "main": "./out/main/index.js",
@@ -39,6 +39,7 @@
   "dependencies": {
     "electron-updater": "^6.8.11",
     "gifenc": "^1.0.3",
+    "node-screenshots": "0.2.8",
     "onnxruntime-node": "1.22.0",
     "paddleocr": "1.2.0",
     "react": "^19.3.1",

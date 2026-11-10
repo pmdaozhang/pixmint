@@ -186,7 +186,6 @@ const EN: Record<string, string> = {
   '录制初始化超时，请重试': 'Recording setup timed out; try again',
   '3 秒后开始': 'Starts in 3 seconds',
   '截图已自动复制': 'Screenshot copied automatically',
-  '正在截取屏幕…': 'Capturing screen…',
   '视频': 'Video',
   '准备中 · {label}': 'Preparing · {label}',
   '待机 · {label}': 'Ready · {label}',
@@ -490,8 +489,8 @@ const EN: Record<string, string> = {
   '立即购买': 'Buy now',
   '已有激活码 / 换电脑恢复': 'I have a code / restore on a new PC',
   '已有激活码': 'I have a code',
-  '换电脑恢复只需输入激活码，一个激活码最多绑定 3 台设备。':
-    'To restore on a new PC, just enter your activation code; one code binds up to 3 devices.',
+  '换电脑恢复只需输入激活码，一个激活码最多绑定 5 台设备。':
+    'To restore on a new PC, just enter your activation code; one code binds up to 5 devices.',
   '填写邀请码，领 7 天 Pro': 'Enter an invite code for 7 days of Pro',
   '扫码支付': 'Scan to pay',
   '用手机扫码完成支付': 'Scan the code with your phone',
@@ -511,8 +510,8 @@ const EN: Record<string, string> = {
   '激活码': 'Activation code',
   '输入邮箱，把激活码发给你': 'Enter your email and we will send the code',
   '发送': 'Send',
-  '换电脑时输入这个激活码即可，一个激活码最多绑定 3 台设备。':
-    'Enter this code on a new PC. One code can bind up to 3 devices.',
+  '换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。':
+    'Enter this code on a new PC. One code can bind up to 5 devices.',
   '恢复购买': 'Restore purchase',
   '输入激活码': 'Enter activation code',
   '换电脑或重装后，在这里输入购买时收到的激活码。':
@@ -545,8 +544,8 @@ const EN: Record<string, string> = {
   '管理设备': 'Manage devices',
   '授权设备': 'Licensed devices',
   '当前已绑定 {used}/{max} 台设备': '{used}/{max} devices bound',
-  '一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。':
-    'One code binds up to 3 devices. After unbinding, that device must activate again.',
+  '一个激活码最多绑定 5 台设备；解绑后该设备下次使用需要重新激活。':
+    'One code binds up to 5 devices. After unbinding, that device must activate again.',
   '正在加载设备…': 'Loading devices…',
   '还没有绑定设备，或当前没有可管理的授权。':
     'No devices bound, or no license to manage.',
@@ -557,8 +556,48 @@ const EN: Record<string, string> = {
   '解绑': 'Unbind',
   '已解绑该设备': 'Device unbound',
   '升级 Pro': 'Upgrade to Pro',
-  '换电脑时输入此码，最多绑定 3 台设备':
-    'Enter this code on a new PC; up to 3 devices',
+  '换电脑时输入此码，最多绑定 5 台设备':
+    'Enter this code on a new PC; up to 5 devices',
+  '接收激活码的邮箱': 'Email for your activation code',
+  '付款确认后会自动把激活码发到这个邮箱':
+    'We will email the activation code here after payment is confirmed.',
+  '生成订单并付款': 'Create order and pay',
+  '支付 {amount}': 'Pay {amount}',
+  '{plan} · 付款后人工确认，通常 10 分钟内完成':
+    '{plan} · Manually confirmed after payment, usually within 10 minutes',
+  '订单号': 'Order number',
+  '收款二维码': 'Payment QR code',
+  '收款码暂未配置，请联系客服并说明订单号':
+    'Payment QR code is not configured yet. Contact support with your order number.',
+  '收款码加载失败，请检查网络':
+    'Failed to load the payment QR code. Check your network and try again.',
+  '重新加载': 'Reload',
+  '请使用微信扫码': 'Scan with WeChat',
+  '扫码付款 {amount}': 'Scan and pay {amount}',
+  '付款备注填写订单号 {order}': 'Put order number {order} in the payment note',
+  '回到此窗口点「我已完成支付」':
+    'Return to this window and click "I have paid"',
+  '虚拟商品，付款后不支持退款。人工确认通常 10 分钟内完成。':
+    'Digital goods are non-refundable. Manual confirmation usually takes under 10 minutes.',
+  '我已完成支付': 'I have paid',
+  '等待确认': 'Awaiting confirmation',
+  '正在核对付款': 'Verifying your payment',
+  '已收到你的付款信息，人工确认通常 10 分钟内完成。此窗口会自动更新，无需重复操作。':
+    'We received your payment details. Manual confirmation usually takes under 10 minutes; this window updates automatically.',
+  '确认后会自动激活，并把激活码发送到 {email}':
+    'Once confirmed, Pro activates automatically and the code is emailed to {email}.',
+  '激活码已发送至 {email}': 'Activation code sent to {email}',
+  '自动发信失败：{error}': 'Automatic email failed: {error}',
+  '重新发送': 'Resend',
+  '邮箱（用于接收激活码）': 'Email (for your activation code)',
+  '请填写正确的邮箱，用于接收激活码':
+    'Enter a valid email to receive your activation code.',
+  '下单失败，请稍后再试': 'Could not create the order. Please try again.',
+  '提交失败，请稍后再试': 'Could not submit. Please try again.',
+  '订单未通过审核，请重新下单':
+    'The order was not approved. Please place a new order.',
+  '订单已过期，请重新下单': 'The order expired. Please place a new order.',
+  '订单号已复制': 'Order number copied',
 
   // ===== 托盘 =====
   '截图  F1': 'Screenshot  F1',

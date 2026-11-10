@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -28,8 +28,12 @@ $value = 1
 $result = [SnapGlassDwm]::DwmSetWindowAttribute([IntPtr]::new([long]${hwnd}), 3, [ref]$value, 4)
 Write-Output "HRESULT=$result"
 `
-    // 必须同步执行：窗口一旦先显示，DWM 展开动画就已经播放了。
-    const result = spawnSync(
+    // 背景：窗口创建发生在启动和内存回收时，spawnSync 会同步阻塞主进程最多 4 秒，
+    // 期间按 F1 的快捷键回调、所有 IPC 都要排队。
+    // 设计意图：改为异步执行；窗口创建时是隐藏的，第一次显示远晚于 DWM 调用完成，
+    // 仍然能在显示前关闭“从小到大”的展开动画。
+    // 关键约束：超时后杀掉子进程；失败只记录日志，不影响窗口创建。
+    const child = spawn(
       'powershell.exe',
       [
         '-NoLogo',
@@ -40,23 +44,39 @@ Write-Output "HRESULT=$result"
         '-Command',
         script
       ],
-      { windowsHide: true, timeout: 4000, encoding: 'utf8' }
+      { windowsHide: true }
     )
-    if (result.error || result.status !== 0) {
-      console.warn('DISABLE_TRANSITIONS_FAILED', result.error ?? result.stderr)
-    } else {
-      console.log('DISABLE_TRANSITIONS', result.stdout.trim())
-    }
-    try {
-      appendFileSync(
-        join(tmpdir(), 'pixmint-dwm.log'),
-        `${new Date().toISOString()} ${String(result.stdout ?? '').trim()} ${String(
-          result.stderr ?? ''
-        ).trim()}\n`
-      )
-    } catch {
-      // 诊断日志失败不影响窗口创建
-    }
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => child.kill(), 4000)
+    timer.unref?.()
+    child.stdout?.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+    child.stderr?.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      console.warn('DISABLE_TRANSITIONS_FAILED', error)
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (code !== 0) {
+        console.warn('DISABLE_TRANSITIONS_FAILED', stderr)
+      } else {
+        console.log('DISABLE_TRANSITIONS', stdout.trim())
+      }
+      try {
+        appendFileSync(
+          join(tmpdir(), 'pixmint-dwm.log'),
+          `${new Date().toISOString()} ${stdout.trim()} ${stderr.trim()}\n`
+        )
+      } catch {
+        // 诊断日志失败不影响窗口创建
+      }
+    })
+    child.unref()
   } catch (error) {
     console.warn('DISABLE_TRANSITIONS_ERROR', error)
   }

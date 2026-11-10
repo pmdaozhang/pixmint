@@ -410,7 +410,7 @@ export function SettingsApp(): JSX.Element {
             <div className="row">
               <div className="row-label">
                 <strong>{tr('激活码')}</strong>
-                <span>{tr('换电脑时输入此码，最多绑定 3 台设备')}</span>
+                <span>{tr('换电脑时输入此码，最多绑定 5 台设备')}</span>
               </div>
               <div className="row-actions">
                 <code className="license-code">{licenseStatus.code}</code>
@@ -485,7 +485,7 @@ export function SettingsApp(): JSX.Element {
           )}
         </section>
 
-        {diagnostics && import.meta.env.DEV && (
+        {diagnostics && (import.meta.env.DEV || diagnostics.safeMode) && (
           <section className="card">
             <div className="card-title">
               <Icon name="folder" size={16} />
@@ -552,6 +552,18 @@ export function SettingsApp(): JSX.Element {
                 </span>
               </div>
               <div className="row-actions">
+                {diagnostics.safeMode && (
+                  <button
+                    className="secondary"
+                    onClick={async () => {
+                      await window.snapglass.diagnostics.disableSafeMode()
+                      setDiagnostics(await window.snapglass.diagnostics.info())
+                      flash(tr('已关闭兼容模式，重启后生效'))
+                    }}
+                  >
+                    {tr('退出兼容模式')}
+                  </button>
+                )}
                 <button
                   className="secondary"
                   onClick={async () => {

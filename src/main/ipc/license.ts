@@ -34,6 +34,22 @@ export function registerLicenseIpc(ctx: IpcContext): void {
     (_event, [plan, provider]) => license.createOrder(plan, provider as PaymentProvider)
   )
   handle(
+    'purchase:create-manual-order',
+    z.tuple([planSchema, providerSchema, emailSchema]),
+    (_event, [plan, provider, email]) =>
+      license.createManualOrder(plan, provider as PaymentProvider, email)
+  )
+  handle(
+    'purchase:submit-manual-order',
+    z.tuple([z.string().min(1).max(120), z.string().min(1).max(200)]),
+    (_event, [orderId, orderToken]) => license.submitManualOrder(orderId, orderToken)
+  )
+  handle(
+    'purchase:manual-order-status',
+    z.tuple([z.string().min(1).max(120), z.string().min(1).max(200)]),
+    (_event, [orderId, orderToken]) => license.manualOrderStatus(orderId, orderToken)
+  )
+  handle(
     'purchase:order-status',
     z.tuple([z.string().min(1).max(120), z.string().min(1).max(200)]),
     (_event, [orderId, orderToken]) => license.orderStatus(orderId, orderToken)
