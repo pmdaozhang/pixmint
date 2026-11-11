@@ -1,39 +1,58 @@
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from 'react'
+import type { Language } from '@shared/i18n'
+import { t } from '@shared/i18n'
 import type { OverlayInit } from '@shared/types'
-import { clampSourceRect, pixelAt, toHex, toRgbLabel, type RgbColor } from './color-picker'
+import { clampSourceRect, pixelAt, toHex, toRgbText, type RgbColor } from './color-picker'
 
 const ZOOM = 10
-const PANEL_WIDTH = 160
+const PANEL_WIDTH = 240
 const PANEL_HEIGHT = 120
 const SOURCE_WIDTH = PANEL_WIDTH / ZOOM
 const SOURCE_HEIGHT = PANEL_HEIGHT / ZOOM
 const CURSOR_OFFSET = 18
 
+type ColorMode = 'rgb' | 'hex'
+
 interface Props {
   init: OverlayInit
   imageCanvasRef: RefObject<HTMLCanvasElement | null>
-  onCopied: (hex: string) => void
+  language?: Language
+  onCopied: (value: string) => void
 }
 
 /**
  * 框选前的像素放大镜 + 实时取色。
  *
+ * 视觉：白底放大区 + 蓝色十字线 + 中心像素边框；下方黑色信息区显示坐标、
+ * 颜色值、操作提示（C 复制、Shift 切换 RGB/HEX）。
+ *
  * 背景：选区需要精确到像素，但用户看不到鼠标下方到底是哪几个像素；
  * 逐次调用 getImageData 又会把 GPU 读回放到鼠标事件里，拖慢跟随。
  * 设计意图：从冻结截图里一次性取出整屏像素快照，之后所有取色都是内存索引；
  * 放大镜直接用 drawImage + 关闭平滑，呈现实心像素块。
- * 关键约束：面板 pointer-events: none，不能影响框选；Ctrl+C 只在框选阶段接管，
- * 进入编辑阶段后卸载，不能抢走“复制截图”的快捷键。
+ * 关键约束：面板 pointer-events: none，不能影响框选；取色快捷键只在框选阶段接管，
+ * 进入编辑阶段后组件卸载，不能抢走“复制截图”的快捷键。
  */
-export function Magnifier({ init, imageCanvasRef, onCopied }: Props): JSX.Element {
+export function Magnifier({ init, imageCanvasRef, language, onCopied }: Props): JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const swatchRef = useRef<HTMLSpanElement | null>(null)
-  const hexRef = useRef<HTMLSpanElement | null>(null)
-  const rgbRef = useRef<HTMLSpanElement | null>(null)
+  const valueRef = useRef<HTMLSpanElement | null>(null)
+  const coordsRef = useRef<HTMLDivElement | null>(null)
   const snapshotRef = useRef<ImageData | null>(null)
   const scratchRef = useRef<HTMLCanvasElement | null>(null)
   const colorRef = useRef<RgbColor | null>(null)
+  const modeRef = useRef<ColorMode>('rgb')
+
+  const applyColor = useCallback((color: RgbColor | null): void => {
+    colorRef.current = color
+    if (!color) return
+    if (swatchRef.current) swatchRef.current.style.background = toHex(color)
+    if (valueRef.current) {
+      valueRef.current.textContent =
+        modeRef.current === 'hex' ? toHex(color) : toRgbText(color)
+    }
+  }, [])
 
   /**
    * 单片像素直读：用于遮罩刚出现、鼠标还没移动时先拿到一个颜色。
@@ -85,8 +104,10 @@ export function Magnifier({ init, imageCanvasRef, onCopied }: Props): JSX.Elemen
       const source = imageCanvasRef.current
       if (!root || !canvas || !source || !source.width || !source.height) return
 
-      const scaleX = init.imageWidth / init.bounds.width
-      const scaleY = init.imageHeight / init.bounds.height
+      // 以实际画布像素为准换算：真实截图里 canvas 尺寸等于 imageWidth/Height；
+      // 兼容低分辨率回退和测试假图（canvas 可能比 imageWidth 小）。
+      const scaleX = source.width / init.bounds.width
+      const scaleY = source.height / init.bounds.height
       const pixelX = Math.floor(clientX * scaleX)
       const pixelY = Math.floor(clientY * scaleY)
       const rect = clampSourceRect(
@@ -122,37 +143,31 @@ export function Magnifier({ init, imageCanvasRef, onCopied }: Props): JSX.Elemen
         PANEL_HEIGHT
       )
 
+      // 蓝色十字线：覆盖鼠标所在的整行/整列像素，宽度就是一个像素格。
       const cellWidth = PANEL_WIDTH / rect.width
       const cellHeight = PANEL_HEIGHT / rect.height
-      context.strokeStyle = 'rgba(0, 0, 0, 0.18)'
-      context.lineWidth = 1
-      context.beginPath()
-      for (let i = 1; i < rect.width; i += 1) {
-        const x = Math.round(i * cellWidth) + 0.5
-        context.moveTo(x, 0)
-        context.lineTo(x, PANEL_HEIGHT)
-      }
-      for (let j = 1; j < rect.height; j += 1) {
-        const y = Math.round(j * cellHeight) + 0.5
-        context.moveTo(0, y)
-        context.lineTo(PANEL_WIDTH, y)
-      }
-      context.stroke()
-
       const cellX = Math.min(rect.width - 1, Math.max(0, pixelX - rect.x))
       const cellY = Math.min(rect.height - 1, Math.max(0, pixelY - rect.y))
-      context.strokeStyle = 'rgba(2, 133, 255, 0.95)'
-      context.lineWidth = 2
-      context.strokeRect(
-        cellX * cellWidth + 1,
-        cellY * cellHeight + 1,
-        Math.max(1, cellWidth - 2),
-        Math.max(1, cellHeight - 2)
-      )
+      const markerX = cellX * cellWidth
+      const markerY = cellY * cellHeight
+      context.fillStyle = 'rgba(150, 192, 255, 0.62)'
+      context.fillRect(markerX, 0, cellWidth, PANEL_HEIGHT)
+      context.fillRect(0, markerY, PANEL_WIDTH, cellHeight)
+
+      // 中心像素：黑边 + 外圈白边，保证在深浅背景上都看得清。
+      context.lineWidth = 1
+      context.strokeStyle = 'rgba(0, 0, 0, 0.85)'
+      context.strokeRect(markerX + 0.5, markerY + 0.5, cellWidth - 1, cellHeight - 1)
+      context.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+      context.strokeRect(markerX - 0.5, markerY - 0.5, cellWidth + 1, cellHeight + 1)
+
+      if (coordsRef.current) {
+        coordsRef.current.textContent = `(${pixelX} , ${pixelY})`
+      }
 
       root.style.display = 'flex'
-      const panelWidth = root.offsetWidth || PANEL_WIDTH + 10
-      const panelHeight = root.offsetHeight || PANEL_HEIGHT + 34
+      const panelWidth = root.offsetWidth || PANEL_WIDTH + 2
+      const panelHeight = root.offsetHeight || PANEL_HEIGHT + 100
       let left = clientX + CURSOR_OFFSET
       let top = clientY + CURSOR_OFFSET
       if (left + panelWidth + 8 > window.innerWidth) left = clientX - panelWidth - CURSOR_OFFSET
@@ -170,14 +185,9 @@ export function Magnifier({ init, imageCanvasRef, onCopied }: Props): JSX.Elemen
                 : sampleDirect(pixelX, pixelY)
             })()
           : sampleDirect(pixelX, pixelY)
-      colorRef.current = color
-      if (!color) return
-      const hex = toHex(color)
-      if (swatchRef.current) swatchRef.current.style.background = hex
-      if (hexRef.current) hexRef.current.textContent = hex
-      if (rgbRef.current) rgbRef.current.textContent = toRgbLabel(color)
+      applyColor(color)
     },
-    [ensureSnapshot, imageCanvasRef, init, sampleDirect]
+    [applyColor, ensureSnapshot, imageCanvasRef, init, sampleDirect]
   )
 
   useEffect(() => {
@@ -201,31 +211,46 @@ export function Magnifier({ init, imageCanvasRef, onCopied }: Props): JSX.Elemen
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'c') return
+      if (event.key === 'Shift') {
+        // Shift 只在取色面板存在时切换显示格式。
+        modeRef.current = modeRef.current === 'rgb' ? 'hex' : 'rgb'
+        applyColor(colorRef.current)
+        return
+      }
+      if (event.key.toLowerCase() !== 'c' || event.altKey) return
       const color = colorRef.current
       if (!color) return
+      // 纯 C 或 Ctrl/Cmd+C 都复制当前显示的颜色。
+      if (event.shiftKey) return
       event.preventDefault()
       // 同阶段还有 useOverlayKeyboard 的监听；框选阶段它本来就会直接 return，
       // 这里用 immediate 阻断，保证以后顺序变化也不会误触发“复制截图”。
       event.stopImmediatePropagation()
-      const hex = toHex(color)
-      void window.snapglass.clipboard.writeText(hex)
-      onCopied(hex)
+      const value = modeRef.current === 'hex' ? toHex(color) : toRgbText(color)
+      void window.snapglass.clipboard.writeText(value)
+      onCopied(value)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [onCopied])
+  }, [applyColor, onCopied])
 
   return (
     <div ref={rootRef} className="magnifier" style={{ display: 'none' }}>
-      <canvas ref={canvasRef} className="magnifier-zoom" />
+      <div className="magnifier-zoom-wrap">
+        <canvas ref={canvasRef} className="magnifier-zoom" />
+      </div>
       <div className="magnifier-info">
-        <span ref={swatchRef} className="magnifier-swatch" />
-        <span ref={hexRef} className="magnifier-hex">
-          --
-        </span>
-        <span ref={rgbRef} className="magnifier-rgb" />
-        <span className="magnifier-hint">Ctrl+C</span>
+        <div ref={coordsRef} className="magnifier-coords">
+          (0 , 0)
+        </div>
+        <div className="magnifier-color">
+          <span ref={swatchRef} className="magnifier-swatch" />
+          <span ref={valueRef} className="magnifier-value">
+            --
+          </span>
+        </div>
+        <div className="magnifier-hint">{t(language, '按 C 复制颜色值')}</div>
+        <div className="magnifier-hint">{t(language, '按 Shift 切换 RGB/HEX')}</div>
       </div>
     </div>
   )

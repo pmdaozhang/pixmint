@@ -888,65 +888,72 @@
 }
 
 /*
- * 框选放大镜 + 取色面板。
- * 固定定位、pointer-events: none，跟随鼠标但不参与命中测试；
- * 面板本身不透明，避免放大内容与背后的截图混在一起看不清。
+ * 框选放大镜 + 取色面板（参考 PixPin 的样式）。
+ * 白底放大区 + 蓝色十字线，下方黑底信息区显示坐标、颜色和快捷键。
+ * 固定定位、pointer-events: none，跟随鼠标但不参与命中测试。
  */
 .magnifier {
   position: fixed;
   z-index: 60;
   display: none;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 8px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-strong);
+  width: 240px;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.28);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
   user-select: none;
+  font: 12px/1.5 system-ui, "Segoe UI", sans-serif;
+  color: #ffffff;
+}
+
+.magnifier-zoom-wrap {
+  background: #ffffff;
 }
 
 .magnifier-zoom {
   display: block;
-  width: 160px;
+  width: 240px;
   height: 120px;
-  border-radius: 4px;
-  background: #000;
   image-rendering: pixelated;
 }
 
 .magnifier-info {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 3px;
+  padding: 7px 8px 9px;
+}
+
+.magnifier-coords {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.magnifier-color {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 0 2px 2px;
-  font: 11px var(--mono);
-  color: var(--text-2);
-  white-space: nowrap;
+  min-height: 20px;
 }
 
 .magnifier-swatch {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
-  border-radius: 2px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(255, 255, 255, 0.75);
   background: #000;
 }
 
-.magnifier-hex {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.magnifier-rgb {
-  color: var(--text-3);
-  font-size: 10px;
+.magnifier-value {
+  font-size: 14px;
+  color: #ffffff;
 }
 
 .magnifier-hint {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: 10px;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
 }

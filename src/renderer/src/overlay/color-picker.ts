@@ -18,8 +18,8 @@ export function toHex({ r, g, b }: RgbColor): string {
   return `#${channel(r)}${channel(g)}${channel(b)}`.toUpperCase()
 }
 
-export function toRgbLabel({ r, g, b }: RgbColor): string {
-  return `rgb(${r}, ${g}, ${b})`
+export function toRgbText({ r, g, b }: RgbColor): string {
+  return `${r}, ${g}, ${b}`
 }
 
 /**

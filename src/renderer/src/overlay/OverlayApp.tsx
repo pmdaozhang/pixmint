@@ -979,7 +979,12 @@ export function OverlayApp(): JSX.Element {
         </div>
       )}
       {init && imageReady && !recorderModeActive && effectivePhase === 'selecting' && !warmRect && (
-        <Magnifier init={init} imageCanvasRef={imageCanvasRef} onCopied={showColorCopied} />
+        <Magnifier
+          init={init}
+          imageCanvasRef={imageCanvasRef}
+          language={init.settings.language}
+          onCopied={showColorCopied}
+        />
       )}
       {options.tool === 'mosaic' && options.mosaicMode === 'brush' && phase === 'editing' && (
         <div

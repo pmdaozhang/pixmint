@@ -225,6 +225,8 @@ const EN: Record<string, string> = {
   '识别文字': 'Recognize text',
   '已复制': 'Copied',
   '已复制颜色 {color}': 'Color {color} copied',
+  '按 C 复制颜色值': 'Press C to copy the color',
+  '按 Shift 切换 RGB/HEX': 'Press Shift to switch RGB/HEX',
   '已保存': 'Saved',
   '保存失败': 'Save failed',
   '鼠标穿透': 'Mouse passthrough',

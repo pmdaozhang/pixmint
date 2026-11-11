@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampSourceRect, pixelAt, toHex, toRgbLabel } from '../src/renderer/src/overlay/color-picker'
+import { clampSourceRect, pixelAt, toHex, toRgbText } from '../src/renderer/src/overlay/color-picker'
 
 function rgbaPixels(colors: Array<[number, number, number]>): Uint8ClampedArray {
   const data = new Uint8ClampedArray(colors.length * 4)
@@ -18,7 +18,7 @@ describe('color picker helpers', () => {
     expect(toHex({ r: 255, g: 255, b: 255 })).toBe('#FFFFFF')
     expect(toHex({ r: 1, g: 2, b: 15 })).toBe('#01020F')
     expect(toHex({ r: 300, g: -4, b: 12.6 })).toBe('#FF000D')
-    expect(toRgbLabel({ r: 1, g: 2, b: 15 })).toBe('rgb(1, 2, 15)')
+    expect(toRgbText({ r: 1, g: 2, b: 15 })).toBe('1, 2, 15')
   })
 
   it('samples a pixel using row-major RGBA order', () => {

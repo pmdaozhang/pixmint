@@ -260,8 +260,16 @@ function patchDiff(a, b) {
     if (magnifierDisplay !== 'flex') fail(`放大镜没有出现（${magnifierDisplay}）`)
     await overlay.mouse.move(selection.x, selection.y)
     await sleep(200)
-    const colorText = (await overlay.locator('.magnifier-hex').textContent())?.trim() ?? ''
-    if (!/^#[0-9A-F]{6}$/.test(colorText)) fail(`放大镜没有取到有效颜色（${colorText}）`)
+    const colorText = (await overlay.locator('.magnifier-value').textContent())?.trim() ?? ''
+    if (!/^(#[0-9A-F]{6}|\d{1,3}, \d{1,3}, \d{1,3})$/.test(colorText)) {
+      fail(`放大镜没有取到有效颜色（${colorText}）`)
+    }
+    await overlay.keyboard.press('Shift')
+    await sleep(120)
+    const hexText = (await overlay.locator('.magnifier-value').textContent())?.trim() ?? ''
+    if (!/^#[0-9A-F]{6}$/.test(hexText)) {
+      fail(`Shift 没有切换到 HEX（${hexText}）`)
+    }
 
     await overlay.mouse.down()
     for (let i = 1; i <= 12; i += 1) {
