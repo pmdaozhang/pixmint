@@ -54,7 +54,15 @@ const api: SnapglassApi = {
       ipcRenderer.on('overlay:reset', listener)
       return () => ipcRenderer.removeListener('overlay:reset', listener)
     },
+    onWarmEdit: (callback: (bounds: Rect) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, bounds: Rect): void => {
+        callback(bounds)
+      }
+      ipcRenderer.on('overlay:warm-edit', listener)
+      return () => ipcRenderer.removeListener('overlay:warm-edit', listener)
+    },
     prepared: () => ipcRenderer.send('overlay:prepared'),
+    warmEditDone: () => ipcRenderer.send('overlay:warm-edit-done'),
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),

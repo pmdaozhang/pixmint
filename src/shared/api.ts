@@ -43,7 +43,9 @@ export interface SnapglassApi {
     onInit(callback: (init: OverlayInit) => void): () => void
     onPrepare(callback: (settings: Settings) => void): () => void
     onReset(callback: () => void): () => void
+    onWarmEdit(callback: (bounds: Rect) => void): () => void
     prepared(): void
+    warmEditDone(): void
     rendererReady(): void
     heartbeat(): void
     windowAt(x: number, y: number): Promise<Rect | null>

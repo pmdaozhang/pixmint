@@ -6,8 +6,10 @@ import { join } from 'node:path'
 /**
  * 背景：Windows 会给新建的全屏窗口播放“从小到大”的 DWM 过渡，
  * 截图覆盖层因此看起来像整个桌面放大了一下；Snipaste 这类原生工具没有这个动画。
- * 设计意图：调用 DwmSetWindowAttribute(DWMWA_TRANSITIONS_FORCEDISABLED) 禁用该窗口过渡。
- * 关键约束：只在 Windows 调用；失败只记录日志，不能影响截图窗口创建。
+ * 现状（2026-11）：DwmSetWindowAttribute(DWMWA_TRANSITIONS_FORCEDISABLED) 在 Windows 11
+ * 上**不能**抑制覆盖层的打开缩放动画（实测 HRESULT=0，动画照常）。真正有效的做法是
+ * 覆盖层永不 hide/show，空闲保持显示、只改 alpha（见 windows/overlay.ts）。
+ * 这里保留调用，用于抑制最小化/还原等其它窗口过渡，失败只记录日志。
  */
 export function disableWindowTransitions(handle: Buffer): void {
   if (process.platform !== 'win32') return

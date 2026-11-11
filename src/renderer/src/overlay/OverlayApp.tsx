@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import type {
   OverlayAction,
   OverlayInit,
+  Rect,
   RecorderMode,
   RecorderOptions,
   Settings
@@ -54,6 +55,10 @@ export function OverlayApp(): JSX.Element {
   const [error, setError] = useState('')
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
+  // 编辑态预热：用一个假选区把工具栏/缩放柄/标注画布完整挂载一次。
+  // 窗口此时是全屏 alpha 0，用户不可见；预热结束后立刻复位。
+  const [warmRect, setWarmRect] = useState<Rect | null>(null)
+  const warmEditActiveRef = useRef(false)
   const [recorderMode, setRecorderMode] = useState<RecorderMode | null>(null)
   const [recorderOptions, setRecorderOptions] =
     useState<RecorderOptions>(DEFAULT_RECORDER_OPTIONS)
@@ -150,10 +155,13 @@ export function OverlayApp(): JSX.Element {
   // 主进程在新会话里会紧接着发送 overlay:init；窗口显示时的可见性回调
   // 不能抢先再加载一次图片，否则同一次 F1 会解码两遍 PNG。
   const awaitingInitRef = useRef(false)
+  // init 已应用、会话尚未重置。窗口现在常驻显示，focus 事件不能把会话重新初始化。
+  const sessionActiveRef = useRef(false)
 
   const applyInit = useCallback(
     (data: OverlayInit) => {
       awaitingInitRef.current = false
+      sessionActiveRef.current = true
       loadSessionImage(data, () => resetUiForInit(data))
     },
     [loadSessionImage, resetUiForInit]
@@ -177,6 +185,7 @@ export function OverlayApp(): JSX.Element {
     (settings: Settings) => {
       // 紧接着会收到 overlay:init，先标记住，避免窗口显示时重复加载。
       awaitingInitRef.current = true
+      sessionActiveRef.current = false
       // 截图期间窗口是隐藏的，这里只重置状态，不再进入“准备中”遮罩。
       clearSessionImage(() => resetUiForPrepare(settings), false)
     },
@@ -195,6 +204,7 @@ export function OverlayApp(): JSX.Element {
 
   const applyReset = useCallback(() => {
     awaitingInitRef.current = false
+    sessionActiveRef.current = false
     clearSessionImage(resetUiForReset, false)
   }, [clearSessionImage, resetUiForReset])
 
@@ -202,6 +212,28 @@ export function OverlayApp(): JSX.Element {
     const off = window.snapglass.overlay.onInit(applyInit)
     const offPrepare = window.snapglass.overlay.onPrepare(applyPrepare)
     const offReset = window.snapglass.overlay.onReset(applyReset)
+    const offWarmEdit = window.snapglass.overlay.onWarmEdit((bounds) => {
+      // 重复请求只回 ack，不重复挂载。
+      if (warmEditActiveRef.current) {
+        window.snapglass.overlay.warmEditDone()
+        return
+      }
+      warmEditActiveRef.current = true
+      setWarmRect({
+        x: bounds.x,
+        y: bounds.y,
+        width: Math.max(1, Math.round(bounds.width)),
+        height: Math.max(1, Math.round(bounds.height))
+      })
+      // 两帧后标注画布和离屏画布已经完成创建与绘制；窗口 alpha 0，用户不可见。
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          window.snapglass.overlay.warmEditDone()
+          warmEditActiveRef.current = false
+          setWarmRect(null)
+        })
+      })
+    })
     window.snapglass.overlay.rendererReady()
     window.snapglass.overlay
       .ready()
@@ -213,6 +245,9 @@ export function OverlayApp(): JSX.Element {
       if (document.visibilityState !== 'visible') return
       // 主进程刚 prepare 过，init 马上就到；这里重复加载会多解码一次 PNG。
       if (awaitingInitRef.current) return
+      // 会话进行中（窗口常驻显示，focus 事件随时可能到来）不能重新初始化。
+      if (sessionActiveRef.current) return
+      if (warmEditActiveRef.current) return
       // 录制期间控制条会抢焦点，不能让覆盖层重新初始化并丢掉选区。
       if (recorderModeRef.current) return
       if (selectionRef.current) return
@@ -226,6 +261,7 @@ export function OverlayApp(): JSX.Element {
       off()
       offPrepare()
       offReset()
+      offWarmEdit()
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
@@ -697,36 +733,43 @@ export function OverlayApp(): JSX.Element {
   }, [init, hideFrozenImage, imageCanvasRef])
 
   if (error) return <div className="overlay-error">{error}</div>
-  if (!init) return <div className="overlay-idle" />
+  // 预热态没有 init，但需要把工具栏和标注画布真正挂载并合成一次。
+  if (!init && !warmRect) return <div className="overlay-idle" />
 
-  const toolbarTop = selection
-    ? selection.y + selection.height + 16 + 104 < window.innerHeight
-      ? selection.y + selection.height + 16
-      : Math.max(8, selection.y - 104)
+  // 预热态用假选区渲染编辑界面；窗口 alpha 0，用户看不到。
+  const effectiveSelection = warmRect ?? selection
+  const effectivePhase = warmRect ? 'editing' : phase
+  const language = init?.settings.language
+  const warmBounds = init?.bounds ?? { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }
+
+  const toolbarTop = effectiveSelection
+    ? effectiveSelection.y + effectiveSelection.height + 16 + 104 < window.innerHeight
+      ? effectiveSelection.y + effectiveSelection.height + 16
+      : Math.max(8, effectiveSelection.y - 104)
     : 0
-  const toolbarLeft = selection
+  const toolbarLeft = effectiveSelection
     ? Math.max(
         8,
         Math.min(
-          selection.x + selection.width - toolbarWidth,
+          effectiveSelection.x + effectiveSelection.width - toolbarWidth,
           window.innerWidth - toolbarWidth - 8
         )
       )
     : 0
   const showRecordingChrome = recorderModeActive && recordPhase !== 'result'
-  const recorderLabel = recorderMode === 'gif' ? 'GIF' : t(init.settings.language, '视频')
-  const recBarLeft = selection
-    ? selection.x + selection.width / 2
+  const recorderLabel = recorderMode === 'gif' ? 'GIF' : t(language, '视频')
+  const recBarLeft = effectiveSelection
+    ? effectiveSelection.x + effectiveSelection.width / 2
     : 0
-  const recBarTop = selection
-    ? selection.y + selection.height + 12 + 56 <= window.innerHeight
-      ? selection.y + selection.height + 12
-      : Math.max(8, selection.y - 68)
+  const recBarTop = effectiveSelection
+    ? effectiveSelection.y + effectiveSelection.height + 12 + 56 <= window.innerHeight
+      ? effectiveSelection.y + effectiveSelection.height + 12
+      : Math.max(8, effectiveSelection.y - 68)
     : 0
 
   return (
     <div
-      className={`overlay-root${phase === 'selecting' ? ' selecting' : ''}${
+      className={`overlay-root${effectivePhase === 'selecting' ? ' selecting' : ''}${
         selectionDragging ? ' dragging-selection' : ''
       }${
         recorderModeActive ? ' recording' : ''
@@ -755,8 +798,8 @@ export function OverlayApp(): JSX.Element {
         }
       }}
     >
-      {!recorderModeActive && !selection && !hoverRect && <div className="pre-dim" />}
-      {!recorderModeActive && phase === 'selecting' && hoverRect && (
+      {!recorderModeActive && !effectiveSelection && !hoverRect && <div className="pre-dim" />}
+      {!recorderModeActive && effectivePhase === 'selecting' && hoverRect && (
         <>
           <DimAround rect={hoverRect} />
           <div
@@ -777,26 +820,26 @@ export function OverlayApp(): JSX.Element {
           </div>
         </>
       )}
-      {selection && (
+      {effectiveSelection && (
         <>
           {!recorderModeActive && (
             <>
-              <DimAround rect={selection} />
+              <DimAround rect={effectiveSelection} />
               <div
                 className="selection"
                 style={{
-                  left: selection.x,
-                  top: selection.y,
-                  width: selection.width,
-                  height: selection.height
+                  left: effectiveSelection.x,
+                  top: effectiveSelection.y,
+                  width: effectiveSelection.width,
+                  height: effectiveSelection.height
                 }}
               >
-                {phase === 'selecting' && (
+                {effectivePhase === 'selecting' && (
                   <span className="selection-size">
-                    {Math.round(selection.width)} × {Math.round(selection.height)}
+                    {Math.round(effectiveSelection.width)} × {Math.round(effectiveSelection.height)}
                   </span>
                 )}
-                {phase === 'editing' &&
+                {effectivePhase === 'editing' &&
                   RESIZE_DIRS.map((dir) => (
                     <span
                       key={dir}
@@ -808,17 +851,17 @@ export function OverlayApp(): JSX.Element {
             </>
           )}
           {showRecordingChrome && (
-            <DimAround rect={selection} className="recording-dim" />
+            <DimAround rect={effectiveSelection} className="recording-dim" />
           )}
-          {phase === 'editing' && !recorderModeActive && (
+          {effectivePhase === 'editing' && !recorderModeActive && (
             <>
               <AnnotationCanvas
                 ref={annotationRef}
-                imageWidth={init.imageWidth}
-                imageHeight={init.imageHeight}
-                bounds={init.bounds}
+                imageWidth={init?.imageWidth ?? 1}
+                imageHeight={init?.imageHeight ?? 1}
+                bounds={warmBounds}
                 imageCanvasRef={imageCanvasRef}
-                selection={selection}
+                selection={effectiveSelection}
                 options={options}
                 selectionDragging={selectionDragging}
                 moveCursor="grab"
@@ -832,7 +875,7 @@ export function OverlayApp(): JSX.Element {
             <div className="rec-bar-position" style={{ left: recBarLeft, top: recBarTop }}>
               <RecorderBar
                 mode={recorderMode}
-                language={init.settings.language}
+                language={language ?? 'zh-CN'}
                 mic={recorderOptions.mic}
                 systemAudio={recorderOptions.systemAudio}
                 onMicToggle={() =>
@@ -860,10 +903,10 @@ export function OverlayApp(): JSX.Element {
                 recordPhase === 'idle' ? 'standby' : recordPhase
               }`}
               style={{
-                left: selection.x,
-                top: selection.y,
-                width: selection.width,
-                height: selection.height
+                left: effectiveSelection.x,
+                top: effectiveSelection.y,
+                width: effectiveSelection.width,
+                height: effectiveSelection.height
               }}
             >
               <span
@@ -874,14 +917,14 @@ export function OverlayApp(): JSX.Element {
                 <i />
                 <span>
                   {recordPhase === 'preparing'
-                    ? t(init.settings.language, '准备中 · {label}', { label: recorderLabel })
+                    ? t(language, '准备中 · {label}', { label: recorderLabel })
                     : recordPhase === 'idle' || recordPhase === 'countdown'
-                      ? t(init.settings.language, '待机 · {label}', { label: recorderLabel })
+                      ? t(language, '待机 · {label}', { label: recorderLabel })
                     : recordPhase === 'recording' || recordPhase === 'paused'
                       ? `REC · ${recorderLabel}`
                       : recordPhase === 'encoding'
-                        ? t(init.settings.language, '正在生成')
-                        : t(init.settings.language, '待机 · {label}', { label: recorderLabel })}
+                        ? t(language, '正在生成')
+                        : t(language, '待机 · {label}', { label: recorderLabel })}
                 </span>
               </span>
               {recordPhase === 'countdown' && countdownNumber > 0 && (
@@ -892,7 +935,7 @@ export function OverlayApp(): JSX.Element {
               {recordPhase === 'encoding' && (
                 <div className="recording-encoding">
                   <span className="prepare-spinner" />
-                  {t(init.settings.language, '正在生成…')}
+                  {t(language, '正在生成…')}
                 </div>
               )}
             </div>
@@ -903,20 +946,20 @@ export function OverlayApp(): JSX.Element {
         <div
           className="toolbar-position"
           style={{
-            left: phase === 'editing' && selection ? toolbarLeft : 0,
-            top: phase === 'editing' && selection ? toolbarTop : 0,
+            left: effectivePhase === 'editing' && effectiveSelection ? toolbarLeft : 0,
+            top: effectivePhase === 'editing' && effectiveSelection ? toolbarTop : 0,
             // 用 opacity 而不是 visibility 隐藏：覆盖层首次显示时就把工具栏画好，
             // 避免第一次框选后等一次可见绘制（实测多出约 80ms）。
-            opacity: phase === 'editing' && selection ? 1 : 0,
+            opacity: effectivePhase === 'editing' && effectiveSelection ? 1 : 0,
             visibility: 'visible',
-            pointerEvents: phase === 'editing' && selection ? 'auto' : 'none'
+            pointerEvents: effectivePhase === 'editing' && effectiveSelection ? 'auto' : 'none'
           }}
-          aria-hidden={!(phase === 'editing' && selection)}
+          aria-hidden={!(effectivePhase === 'editing' && effectiveSelection)}
         >
           <Toolbar
             options={options}
             setOptions={setOptions}
-            language={init.settings.language}
+            language={language ?? 'zh-CN'}
             submenuOpen={submenuOpen}
             onToolClick={onToolClick}
             onAction={onAction}

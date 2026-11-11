@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.7] - 2026-11-11
+
+### Fixed
+
+- 修复按 F1 后遮罩“从小变大”闪一下。根因是覆盖层窗口每次先隐藏、再显示时触发 Windows 的打开缩放动画；`DwmSetWindowAttribute(DWMWA_TRANSITIONS_FORCEDISABLED)` 在 Windows 11 上对该动画无效（实测 HRESULT=0，动画照常）。覆盖层改为常驻显示：创建时以 1×1 完成首次 show，随后调整为全屏；空闲保持全屏尺寸 + alpha 0 + 鼠标穿透，F1 只切 alpha，不再 show/resize。
+- 修复首次框选后工具栏延迟约 250ms。根因是第一次挂载标注画布和离屏背景画布时 GPU 资源冷分配，把整帧呈现拖住；DOM 侧只有 3–20ms，原有基于 opacity 的 e2e 测不出来。新增每个窗口一次的编辑态预热：截屏前用假选区把工具栏、缩放柄、标注画布和离屏背景画布完整创建并合成一次。
+- 覆盖层窗口改为 Windows 工具窗口（`type: 'toolbar'`），避免常驻显示后出现在 Alt-Tab。
+- 增加空闲状态不变量日志：覆盖层空闲时必须保持显示、全屏尺寸；后续有人把 `hide()` 或缩小尺寸加回来会在诊断日志里告警。
+- `disableWindowTransitions` 注释更正：该 API 对覆盖层打开动画无效，保留调用只为其它窗口过渡。
+
+### Added
+
+- 屏幕级视觉回归 `pnpm regression:overlay-visual`：真实录屏逐帧断言「遮罩过渡 ≤ 2 帧」「松手到工具栏上屏 ≤ 2 帧」。需要 Windows 桌面和 ffmpeg（可用 `FFMPEG_PATH` 指定）。
+
+### Verified
+
+- `pnpm typecheck`、`pnpm test`（33 文件 / 195 用例）、`pnpm build` 通过。
+- `e2e-overlay.cjs` 通过；`e2e-recording.cjs` 的 GIF 与视频路径通过（全屏视频用例受每日免费视频额度限制，属既有测试前提）。
+- 录屏实测：遮罩过渡 0 帧；松手到工具栏 0–1 帧；冷启动首次 F1 `show timing total=101ms`；启动编辑态预热 54ms 完成。
+
 ## [0.8.6] - 2026-11-10
 
 ### Fixed

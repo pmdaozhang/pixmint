@@ -22,6 +22,10 @@ export function registerOverlayIpc(ctx: IpcContext): void {
     ctx.overlayManager.markPrepared(event.sender.id)
   })
 
+  on('overlay:warm-edit-done', z.tuple([]), (event) => {
+    ctx.overlayManager.markWarmEditDone(event.sender.id)
+  })
+
   on('overlay:heartbeat', z.tuple([]), (event) => {
     ctx.overlayManager.noteHeartbeat(event.sender.id)
   })

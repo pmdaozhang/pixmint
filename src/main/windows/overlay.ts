@@ -26,6 +26,8 @@ interface OverlayEntry {
   bounds: Electron.Rectangle
   recordingMode: { active: boolean; interactive: boolean } | null
   rendererGone: boolean
+  /** 编辑态预热是否已经完成；每个窗口只需要一次。 */
+  warmed: boolean
 }
 
 const WARMUP_PNG =
@@ -36,14 +38,23 @@ function toMb(bytes: number): number {
 }
 
 /**
- * 背景：让全屏透明窗口常驻可见、靠定时器“保活”，在 Windows 上并不可靠——
- * 页面长时间没有真实变化时，DWM 会放冷甚至回收窗口的合成表面，表现为
- * 应用内部 90ms 就绪、屏幕上却要等几秒才看到遮罩。0.8.1–0.8.5 反复修的都是这个。
- * 设计意图：覆盖层空闲时直接隐藏，不再依赖透明窗口的表面保持热态；
- * F1 时先完成截图，再以 opacity 0 显示窗口、等渲染层画好冻结画面和遮罩，
- * 最后切到 opacity 1。用户看到的第一帧就是完整画面，不经过任何冷表面。
- * 关键约束：截图发生在窗口隐藏期间，覆盖层天然不会进入截图，也不再需要
- * WDA_EXCLUDEFROMCAPTURE；录制阶段仍复用同一个透明窗口显示红框和徽章。
+ * 覆盖层窗口生命周期（2026-11，0.8.7）：
+ *
+ * 背景：0.8.6 采用“空闲 hide、F1 时以 1% 透明度 show、再切 100%”。实测发现
+ * Windows 的打开缩放动画绑定在 ShowWindow 上，并且会忽略窗口的 layered alpha：
+ * 动画期间把 alpha 切到 1，会看到冻结画面从约 0.99 倍弹到 1.0 倍（“从小变大闪一下”）。
+ * DwmSetWindowAttribute(DWMWA_TRANSITIONS_FORCEDISABLED) 在 Win11 上对该动画无效
+ * （实测返回 HRESULT=0，动画照常）。
+ *
+ * 设计意图：窗口从创建起就一直保持“已显示”，空闲时保持全屏尺寸、alpha 0、鼠标穿透。
+ * F1 时只改 alpha，不做 show、也不做 resize —— 实验证明对已显示窗口调整尺寸不会触发
+ * 任何过渡动画。整个进程生命周期内不再调用 hide()/showInactive() 来切换会话。
+ *
+ * 关键约束：
+ * - 任何地方都不要对覆盖层窗口调用 hide()；停靠统一走 park()，激活统一走 activate()。
+ * - 截图发生时窗口是全屏 + alpha 0，而不是隐藏；alpha 0 的窗口不贡献像素。
+ * - 会话内容（冻结画面、遮罩）在 alpha 0 期间绘制，画好后再切到 alpha 1。
+ * - 启动和内存回收后的预热会用 1×1 假图跑一遍完整编辑态，避免首次框选的冷启动卡顿。
  */
 
 /** 回收延迟；压测可用环境变量缩短，生产默认 1.5 秒。 */
@@ -67,6 +78,9 @@ export class OverlayManager {
   private readonly rendererReady = new Set<number>()
   private readonly readyWaiters = new Map<number, Array<() => void>>()
   private readonly prepareWaiters = new Map<number, () => void>()
+  /** 编辑态预热：让工具栏和标注画布在截屏期间先完成一次创建/合成。 */
+  private readonly warmEditWaiters = new Map<number, () => void>()
+  private readonly warmEditPromises = new Map<number, Promise<void>>()
   /** 覆盖层确认“已绘制两帧”的时间，用于区分真正 ack 和 700ms 超时。 */
   private readonly preparedAckAt = new Map<number, number>()
   /** 递增后让进行中的启动预热失效，避免和真正的截图会话互相清状态。 */
@@ -190,8 +204,9 @@ export class OverlayManager {
 
   /**
    * 背景：覆盖层是整屏置顶窗口，一旦渲染线程卡死会继续吃掉桌面鼠标事件。
-   * 设计意图：不等待渲染层恢复，主进程立即鼠标穿透、透明化、隐藏并清理会话。
-   * 关键约束：必须可重入；失败兜底本身不能再触发一轮 UI 操作。
+   * 设计意图：不等待渲染层恢复，主进程立即鼠标穿透、透明化、停靠并清理会话。
+   * 关键约束：必须可重入；失败兜底本身不能再触发一轮 UI 操作。渲染层已经
+   * 不可信时不能依赖它回 ack，park 只发出 reset，不等待。
    */
   private failSafe(message: string): void {
     const hadActive = this.active
@@ -205,12 +220,8 @@ export class OverlayManager {
         this.removeEntry(id)
         continue
       }
-      entry.window.setIgnoreMouseEvents(true)
-      entry.window.setOpacity(1)
-      this.send(entry, 'overlay:reset')
-      // 看门狗触发时渲染层可能已经卡死，收不到 reset；必须从主进程
-      // 直接把窗口隐藏，否则全屏遮罩会一直留在屏幕上。
-      entry.window.hide()
+      this.park(entry)
+      // 渲染进程已经挂掉时，下一次显示会带着残留表面；直接销毁，下次按需重建。
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
         this.removeEntry(id)
@@ -237,6 +248,129 @@ export class OverlayManager {
     }
   }
 
+  /** 创建窗口时的初始尺寸：先用 1×1 完成首次 show，避免全屏尺寸下触发打开动画。 */
+  private initialBounds(bounds: Electron.Rectangle): Electron.Rectangle {
+    return { x: bounds.x, y: bounds.y, width: 1, height: 1 }
+  }
+
+  /**
+   * 空闲停靠位置：保持全屏尺寸，只是 alpha 0、鼠标穿透、不置顶。
+   * 尺寸不变意味着下一次会话不需要 resize，全屏合成表面一直是热的。
+   */
+  private parkedBounds(bounds: Electron.Rectangle): Electron.Rectangle {
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  }
+
+  /**
+   * 激活会话窗口：把已显示的窗口调整到目标显示器全屏。
+   * 只做 setBounds，不做 show/hide；对已显示窗口调整尺寸不会播放过渡动画。
+   */
+  private activate(entry: OverlayEntry, bounds: Electron.Rectangle): void {
+    const window = entry.window
+    if (window.isDestroyed()) return
+    // Win+D / 显示桌面会把窗口最小化；恢复要在 alpha 0 状态下做，避免恢复动画露出内容。
+    if (window.isMinimized()) window.restore()
+    window.setOpacity(0)
+    window.setBounds(bounds)
+    entry.bounds = { ...bounds }
+    window.setAlwaysOnTop(true, 'screen-saver')
+    window.setIgnoreMouseEvents(true)
+    if (!window.isVisible()) window.showInactive()
+    window.moveTop()
+  }
+
+  /**
+   * 空闲停靠：alpha 0 → 保持全屏尺寸 → 取消置顶。
+   * 顺序很重要：先透明再处理尺寸，用户看不到变化；窗口不 hide，下次激活就不会有打开动画。
+   */
+  private park(entry: OverlayEntry): void {
+    const window = entry.window
+    if (window.isDestroyed()) return
+    window.setIgnoreMouseEvents(true)
+    window.setOpacity(0)
+    window.setAlwaysOnTop(false)
+    window.setBounds(this.parkedBounds(entry.bounds))
+    this.send(entry, 'overlay:reset')
+    this.assertParked(entry)
+  }
+
+  /**
+   * 不变量：覆盖层空闲时必须“显示中、全屏尺寸、鼠标穿透”。
+   * 任何人把 hide() 或缩小尺寸加回来，下一次 park 会在诊断日志里暴露出来。
+   */
+  private assertParked(entry: OverlayEntry): void {
+    const window = entry.window
+    if (window.isDestroyed()) return
+    const bounds = window.getBounds()
+    const wrongSize =
+      bounds.width < entry.bounds.width - 1 || bounds.height < entry.bounds.height - 1
+    if (!window.isVisible() || window.isMinimized() || wrongSize) {
+      logDiagnostic(
+        'overlay',
+        `lifecycle violation: visible=${window.isVisible()} minimized=${window.isMinimized()} bounds=${bounds.width}x${bounds.height}`,
+        'warn'
+      )
+    }
+  }
+
+  /**
+   * 请求一次编辑态预热：渲染层用假选区把工具栏、缩放柄和标注画布完整挂载一次。
+   * 调用方会把窗口临时调到 alpha 0.01（让 rAF 真正运行），用户不可见；
+   * 预热与截图串行执行，结束后窗口恢复 alpha 0 再截图。
+   */
+  private requestWarmEdit(entry: OverlayEntry): void {
+    if (entry.window.isDestroyed() || entry.window.webContents.isDestroyed()) return
+    const id = entry.window.webContents.id
+    if (this.warmEditPromises.has(id)) return
+    const startedAt = Date.now()
+    let finish: () => void = () => undefined
+    const promise = new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        if (this.warmEditWaiters.get(id) === finish) this.warmEditWaiters.delete(id)
+        this.warmEditPromises.delete(id)
+        logDiagnostic('overlay', 'warm-edit timeout (160ms)', 'warn')
+        resolve()
+      }, 160)
+      finish = (): void => {
+        clearTimeout(timer)
+        this.warmEditWaiters.delete(id)
+        this.warmEditPromises.delete(id)
+        const elapsed = Date.now() - startedAt
+        if (elapsed > 100) logDiagnostic('overlay', `warm-edit slow ${elapsed}ms`, 'warn')
+        resolve()
+      }
+      this.warmEditWaiters.set(id, finish)
+    })
+    this.warmEditPromises.set(id, promise)
+    // 带上目标尺寸：窗口刚从 1×1 调整到全屏，渲染层的 innerWidth 可能还没更新。
+    this.send(entry, 'overlay:warm-edit', {
+      x: 0,
+      y: 0,
+      width: Math.max(1, Math.round(entry.bounds.width)),
+      height: Math.max(1, Math.round(entry.bounds.height))
+    })
+  }
+
+  markWarmEditDone(webContentsId: number): void {
+    const entry = this.entries.get(webContentsId)
+    if (entry) entry.warmed = true
+    this.warmEditWaiters.get(webContentsId)?.()
+  }
+
+  /**
+   * 每个窗口只预热一次。窗口必须处于可见状态（alpha 0.01）渲染层的 rAF 才会
+   * 真正跑起来，所以预热期间临时把窗口调到 0.01，结束后再恢复到目标透明度。
+   */
+  private async warmEditOnce(entry: OverlayEntry, targetOpacity: number): Promise<void> {
+    if (entry.warmed) return
+    const id = entry.window.webContents.id
+    entry.window.setOpacity(0.01)
+    this.requestWarmEdit(entry)
+    await (this.warmEditPromises.get(id) ?? Promise.resolve())
+    if (entry.window.isDestroyed()) return
+    entry.window.setOpacity(targetOpacity)
+  }
+
   async prepare(display: DisplayInfo): Promise<void> {
     this.warmupToken += 1
     this.active = true
@@ -256,20 +390,16 @@ export class OverlayManager {
     }
     for (const other of this.entries.values()) {
       if (other.window !== entry.window && !other.window.isDestroyed()) {
-        other.window.setIgnoreMouseEvents(true)
-        if (other.window.isVisible()) other.window.hide()
+        this.park(other)
       }
     }
     this.captures.delete(id)
-    entry.window.setBounds(entry.bounds)
-    entry.window.setIgnoreMouseEvents(true)
-    if (entry.window.isVisible()) entry.window.hide()
-    // 以 0 透明度提前显示，把窗口显示/合成的耗时和截图重叠。
+    // 从停靠态恢复全屏；窗口一直处于显示状态，不使用 show/hide。
+    this.activate(entry, entry.bounds)
+    // 首次会话先预热编辑态（窗口临时 alpha 0.01 让 rAF 真正运行），
+    // 预热结束后恢复 alpha 0，保证随后的截图不被任何像素污染。
+    if (this.rendererReady.has(id)) await this.warmEditOnce(entry, 0)
     // 全透明窗口对 GDI/WGC 截屏没有任何像素贡献，冻结画面保持干净。
-    entry.window.setOpacity(0)
-    entry.window.showInactive()
-    entry.window.moveTop()
-    // 隐藏状态下先把上一次会话的 UI 重置掉，等截图完成后直接显示新画面。
     this.send(entry, 'overlay:prepare', this.getSettings())
   }
 
@@ -298,6 +428,8 @@ export class OverlayManager {
     if (current && current.active === active && current.interactive === interactive) return
     entry.recordingMode = { active, interactive }
     const window = entry.window
+    // 重录/预览结束后窗口是 alpha 0 但仍是全屏尺寸；被最小化时先恢复。
+    if (interactive && window.isMinimized()) window.restore()
     if (interactive) this.activateSession(webContentsId)
     if (active) {
       if (interactive) {
@@ -310,7 +442,6 @@ export class OverlayManager {
         window.setIgnoreMouseEvents(true)
       }
       window.setOpacity(1)
-      if (!window.isVisible()) window.showInactive()
       window.moveTop()
       return
     }
@@ -322,18 +453,14 @@ export class OverlayManager {
       window.setIgnoreMouseEvents(true)
     }
     window.setOpacity(1)
-    if (!window.isVisible()) window.showInactive()
   }
 
   hideRecordingOverlay(webContentsId: number): void {
     const entry = this.entries.get(webContentsId)
     if (!entry || entry.window.isDestroyed()) return
-    this.send(entry, 'overlay:reset')
-    entry.window.setIgnoreMouseEvents(true)
-    entry.window.setOpacity(1)
-    entry.window.hide()
-    // 录制完成进入结果卡后，本次截图会话已经结束；必须复位 active，
-    // 否则下一次 F1 会被 startCapture 当成“关闭旧覆盖层”而吞掉。
+    // 录制完成进入结果卡后，本次截图会话已经结束；停靠而不是 hide，
+    // 否则下一次 F1 会重新触发 Windows 的打开缩放动画。
+    this.park(entry)
     this.active = false
     this.endSession()
   }
@@ -358,12 +485,10 @@ export class OverlayManager {
     this.activateSession(id)
     for (const other of this.entries.values()) {
       if (other.window !== entry.window && !other.window.isDestroyed()) {
-        other.window.setIgnoreMouseEvents(true)
-        if (other.window.isVisible()) other.window.hide()
+        this.park(other)
       }
     }
-    entry.window.setBounds(capture.bounds)
-    entry.bounds = capture.bounds
+    this.activate(entry, capture.bounds)
     const boundsAt = Date.now()
     this.captures.set(id, capture)
     console.log('OVERLAY_START', id, this.rendererReady.has(id))
@@ -373,13 +498,19 @@ export class OverlayManager {
       this.endSession()
       return
     }
+    // 按需创建的窗口（副屏/回收后重建）：在绘制冻结画面之前补一次编辑态预热。
+    // 正常 F1 流程里 prepare 已经完成预热，这里是空操作。
+    await this.warmEditOnce(entry, 0.01)
+    if (!this.active || entry.window.isDestroyed()) {
+      this.endSession()
+      return
+    }
     entry.window.setAlwaysOnTop(true, 'screen-saver')
     // 先保持鼠标穿透，等冻结画面真正绘制到画布后再允许框选。
     entry.window.setIgnoreMouseEvents(true)
-    // 以 1% 透明度显示窗口：DWM 会真的合成这一帧，渲染层也能收到合成帧并完成
-    // 解码/绘制，用户肉眼看不到内容；等两帧确认后再切到 1，首帧就是完整画面。
+    // 窗口一直是显示状态，0.01 只是为了让 DWM 持续合成这一帧；
+    // 真正呈现给用户发生在 prepared 之后的 setOpacity(1)。
     entry.window.setOpacity(0.01)
-    if (!entry.window.isVisible()) entry.window.showInactive()
     entry.window.moveTop()
     const nativesAt = Date.now()
     this.preparedAckAt.delete(id)
@@ -443,18 +574,17 @@ export class OverlayManager {
       imageHeight: 1
     }
     this.captures.set(id, fake)
-    entry.window.setIgnoreMouseEvents(true)
+    this.activate(entry, display.bounds)
     entry.window.setOpacity(0.01)
-    entry.window.showInactive()
-    entry.window.moveTop()
     const prepared = this.waitForPrepared(id, 700)
     this.send(entry, 'overlay:init', { ...fake, settings: this.getSettings() })
     await prepared
     if (token !== this.warmupToken || this.active || entry.window.isDestroyed()) return
-    this.send(entry, 'overlay:reset')
+    // 假图已经加载，再跑一次编辑态预热：工具栏、缩放柄、标注画布和离屏背景画布
+    // 都会在这里完成第一次创建与合成，避免用户第一次框选时整帧被卡住。
+    await this.warmEditOnce(entry, 0)
     this.captures.delete(id)
-    entry.window.setOpacity(1)
-    entry.window.hide()
+    this.park(entry)
   }
 
   complete(payload: OverlayCompletePayload, webContentsId: number): void {
@@ -478,10 +608,8 @@ export class OverlayManager {
         this.removeEntry(id)
         continue
       }
-      entry.window.setIgnoreMouseEvents(true)
-      entry.window.setOpacity(1)
-      this.send(entry, 'overlay:reset')
-      entry.window.hide()
+      // 停靠到 1×1 而不是 hide：覆盖层窗口全程保持显示，避免下一次 F1 触发打开动画。
+      this.park(entry)
       if (entry.rendererGone || entry.window.webContents.isDestroyed()) {
         entry.window.destroy()
         this.removeEntry(id)
@@ -580,6 +708,9 @@ export class OverlayManager {
     this.rendererReady.clear()
     for (const resolve of this.prepareWaiters.values()) resolve()
     this.prepareWaiters.clear()
+    for (const resolve of this.warmEditWaiters.values()) resolve()
+    this.warmEditWaiters.clear()
+    this.warmEditPromises.clear()
     this.active = false
     this.sessionCount = 0
     this.sessionsSinceBaseline = 0
@@ -613,6 +744,9 @@ export class OverlayManager {
     this.rendererReady.delete(webContentsId)
     this.prepareWaiters.delete(webContentsId)
     this.preparedAckAt.delete(webContentsId)
+    this.warmEditWaiters.get(webContentsId)?.()
+    this.warmEditWaiters.delete(webContentsId)
+    this.warmEditPromises.delete(webContentsId)
   }
 
   destroyAll(): void {
@@ -631,6 +765,9 @@ export class OverlayManager {
     this.rendererReady.clear()
     for (const resolve of this.prepareWaiters.values()) resolve()
     this.prepareWaiters.clear()
+    for (const resolve of this.warmEditWaiters.values()) resolve()
+    this.warmEditWaiters.clear()
+    this.warmEditPromises.clear()
     this.active = false
   }
 
@@ -653,11 +790,17 @@ export class OverlayManager {
   }
 
   private createWindow(display: DisplayInfo): number {
+    // 先用 1×1 完成首次 show（放大的打开动画只作用在 1×1 上，用户看不到），
+    // 再调整到全屏；之后整个生命周期不再 show、不再 resize。
+    const initial = this.initialBounds(display.bounds)
     const window = new BrowserWindow({
-      x: display.bounds.x,
-      y: display.bounds.y,
-      width: display.bounds.width,
-      height: display.bounds.height,
+      x: initial.x,
+      y: initial.y,
+      width: initial.width,
+      height: initial.height,
+      // Windows 工具窗口不会进入 Alt-Tab。覆盖层现在常驻显示（alpha 0），
+      // 不加这个标志会在 Alt-Tab 里留下一个空白的 Pixmint 项。
+      ...(process.platform === 'win32' ? { type: 'toolbar' as const } : {}),
       frame: false,
       transparent: true,
       backgroundColor: '#00000000',
@@ -677,16 +820,21 @@ export class OverlayManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-        // 隐藏等待下一次 F1 时不能被 Chromium 节流，否则 rAF 会延迟到 1 秒以上。
+        // 窗口长期保持显示，不能让 Chromium 在空闲时节流计时器。
         backgroundThrottling: false
       }
     })
     window.setAlwaysOnTop(true, 'screen-saver')
     window.setMenuBarVisibility(false)
-    // Windows 会把“初始创建”的全屏窗口高度压到工作区（1080 -> 1032）。
-    // 创建后必须显式 setBounds，才能覆盖任务栏区域，保证截图坐标不偏移。
-    window.setBounds(display.bounds)
-    // 窗口从未显示起就保持鼠标穿透；空闲时虽然留在屏幕内，也不能挡住点击。
+    window.setBounds(initial)
+    window.setOpacity(0)
+    window.showInactive()
+    // 先把窗口铺满目标显示器（仍在 alpha 0），把全屏合成表面创建出来；
+    // 之后会话开始/结束都只改 alpha，不再触碰窗口尺寸。
+    window.setBounds(this.parkedBounds(display.bounds))
+    // 空闲时取消置顶，避免透明全屏窗口干扰全屏游戏/投屏；activate 时会重新置顶。
+    window.setAlwaysOnTop(false)
+    // 窗口从显示起就保持鼠标穿透；停靠时也不能挡住点击。
     window.setIgnoreMouseEvents(true)
     if (process.platform === 'darwin') {
       window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -698,7 +846,8 @@ export class OverlayManager {
       displayId: display.id,
       bounds: display.bounds,
       recordingMode: null,
-      rendererGone: false
+      rendererGone: false,
+      warmed: false
     })
     this.byDisplay.set(display.id, id)
     window.webContents.on('unresponsive', () => {
@@ -717,6 +866,8 @@ export class OverlayManager {
       this.rendererReady.delete(id)
       this.prepareWaiters.delete(id)
       this.preparedAckAt.delete(id)
+      this.warmEditWaiters.delete(id)
+      this.warmEditPromises.delete(id)
       if (this.active) this.endSession()
     })
     loadRoute(window, 'overlay')

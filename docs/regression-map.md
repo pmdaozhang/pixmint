@@ -6,7 +6,8 @@
 |---|---|---|---|
 | `src/main/index.ts` | 应用启动、单实例、IPC 注册、更新器初始化、全局快捷键、托盘生命周期 | `e2e-overlay.cjs`、`e2e-settings.cjs` | 启动应用；按快捷键截图；从托盘显示/隐藏/退出 |
 | `src/main/capture.ts`、`src/main/fast-capture.ts` | 屏幕采集、多屏与 DPI 适配 | `e2e-overlay.cjs` | 在 125%/150%/200% 缩放和多屏下各截一次 |
-| `src/main/windows/overlay.ts` | 覆盖层窗口、框选、Esc 取消、保存/复制入口 | `e2e-overlay.cjs` | 框选后分别保存、复制、Esc 取消 |
+| `src/main/windows/overlay.ts` | 覆盖层窗口、框选、Esc 取消、保存/复制入口 | `e2e-overlay.cjs`、`scripts/regression/overlay-visual.mjs` | 框选后分别保存、复制、Esc 取消 |
+| `src/main/windows/overlay.ts`（窗口生命周期） | 空闲常驻全屏 alpha 0、F1 不 show 不 resize、每个窗口一次编辑态预热 | `scripts/regression/overlay-visual.mjs`（录屏帧级） | 冷启动后连续 3 次 F1；首次框选；取消/复制；录制结束；副屏；Win+D 后 F1 |
 | `src/renderer/src/overlay/**` | 标注画布、工具栏、箭头、文字、马赛克、撤销重做 | `annotation-utils.test.ts`、`arrow-geometry.test.ts`、`mosaic-options.test.ts`、`e2e-overlay.cjs` | 每种工具绘制一次；撤销/重做；文字二次编辑 |
 | `src/main/recording.ts`、`src/renderer/src/recorder/**` | GIF/视频录制、系统音频、暂停与结束 | `recording.test.ts`、`gif-encoder.test.ts`、`e2e-recording.cjs` | 录制 10 秒 GIF 和视频；检查音频轨；结束并保存 |
 | `src/main/ocr/**`、`src/renderer/src/ocr/**` | PaddleOCR、Windows OCR 兜底、多行结果拼接、文字框坐标 | `ocr-queue.test.ts`、`ocr-layout.test.ts`、`paddle-ocr.test.ts`、`windows-ocr.test.ts`、`e2e-ocr.cjs` | 选中中英混排、路径、版本号各识别一次 |
@@ -29,6 +30,27 @@
 | `package.json`、`electron-builder.yml`、`packaging/**` | 构建、安装包、发布门禁 | 无自动化 | 安装、卸载、覆盖安装；运行 `pnpm package` 验证门禁 |
 
 > 长截图（P7/P8）已于 2026-10-29 下线，相关源文件、单测、E2E、Demo 和专用文档已删除，不再属于回归范围。
+
+## 覆盖层窗口生命周期（不可回退的约束）
+
+背景：Windows 的窗口打开缩放动画绑定在 `ShowWindow` 上，并且会忽略 layered alpha。
+0.8.6 的“空闲 hide、F1 以 1% 透明度 show”因此仍会看到遮罩从小变大的重影；
+`DWMWA_TRANSITIONS_FORCEDISABLED` 在 Windows 11 上对该动画无效（实测 HRESULT=0，动画照常）。
+
+约束：
+
+1. 覆盖层窗口从创建起**一直保持显示**。创建时先以 1×1 完成首次 show，再调整为全屏；
+   之后整个进程生命周期内**禁止调用 `hide()`**，会话切换只改 alpha 和置顶状态。
+   空闲状态 = 全屏尺寸 + alpha 0 + 鼠标穿透 + 不置顶。
+2. 每个窗口在第一次会话前用假选区跑一次**编辑态预热**（工具栏、缩放柄、标注画布、
+   离屏背景画布），否则首次框选的整帧呈现会被 GPU 冷启动拖慢约 250ms。
+   预热期间窗口临时 alpha 0.01 让 rAF 运行，结束后恢复，截图不会被污染。
+3. 新增编辑态 UI 时必须确认被预热覆盖；新增覆盖层窗口必须走 `createWindow/activate/park`
+   这一套生命周期，不要自己 `new BrowserWindow` 后 `hide()/show()`。
+
+自动化：`pnpm regression:overlay-visual` 会真实录屏并做帧级断言
+（遮罩过渡 ≤ 2 帧、松手到工具栏上屏 ≤ 2 帧）。它需要 Windows 桌面和 ffmpeg
+（`FFMPEG_PATH` 可指定），适合作为发布前的本地门禁；普通 DOM 测试无法发现这两类问题。
 
 ## 维护规则
 

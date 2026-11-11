@@ -260,10 +260,6 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
      */
     useEffect(() => {
       backgroundCanvasRef.current = null
-      const source = imageCanvasRef.current
-      if (!source || !source.width || !source.height) return
-      const scaleX = imageWidth / bounds.width
-      const scaleY = imageHeight / bounds.height
       const width = Math.max(1, Math.round(selection.width))
       const height = Math.max(1, Math.round(selection.height))
       const offscreen = document.createElement('canvas')
@@ -271,18 +267,25 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       offscreen.height = height
       const offCtx = offscreen.getContext('2d')
       if (!offCtx) return
-      offCtx.drawImage(
-        source,
-        selection.x * scaleX,
-        selection.y * scaleY,
-        selection.width * scaleX,
-        selection.height * scaleY,
-        0,
-        0,
-        width,
-        height
-      )
       backgroundCanvasRef.current = offscreen
+      // 没有源图（编辑态预热阶段）时也要先把离屏画布分配出来，
+      // 否则真正的第一次框选才会触发这块 GPU 资源分配，卡住整帧呈现。
+      const source = imageCanvasRef.current
+      if (source && source.width && source.height) {
+        const scaleX = imageWidth / bounds.width
+        const scaleY = imageHeight / bounds.height
+        offCtx.drawImage(
+          source,
+          selection.x * scaleX,
+          selection.y * scaleY,
+          selection.width * scaleX,
+          selection.height * scaleY,
+          0,
+          0,
+          width,
+          height
+        )
+      }
       redraw()
     }, [
       imageCanvasRef,
