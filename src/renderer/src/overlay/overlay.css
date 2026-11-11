@@ -886,3 +886,67 @@
     transform: rotate(360deg);
   }
 }
+
+/*
+ * 框选放大镜 + 取色面板。
+ * 固定定位、pointer-events: none，跟随鼠标但不参与命中测试；
+ * 面板本身不透明，避免放大内容与背后的截图混在一起看不清。
+ */
+.magnifier {
+  position: fixed;
+  z-index: 60;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  user-select: none;
+}
+
+.magnifier-zoom {
+  display: block;
+  width: 160px;
+  height: 120px;
+  border-radius: 4px;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.magnifier-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 2px;
+  font: 11px var(--mono);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.magnifier-swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  border: 1px solid var(--border-strong);
+  background: #000;
+}
+
+.magnifier-hex {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.magnifier-rgb {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.magnifier-hint {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 10px;
+}

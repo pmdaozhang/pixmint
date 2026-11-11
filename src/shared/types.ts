@@ -73,6 +73,8 @@ export interface DisplayCapture {
 export interface OverlayInit extends DisplayCapture {
   settings: Settings
   pendingRecorderMode?: RecorderMode
+  /** F1 时刻的光标位置（相对当前显示器，DIP），用于放大镜初始定位。 */
+  cursor?: { x: number; y: number }
 }
 
 export interface OverlayCompletePayload {

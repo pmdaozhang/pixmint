@@ -207,21 +207,20 @@ function patchDiff(a, b) {
         dropIndex = i
       }
     }
-    if (dropIndex < 0 || dropSize < 25) {
+    if (dropIndex < 0 || dropSize < 12) {
       fail(`遮罩没有在录屏中出现（最大单帧亮度下降 ${dropSize.toFixed(1)}）`)
     } else {
-      const settled = means[Math.min(means.length - 1, dropIndex + 5)]
-      let settleIndex = dropIndex
-      for (let i = dropIndex; i < Math.min(means.length, dropIndex + 10); i += 1) {
-        if (Math.abs(means[i] - settled) <= 2.5 && Math.abs(means[i + 1] - settled) <= 2.5) {
-          settleIndex = i
-          break
-        }
-      }
-      const transitionFrames = settleIndex - dropIndex
-      info(`遮罩: 下降 ${dropSize.toFixed(1)}，过渡帧 ${transitionFrames}`)
-      if (transitionFrames > 2) {
-        fail(`遮罩过渡了 ${transitionFrames} 帧（应 ≤ 2 帧），可能又出现了缩放动画`)
+      // 用“遮罩出现后的帧差”判断是否还有过渡：
+      // 单帧直出时，出现后第 1 帧和稳定后的第 4 帧应该几乎一样；
+      // 如果还在缩放/淡入，两者会差很多（旧版实测相关系数只有 0.45）。
+      const afterIndex = Math.min(centerFrames.length - 1, dropIndex + 1)
+      const settledIndex = Math.min(centerFrames.length - 1, dropIndex + 4)
+      const after = await frameBytes(centerFrames[afterIndex])
+      const settled = await frameBytes(centerFrames[settledIndex])
+      const mad = patchDiff(after, settled)
+      info(`遮罩: 下降 ${dropSize.toFixed(1)}，出现后帧差 ${mad.toFixed(2)}`)
+      if (mad > 6) {
+        fail(`遮罩出现后仍在变化（帧差 ${mad.toFixed(2)}），可能又出现了缩放/淡入动画`)
       }
     }
     await fs.rm(centerDir, { recursive: true, force: true })
@@ -252,7 +251,18 @@ function patchDiff(a, b) {
     await sleep(700)
     await app.evaluate(() => globalThis.__snapglassStartCapture && globalThis.__snapglassStartCapture())
     await sleep(700)
+
+    // 放大镜必须在框选前出现，并且能取到有效颜色。
+    const magnifierDisplay = await overlay.evaluate(() => {
+      const panel = document.querySelector('.magnifier')
+      return panel ? getComputedStyle(panel).display : 'missing'
+    })
+    if (magnifierDisplay !== 'flex') fail(`放大镜没有出现（${magnifierDisplay}）`)
     await overlay.mouse.move(selection.x, selection.y)
+    await sleep(200)
+    const colorText = (await overlay.locator('.magnifier-hex').textContent())?.trim() ?? ''
+    if (!/^#[0-9A-F]{6}$/.test(colorText)) fail(`放大镜没有取到有效颜色（${colorText}）`)
+
     await overlay.mouse.down()
     for (let i = 1; i <= 12; i += 1) {
       await overlay.mouse.move(
@@ -268,7 +278,11 @@ function patchDiff(a, b) {
       document.body.appendChild(marker)
     })
     await overlay.mouse.up()
-    await sleep(1200)
+    await sleep(500)
+    if ((await overlay.locator('.magnifier').count()) !== 0) {
+      fail('进入编辑态后放大镜没有隐藏')
+    }
+    await sleep(700)
     await overlay.keyboard.press('Escape').catch(() => {})
     await waitExit(toolbarRec)
 

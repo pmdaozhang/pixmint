@@ -516,10 +516,16 @@ export class OverlayManager {
     this.preparedAckAt.delete(id)
     const preparedStarted = Date.now()
     const prepared = this.waitForPrepared(id, 700)
+    const cursorPoint = screen.getCursorScreenPoint()
+    const cursor = {
+      x: Math.max(0, Math.min(capture.bounds.width - 1, cursorPoint.x - capture.bounds.x)),
+      y: Math.max(0, Math.min(capture.bounds.height - 1, cursorPoint.y - capture.bounds.y))
+    }
     this.send(entry, 'overlay:init', {
       ...capture,
       settings: this.getSettings(),
-      pendingRecorderMode
+      pendingRecorderMode,
+      cursor
     })
     const initAt = Date.now()
     console.log('OVERLAY_INIT_SENT', Date.now() - started)

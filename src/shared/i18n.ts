@@ -224,6 +224,7 @@ const EN: Record<string, string> = {
   '文字识别不可用': 'Text recognition unavailable',
   '识别文字': 'Recognize text',
   '已复制': 'Copied',
+  '已复制颜色 {color}': 'Color {color} copied',
   '已保存': 'Saved',
   '保存失败': 'Save failed',
   '鼠标穿透': 'Mouse passthrough',

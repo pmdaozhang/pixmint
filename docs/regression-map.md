@@ -6,7 +6,7 @@
 |---|---|---|---|
 | `src/main/index.ts` | 应用启动、单实例、IPC 注册、更新器初始化、全局快捷键、托盘生命周期 | `e2e-overlay.cjs`、`e2e-settings.cjs` | 启动应用；按快捷键截图；从托盘显示/隐藏/退出 |
 | `src/main/capture.ts`、`src/main/fast-capture.ts` | 屏幕采集、多屏与 DPI 适配 | `e2e-overlay.cjs` | 在 125%/150%/200% 缩放和多屏下各截一次 |
-| `src/main/windows/overlay.ts` | 覆盖层窗口、框选、Esc 取消、保存/复制入口 | `e2e-overlay.cjs`、`scripts/regression/overlay-visual.mjs` | 框选后分别保存、复制、Esc 取消 |
+| `src/main/windows/overlay.ts` | 覆盖层窗口、框选、Esc 取消、保存/复制入口 | `e2e-overlay.cjs`、`scripts/regression/overlay-visual.mjs` | 框选后分别保存、复制、Esc 取消；框选前核对放大镜像素块与取色，Ctrl+C 复制颜色 |
 | `src/main/windows/overlay.ts`（窗口生命周期） | 空闲常驻全屏 alpha 0、F1 不 show 不 resize、每个窗口一次编辑态预热 | `scripts/regression/overlay-visual.mjs`（录屏帧级） | 冷启动后连续 3 次 F1；首次框选；取消/复制；录制结束；副屏；Win+D 后 F1 |
 | `src/renderer/src/overlay/**` | 标注画布、工具栏、箭头、文字、马赛克、撤销重做 | `annotation-utils.test.ts`、`arrow-geometry.test.ts`、`mosaic-options.test.ts`、`e2e-overlay.cjs` | 每种工具绘制一次；撤销/重做；文字二次编辑 |
 | `src/main/recording.ts`、`src/renderer/src/recorder/**` | GIF/视频录制、系统音频、暂停与结束 | `recording.test.ts`、`gif-encoder.test.ts`、`e2e-recording.cjs` | 录制 10 秒 GIF 和视频；检查音频轨；结束并保存 |

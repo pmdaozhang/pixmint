@@ -10,6 +10,7 @@ import type {
 } from '@shared/types'
 import { AnnotationCanvas, type AnnotationCanvasHandle } from './AnnotationCanvas'
 import { DimAround } from './DimAround'
+import { Magnifier } from './Magnifier'
 import { RecorderBar } from './RecorderBar'
 import { RecorderSession } from './RecorderSession'
 import { RESIZE_DIRS } from './selection-geometry'
@@ -369,6 +370,13 @@ export function OverlayApp(): JSX.Element {
     setToast(message)
     window.setTimeout(() => setToast(''), 1800)
   }, [])
+
+  const showColorCopied = useCallback(
+    (hex: string) => {
+      showToast(t(init?.settings.language, '已复制颜色 {color}', { color: hex }))
+    },
+    [init, showToast]
+  )
 
   const openRecorder = useCallback((mode: RecorderMode) => {
     setRecorderMode(mode)
@@ -969,6 +977,9 @@ export function OverlayApp(): JSX.Element {
             canRedo={canRedo}
           />
         </div>
+      )}
+      {init && imageReady && !recorderModeActive && effectivePhase === 'selecting' && !warmRect && (
+        <Magnifier init={init} imageCanvasRef={imageCanvasRef} onCopied={showColorCopied} />
       )}
       {options.tool === 'mosaic' && options.mosaicMode === 'brush' && phase === 'editing' && (
         <div
