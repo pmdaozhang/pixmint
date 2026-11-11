@@ -231,7 +231,6 @@ const api = {
     rendererReady: () => {},
     heartbeat: () => {},
     windowAt: async () => null,
-    autoCopy: () => {},
     complete: () => {},
     cancel: () => {}
   }

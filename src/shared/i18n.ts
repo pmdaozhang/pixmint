@@ -185,7 +185,6 @@ const EN: Record<string, string> = {
   '选区太小，至少需要 64 × 64': 'Selection is too small; at least 64 × 64',
   '录制初始化超时，请重试': 'Recording setup timed out; try again',
   '3 秒后开始': 'Starts in 3 seconds',
-  '截图已自动复制': 'Screenshot copied automatically',
   '视频': 'Video',
   '准备中 · {label}': 'Preparing · {label}',
   '待机 · {label}': 'Ready · {label}',

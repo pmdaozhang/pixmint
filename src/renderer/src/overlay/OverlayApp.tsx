@@ -84,7 +84,6 @@ export function OverlayApp(): JSX.Element {
   const recorderOptionsRef = useRef<RecorderOptions>(DEFAULT_RECORDER_OPTIONS)
   const pendingRecordModeRef = useRef<RecorderMode | null>(null)
   const recordCancelledRef = useRef(false)
-  const autoCopiedRef = useRef(false)
   // 诊断：记录最后一次 pointerup 时间，用于量“松手 → 工具栏首帧”的耗时。
   const lastPointerUpAtRef = useRef(0)
 
@@ -144,7 +143,6 @@ export function OverlayApp(): JSX.Element {
     cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = data.pendingRecorderMode ?? null
-    autoCopiedRef.current = false
     setToast('')
     setError('')
     const media = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -175,7 +173,6 @@ export function OverlayApp(): JSX.Element {
     pendingRecordModeRef.current = null
     setToast('')
     setError('')
-    autoCopiedRef.current = false
     const media = window.matchMedia('(prefers-color-scheme: dark)').matches
     const theme =
       settings.theme === 'system' ? (media ? 'dark' : 'light') : settings.theme
@@ -200,7 +197,6 @@ export function OverlayApp(): JSX.Element {
     pendingRecordModeRef.current = null
     setToast('')
     setError('')
-    autoCopiedRef.current = false
   }, [cancelSnap, resetRecorderState, resetSelection])
 
   const applyReset = useCallback(() => {
@@ -644,44 +640,6 @@ export function OverlayApp(): JSX.Element {
     },
     [init, selection, buildSelectionBytes]
   )
-
-  /**
-   * 背景：自动复制原先在渲染线程重新裁剪并编码整张 PNG，松手后立刻执行。
-   * 实测一次大选区编码会占用渲染主线程 549ms，工具栏和标注都会跟着卡。
-   * 设计意图：渲染层只上报选区矩形，主进程用已经截好的原图裁剪后写剪贴板，
-   * 渲染线程零编码、零大体积 IPC；触发时间也推到工具栏首帧之后。
-   * 关键约束：自动复制只做一次；会话重置时必须取消还没触发的计时。
-   */
-  const autoCopyTimerRef = useRef(0)
-  const cancelPendingAutoCopy = useCallback(() => {
-    if (!autoCopyTimerRef.current) return
-    window.clearTimeout(autoCopyTimerRef.current)
-    autoCopyTimerRef.current = 0
-  }, [])
-
-  const autoCopySelection = useCallback((): void => {
-    const current = selectionRef.current
-    if (!current) return
-    window.snapglass.overlay.autoCopy(current)
-    showToast(t(init?.settings?.language, '截图已自动复制'))
-  }, [init, selectionRef, showToast])
-
-  useEffect(() => {
-    if (phase !== 'editing' || !selection || !init || autoCopiedRef.current) return
-    autoCopiedRef.current = true
-    // 延后到工具栏首帧画完之后，不和选区边框、工具条抢首帧。
-    autoCopyTimerRef.current = window.setTimeout(() => {
-      autoCopyTimerRef.current = 0
-      autoCopySelection()
-    }, 300)
-  }, [phase, selection, init, autoCopySelection])
-
-  useEffect(() => {
-    if (phase === 'editing') return
-    cancelPendingAutoCopy()
-  }, [phase, cancelPendingAutoCopy])
-
-  useEffect(() => () => cancelPendingAutoCopy(), [cancelPendingAutoCopy])
 
   const onAction = useCallback(
     (
