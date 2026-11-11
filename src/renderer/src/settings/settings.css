@@ -463,6 +463,23 @@ button.primary:hover {
   background: var(--accent-hover);
 }
 
+/* 会员按钮：金黄色，两种状态共用，已激活时显示「终身会员」。 */
+button.primary.pro-gold {
+  background: linear-gradient(135deg, #ffd76a 0%, #e8a317 100%);
+  border-color: rgba(120, 78, 0, 0.25);
+  color: #4d3200;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(120, 78, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+button.primary.pro-gold:hover {
+  background: linear-gradient(135deg, #ffe08a 0%, #f0ad24 100%);
+}
+
+button.primary.pro-gold svg {
+  color: #7a5200;
+}
+
 button.secondary:disabled,
 button.primary:disabled {
   opacity: 0.55;

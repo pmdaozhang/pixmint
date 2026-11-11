@@ -35,6 +35,8 @@ export interface LicenseServiceOptions {
   apiBase?: string
   fetchImpl: LicenseFetch
   now?: () => number
+  /** 授权状态变化（激活、续签成功、退款清空）后回调，用于刷新托盘菜单。 */
+  onChange?: () => void
 }
 
 export class LicenseApiError extends Error {
@@ -203,6 +205,7 @@ export class LicenseService {
           (error.status === 410 || error.status === 401)
         ) {
           this.options.store.clear()
+          this.options.onChange?.()
           return this.status()
         }
         throw error
@@ -213,6 +216,7 @@ export class LicenseService {
         devicesUsed: response.devicesUsed ?? record.devicesUsed,
         devicesMax: response.devicesMax ?? record.devicesMax
       })
+      this.options.onChange?.()
       return this.status()
     })()
     try {
@@ -358,6 +362,7 @@ export class LicenseService {
     }
     if (response.code) patch.code = response.code
     this.options.store.save(patch)
+    this.options.onChange?.()
   }
 
   private async request<T = unknown>(

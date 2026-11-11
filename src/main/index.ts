@@ -135,14 +135,18 @@ let trayActions: TrayActions | null = null
 let preloadPath = ''
 const captureGate = new CaptureGate()
 
+function refreshTrayMenu(): void {
+  if (tray && trayActions) {
+    tray.setContextMenu(buildTrayMenu(trayActions, settingsStore.get().language))
+  }
+}
+
 function applySystemSettings(): void {
   const settings = settingsStore.get()
   nativeTheme.themeSource = settings.theme
   app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin })
-  // 语言切换后立即重建托盘菜单，不必重启应用
-  if (tray && trayActions) {
-    tray.setContextMenu(buildTrayMenu(trayActions, settings.language))
-  }
+  // 语言切换、授权状态变化后立即重建托盘菜单，不必重启应用
+  refreshTrayMenu()
   registerShortcut(settings)
 }
 
@@ -254,6 +258,7 @@ function initServices(): void {
   licenseService = new LicenseService({
     store: licenseStore,
     deviceId: () => deviceIdStore.get(),
+    onChange: () => refreshTrayMenu(),
     fetchImpl: (url, init) =>
       net.fetch(url, init as RequestInit) as unknown as Promise<{
         ok: boolean
@@ -477,8 +482,13 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
         void startCapture()
       },
       onSettings: () => createSettingsWindow(preloadPath),
+      onUpgrade: () => {
+        overlayManager.hideAll()
+        createPurchaseWindow(preloadPath)
+      },
       onFeedback: () => createFeedbackWindow(preloadPath),
-      onQuit: () => app.quit()
+      onQuit: () => app.quit(),
+      isPro: () => licenseService.isPro()
     }
     tray = createTray(trayActions, settingsStore.get().language)
     if (flags.debugTrayMenu) {

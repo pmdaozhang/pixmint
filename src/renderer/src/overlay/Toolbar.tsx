@@ -364,7 +364,7 @@ export function Toolbar({
       (MOSAIC_BRUSH_MAX - MOSAIC_BRUSH_MIN)) *
       10
   return (
-    <div className="tooldock glass-2">
+    <div className={`tooldock glass-2${submenuOpen ? ' submenu-open' : ''}`}>
       <div className="row1">
         <ToolButton
           tool="shape"

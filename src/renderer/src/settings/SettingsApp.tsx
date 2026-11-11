@@ -399,10 +399,11 @@ export function SettingsApp(): JSX.Element {
             </div>
             <div className="row-actions">
               <button
-                className="primary"
+                className="primary pro-gold"
                 onClick={() => window.snapglass.purchase.open()}
               >
-                {licenseStatus?.pro ? tr('管理授权') : tr('升级 Pro')}
+                <Icon name="crown" size={14} />
+                {licenseStatus?.pro ? tr('终身会员') : tr('升级 Pro')}
               </button>
             </div>
           </div>

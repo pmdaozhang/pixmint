@@ -219,6 +219,32 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     throw new Error('submenu divider does not span the full menu width')
   }
 
+  // 子菜单展开后工具栏变成两行，胶囊圆角会随高度变大，第一行的图标
+  // 可能伸进圆角弧线、悬停背景露出白底之外。逐个按钮四角做圆角矩形包含检测。
+  const iconsInsideDock = await window.locator('.tooldock').evaluate((dock) => {
+    const style = getComputedStyle(dock)
+    const radius = parseFloat(style.borderTopLeftRadius) || 0
+    const rect = dock.getBoundingClientRect()
+    const inside = (x, y) => {
+      const cx = Math.min(Math.max(x, rect.left + radius), rect.right - radius)
+      const cy = Math.min(Math.max(y, rect.top + radius), rect.bottom - radius)
+      return (x - cx) ** 2 + (y - cy) ** 2 <= radius * radius
+    }
+    return Array.from(dock.querySelectorAll('.row1 > *')).every((el) => {
+      const b = el.getBoundingClientRect()
+      return (
+        inside(b.left, b.top) &&
+        inside(b.right, b.top) &&
+        inside(b.left, b.bottom) &&
+        inside(b.right, b.bottom)
+      )
+    })
+  })
+  console.log('ICONS_INSIDE_DOCK', iconsInsideDock)
+  if (!iconsInsideDock) {
+    throw new Error('toolbar icons overlap the rounded dock corners')
+  }
+
   const arrowModeDefault = await window.locator('.arrow-mode-trigger').getAttribute('title')
   console.log('ARROW_MODE_DEFAULT', arrowModeDefault)
   if (!arrowModeDefault?.includes('带箭头')) {

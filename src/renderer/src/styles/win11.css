@@ -92,6 +92,17 @@
   border-radius: var(--radius-full);
 }
 
+/*
+ * 子菜单展开后工具栏变成两行，胶囊圆角会随高度变得很大，
+ * 第一行最左/最右的按钮会伸进圆角弧线里，悬停背景看起来溢出白底。
+ * 两行状态改用常规圆角并加左右内边距，保证图标都落在背景内。
+ */
+.tooldock.glass-2.submenu-open {
+  border-radius: var(--radius-2xl);
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
 html[data-theme="dark"] .tooldock.glass-2 {
   background: #2b2b2b;
   border-color: rgba(255, 255, 255, 0.24);

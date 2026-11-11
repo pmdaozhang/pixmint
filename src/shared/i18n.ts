@@ -604,8 +604,10 @@ const EN: Record<string, string> = {
   // ===== 托盘 =====
   '截图  F1': 'Screenshot  F1',
   '设置': 'Settings',
+  '升级会员': 'Upgrade membership',
+  '终身会员': 'Lifetime member',
   '意见反馈…': 'Send feedback…',
-  '退出 Pixmint': 'Quit Pixmint'
+  '退出': 'Quit'
 }
 
 export function t(

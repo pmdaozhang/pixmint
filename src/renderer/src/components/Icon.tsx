@@ -25,6 +25,7 @@ export type IconName =
   | 'keyboard'
   | 'palette'
   | 'volume'
+  | 'crown'
 
 const paths: Record<IconName, JSX.Element> = {
   move: (
@@ -153,6 +154,12 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <path d="M4 9v6h4l5 4V5L8 9H4z" />
       <path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13" />
+    </>
+  ),
+  crown: (
+    <>
+      <path d="M4.5 18.5 3 8.5l5.2 3.7L12 4.5l3.8 7.7L21 8.5l-1.5 10z" />
+      <path d="M6.5 21h11" strokeLinecap="round" />
     </>
   ),
 }
