@@ -24,7 +24,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     predicate: (page) => page.url().includes('#ocr'),
     timeout: 15000
   })
-  await overlay.locator('.act').filter({ hasText: '识别' }).click()
+  await overlay.locator('.act[data-action="ocr"]').click()
   const ocrWindow = await ocrWindowPromise
   await ocrWindow.waitForSelector('.ocr-root', { timeout: 10000 })
   const text = await ocrWindow.locator('#ocr-original').inputValue()
@@ -47,7 +47,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     predicate: (page) => page.url().includes('#ocr'),
     timeout: 15000
   })
-  await overlay.locator('.act').filter({ hasText: '识别' }).click()
+  await overlay.locator('.act[data-action="ocr"]').click()
   const secondOcr = await secondOcrPromise
   await secondOcr.waitForSelector('.ocr-root', { timeout: 10000 })
   const secondText = await secondOcr.locator('#ocr-original').inputValue()

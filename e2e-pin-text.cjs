@@ -20,7 +20,7 @@ async function selectRegion(overlay, start, end) {
 
 async function pinSelection(app, overlay) {
   const pinPromise = app.waitForEvent('window', { timeout: 10000 }).catch(() => null)
-  await overlay.locator('.act').filter({ hasText: '钉图' }).click()
+  await overlay.locator('.act[data-action="pin"]').click()
   const eventWindow = await pinPromise
   const windows = app.windows()
   const pinWindow = eventWindow ?? windows[windows.length - 1]
@@ -111,7 +111,7 @@ async function runTextSelection(app, overlay) {
 
   await pinWindow.keyboard.press('Space')
   await pinWindow.waitForSelector('.pin-edit-toolbar .tooldock', { timeout: 8000 })
-  await pinWindow.locator('.pin-edit-toolbar .act').filter({ hasText: '完成' }).click()
+  await pinWindow.locator('.pin-edit-toolbar .act[data-action="confirm"]').click()
   await pinWindow.waitForSelector('.pin-edit-toolbar', { state: 'detached', timeout: 8000 })
   // 编辑后文字层会清空，需要再次手动识别
   await triggerPinOcr(pinWindow)

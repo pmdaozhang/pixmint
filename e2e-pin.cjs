@@ -19,7 +19,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await window.mouse.move(Math.min(640, viewport.width - 100), 420, { steps: 6 })
   await window.mouse.up()
   await window.waitForSelector('.tooldock', { timeout: 5000 })
-  await window.locator('.act').filter({ hasText: '钉图' }).click()
+  await window.locator('.act[data-action="pin"]').click()
 
   const pin = await app.waitForEvent('window', { timeout: 8000 }).catch(() => null)
   const windows = app.windows()
@@ -104,14 +104,14 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   })
   const hasUndo = await pinWindow.locator('button[title="撤销 Ctrl+Z"]').count()
   const hasRedo = await pinWindow.locator('button[title="重做 Ctrl+Shift+Z"]').count()
-  const checkText = (
-    await pinWindow.locator('.pin-edit-toolbar .act').filter({ hasText: '完成' }).innerText()
-  ).trim()
-  console.log('PIN_EDIT_OPEN', editBounds, 'UNDO_REDO', hasUndo, hasRedo, 'CHECK', checkText)
+  const confirmCount = await pinWindow
+    .locator('.pin-edit-toolbar .act[data-action="confirm"]')
+    .count()
+  console.log('PIN_EDIT_OPEN', editBounds, 'UNDO_REDO', hasUndo, hasRedo, 'CONFIRM', confirmCount)
   if (!normalBounds || !editBounds || editBounds.height <= normalBounds.height) {
     throw new Error('pin edit mode did not expand the window')
   }
-  if (hasUndo !== 1 || hasRedo !== 1 || !checkText.includes('完成')) {
+  if (hasUndo !== 1 || hasRedo !== 1 || confirmCount !== 1) {
     throw new Error('pin edit toolbar is missing undo/redo/confirm')
   }
   const textTool = await pinWindow.locator('.pin-edit-toolbar button[title="文字"]').count()
@@ -149,7 +149,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   console.log('PIN_EDIT_UNDO_ENABLED', !undoDisabled)
   if (undoDisabled) throw new Error('pin annotation did not enter history')
 
-  await pinWindow.locator('.pin-edit-toolbar .act').filter({ hasText: '完成' }).click()
+  await pinWindow.locator('.pin-edit-toolbar .act[data-action="confirm"]').click()
   await pinWindow.waitForSelector('.pin-edit-toolbar', { state: 'detached', timeout: 8000 })
   await pinWindow.waitForSelector('.pin-image', { timeout: 8000 })
   const restoredBounds = await app.evaluate(({ BrowserWindow }) => {

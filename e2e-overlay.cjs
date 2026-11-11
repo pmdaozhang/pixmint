@@ -185,11 +185,12 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await new Promise((resolve) => setTimeout(resolve, 500))
   const autoCopied = await app.evaluate(({ clipboard }) => !clipboard.readImage().isEmpty())
   console.log('AUTO_COPY', autoCopied)
-  if (!autoCopied) throw new Error('selection was not copied automatically')
-  const actionTexts = await window.locator('.row1 .act').allTextContents()
-  const actionOrder = actionTexts.map((text) => text.trim()).slice(-4)
+  if (autoCopied) throw new Error('selection should not be copied automatically')
+  const actionOrder = await window.locator('.row1 .act').evaluateAll((nodes) =>
+    nodes.slice(-4).map((node) => node.getAttribute('data-action'))
+  )
   console.log('ACTION_ORDER', actionOrder)
-  if (actionOrder.join(',') !== '关闭,钉图,保存,复制') {
+  if (actionOrder.join(',') !== 'close,pin,save,copy') {
     throw new Error('toolbar action order is wrong')
   }
   console.log('ROW2_DEFAULT', await window.locator('.row2').count())
@@ -506,7 +507,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     throw new Error('northwest resize failed')
   }
 
-  await window.locator('.act').filter({ hasText: '复制' }).click()
+  await window.locator('.act[data-action="copy"]').click()
   await new Promise((resolve) => setTimeout(resolve, 900))
   const clipboardHasImage = await app.evaluate(({ clipboard }) => !clipboard.readImage().isEmpty())
   console.log('CLIPBOARD', clipboardHasImage)

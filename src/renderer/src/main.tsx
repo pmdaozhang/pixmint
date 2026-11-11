@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles/tokens.css'
 import './styles/global.css'
+import './styles/win11.css'
 
 async function bootstrap(): Promise<void> {
   const isDev =

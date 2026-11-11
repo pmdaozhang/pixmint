@@ -579,14 +579,19 @@
 }
 
 .act {
+  width: 30px;
   height: 30px;
-  padding: 0 6px;
+  padding: 0;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
+  justify-content: center;
   color: var(--text-2);
+}
+
+.act svg {
+  width: 16px;
+  height: 16px;
 }
 
 .act:hover {

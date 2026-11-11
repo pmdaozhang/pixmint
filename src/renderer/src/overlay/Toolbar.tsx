@@ -410,19 +410,34 @@ export function Toolbar({
         </button>
         <span className="div" />
         {variant === 'pin' ? (
-          <button className="act" title={tr('完成编辑')} onClick={onConfirm}>
+          <button
+            className="act"
+            data-action="confirm"
+            title={tr('完成编辑')}
+            aria-label={tr('完成编辑')}
+            onClick={onConfirm}
+          >
             <Icon name="check" size={16} />
-            {tr('完成')}
           </button>
         ) : (
           <>
-            <button className="act" title={tr('识别选区文字')} onClick={() => onAction('ocr')}>
+            <button
+              className="act"
+              data-action="ocr"
+              title={tr('识别选区文字')}
+              aria-label={tr('识别选区文字')}
+              onClick={() => onAction('ocr')}
+            >
               <Icon name="ocr" size={16} />
-              {tr('识别')}
             </button>
-            <button className="act" title={tr('识别并翻译')} onClick={() => onAction('translate')}>
+            <button
+              className="act"
+              data-action="translate"
+              title={tr('识别并翻译')}
+              aria-label={tr('识别并翻译')}
+              onClick={() => onAction('translate')}
+            >
               <Icon name="translate" size={16} />
-              {tr('翻译')}
             </button>
             <button className="tb tb-gif" title={tr('录制 GIF')} onClick={() => onAction('gif')}>
               <Icon name="gif" />
@@ -431,21 +446,41 @@ export function Toolbar({
               <Icon name="video" />
             </button>
             <span className="div" />
-            <button className="act" onClick={() => onAction('close')}>
+            <button
+              className="act"
+              data-action="close"
+              title={tr('关闭')}
+              aria-label={tr('关闭')}
+              onClick={() => onAction('close')}
+            >
               <Icon name="close" size={16} />
-              {tr('关闭')}
             </button>
-            <button className="act" onClick={() => onAction('pin')}>
+            <button
+              className="act"
+              data-action="pin"
+              title={tr('钉图')}
+              aria-label={tr('钉图')}
+              onClick={() => onAction('pin')}
+            >
               <Icon name="pin" size={16} />
-              {tr('钉图')}
             </button>
-            <button className="act" onClick={() => onAction('save')}>
+            <button
+              className="act"
+              data-action="save"
+              title={tr('保存')}
+              aria-label={tr('保存')}
+              onClick={() => onAction('save')}
+            >
               <Icon name="save" size={16} />
-              {tr('保存')}
             </button>
-            <button className="act" onClick={() => onAction('copy')}>
+            <button
+              className="act"
+              data-action="copy"
+              title={tr('复制')}
+              aria-label={tr('复制')}
+              onClick={() => onAction('copy')}
+            >
               <Icon name="copy" size={16} />
-              {tr('复制')}
             </button>
           </>
         )}

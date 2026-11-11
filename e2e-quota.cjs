@@ -51,7 +51,7 @@ async function waitForPage(app, selector, timeout = 20000) {
     await overlay.mouse.move(1500, 780, { steps: 8 })
     await overlay.mouse.up()
     await overlay.waitForSelector('.tooldock', { timeout: 8000 })
-    await overlay.locator('.act').filter({ hasText: '识别' }).click()
+    await overlay.locator('.act[data-action="ocr"]').click()
 
     const purchase = await waitForPage(app, '.pc-card', 15000)
     const headline = (await purchase.locator('.pc-body h1').innerText()).trim()

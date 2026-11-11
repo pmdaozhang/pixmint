@@ -61,11 +61,11 @@ async function runAction(app, overlay, filePath) {
     return
   }
   if (MODE === 'copy') {
-    await overlay.locator('.act').filter({ hasText: '复制' }).click()
+    await overlay.locator('.act[data-action="copy"]').click()
     return
   }
   if (MODE === 'pin') {
-    await overlay.locator('.act').filter({ hasText: '钉图' }).click()
+    await overlay.locator('.act[data-action="pin"]').click()
     const pin = await app.waitForEvent('window', { timeout: 15000 }).catch(() => null)
     const target = pin ?? app.windows().find((window) => window !== overlay) ?? null
     if (!target) throw new Error('pin window not found')
@@ -74,7 +74,7 @@ async function runAction(app, overlay, filePath) {
     return
   }
   if (MODE === 'ocr') {
-    await overlay.locator('.act').filter({ hasText: '识别' }).click()
+    await overlay.locator('.act[data-action="ocr"]').click()
     const ocr = await app.waitForEvent('window', { timeout: 20000 }).catch(() => null)
     const target = ocr ?? app.windows().find((window) => window !== overlay) ?? null
     if (!target) throw new Error('ocr window not found')
@@ -83,7 +83,7 @@ async function runAction(app, overlay, filePath) {
     return
   }
   if (MODE === 'save') {
-    await overlay.locator('.act').filter({ hasText: '保存' }).click()
+    await overlay.locator('.act[data-action="save"]').click()
     await waitForFile(filePath)
     fs.unlinkSync(filePath)
     return

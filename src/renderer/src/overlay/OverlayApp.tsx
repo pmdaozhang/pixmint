@@ -56,6 +56,8 @@ export function OverlayApp(): JSX.Element {
   const [error, setError] = useState('')
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
+  // 高度必须实测：二级菜单展开后工具条会变高，位置要跟着让开选区。
+  const [toolbarHeight, setToolbarHeight] = useState(38)
   // 编辑态预热：用一个假选区把工具栏/缩放柄/标注画布完整挂载一次。
   // 窗口此时是全屏 alpha 0，用户不可见；预热结束后立刻复位。
   const [warmRect, setWarmRect] = useState<Rect | null>(null)
@@ -302,8 +304,10 @@ export function OverlayApp(): JSX.Element {
     if (!init || recorderMode) return
     const measure = (): void => {
       const dock = document.querySelector('.tooldock')
-      const width = dock?.getBoundingClientRect().width ?? 0
-      if (width > 0) setToolbarWidth(width)
+      const rect = dock?.getBoundingClientRect()
+      if (!rect) return
+      if (rect.width > 0) setToolbarWidth(rect.width)
+      if (rect.height > 0) setToolbarHeight(rect.height)
     }
     measure()
     const dock = document.querySelector('.tooldock')
@@ -708,10 +712,12 @@ export function OverlayApp(): JSX.Element {
   const language = init?.settings.language
   const warmBounds = init?.bounds ?? { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }
 
+  const toolbarGap = 10
   const toolbarTop = effectiveSelection
-    ? effectiveSelection.y + effectiveSelection.height + 16 + 104 < window.innerHeight
-      ? effectiveSelection.y + effectiveSelection.height + 16
-      : Math.max(8, effectiveSelection.y - 104)
+    ? effectiveSelection.y + effectiveSelection.height + toolbarGap + toolbarHeight <
+      window.innerHeight
+      ? effectiveSelection.y + effectiveSelection.height + toolbarGap
+      : Math.max(8, effectiveSelection.y - toolbarHeight - toolbarGap)
     : 0
   const toolbarLeft = effectiveSelection
     ? Math.max(
