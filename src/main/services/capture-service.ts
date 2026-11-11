@@ -79,6 +79,8 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
     })
     // 截完图后再关闭托盘菜单：冻结画面里保留菜单内容，同时把焦点让给覆盖层。
     deps.getTray()?.closeContextMenu()
+    // 抓屏期间用户按了 Esc：会话已经取消，不要再把遮罩显示出来。
+    if (!overlayManager.isActive()) return
     await overlayManager.start(capture, mode)
     const total = Date.now() - triggered
     logDiagnostic(

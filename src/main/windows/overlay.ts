@@ -87,6 +87,7 @@ export class OverlayManager {
   private warmupToken = 0
   private active = false
   private watchdogTimer: NodeJS.Timeout | null = null
+  private escapeReleaseTimer: NodeJS.Timeout | null = null
   private lastHeartbeatAt = 0
   private escapeRegistered = false
   private sessionLocked = false
@@ -165,20 +166,53 @@ export class OverlayManager {
     }
   }
 
-  private registerEmergencyShortcut(): void {
+  /**
+   * 会话一开始就注册全局 Escape：窗口在 prepare/抓屏阶段还没有键盘焦点，
+   * 这段时间按 Esc 只会发给上一个应用，遮罩会照常出现。注册全局键后，
+   * 从 F1 按下到遮罩消失，任何时刻 Esc 都能退出。
+   */
+  private ensureSessionEscape(): void {
+    if (this.escapeReleaseTimer) {
+      clearTimeout(this.escapeReleaseTimer)
+      this.escapeReleaseTimer = null
+    }
+    this.registerEscapeShortcut(() => this.cancel())
+  }
+
+  /**
+   * 遮罩完全显示、窗口拿到焦点后，把 Esc 交还给页面处理：
+   * 页面的 Esc 还承担“取消录制”“关闭文字输入”等更细的语义，不能被全局键长期劫持。
+   */
+  private scheduleEscapeRelease(): void {
+    if (this.escapeReleaseTimer) clearTimeout(this.escapeReleaseTimer)
+    this.escapeReleaseTimer = setTimeout(() => {
+      this.escapeReleaseTimer = null
+      if (!this.active) return
+      this.unregisterEmergencyShortcut()
+    }, 300)
+  }
+
+  private registerEscapeShortcut(onEscape: () => void): void {
     if (this.escapeRegistered && globalShortcut.isRegistered('Escape')) return
     // globalShortcut.unregisterAll() 可能被设置页调用；这里允许重新注册。
     this.escapeRegistered = false
     if (globalShortcut.isRegistered('Escape')) return
     try {
-      const ok = globalShortcut.register('Escape', () => {
-        this.failSafe('已通过 Esc 退出截图')
-      })
+      const ok = globalShortcut.register('Escape', onEscape)
       if (ok) this.escapeRegistered = true
       else console.warn('OVERLAY_ESCAPE_SHORTCUT_FAILED')
     } catch (error) {
       console.warn('OVERLAY_ESCAPE_SHORTCUT_ERROR', error)
     }
+  }
+
+  private registerEmergencyShortcut(): void {
+    // 会话级 Esc 已经注册时保留取消语义，不再替换成 failSafe；
+    // 看门狗真正的兜底是 5 秒后的自动收尾。
+    if (this.escapeRegistered && globalShortcut.isRegistered('Escape')) return
+    this.registerEscapeShortcut(() => {
+      this.failSafe('已通过 Esc 退出截图')
+    })
   }
 
   private unregisterEmergencyShortcut(): void {
@@ -191,6 +225,10 @@ export class OverlayManager {
 
   private endSession(clean = true): void {
     this.stopWatchdog()
+    if (this.escapeReleaseTimer) {
+      clearTimeout(this.escapeReleaseTimer)
+      this.escapeReleaseTimer = null
+    }
     this.unregisterEmergencyShortcut()
     if (this.sessionLocked) {
       endOverlaySession()
@@ -374,6 +412,8 @@ export class OverlayManager {
   async prepare(display: DisplayInfo): Promise<void> {
     this.warmupToken += 1
     this.active = true
+    // 从这一刻起 Esc 必须生效，哪怕窗口还没拿到焦点。
+    this.ensureSessionEscape()
     let id = this.byDisplay.get(display.id)
     if (id === undefined) id = this.createWindow(display)
     const entry = this.entries.get(id)
@@ -469,6 +509,7 @@ export class OverlayManager {
     const started = Date.now()
     this.warmupToken += 1
     this.active = true
+    this.ensureSessionEscape()
     let id = this.byDisplay.get(capture.displayId)
     if (id === undefined) {
       id = this.createWindow({
@@ -544,6 +585,8 @@ export class OverlayManager {
     entry.window.setOpacity(1)
     const shownAt = Date.now()
     console.log('OVERLAY_SHOW_MS', Date.now() - started)
+    // 遮罩已经显示并聚焦；300ms 后把 Esc 交换给页面（录制取消/文字编辑等语义）。
+    this.scheduleEscapeRelease()
     // 一次 F1 的完整分段耗时；超过 800ms 记 warn，方便线上直接看出卡在哪一段。
     const acked = (this.preparedAckAt.get(id) ?? 0) >= preparedStarted
     const total = shownAt - started
