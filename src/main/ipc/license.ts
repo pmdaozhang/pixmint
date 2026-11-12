@@ -4,7 +4,6 @@ import type { IpcContext } from './types'
 import { handle, on } from './validate'
 
 const codeSchema = z.string().trim().min(4).max(4096)
-const emailSchema = z.string().trim().email().max(200)
 const deviceHashSchema = z.string().regex(/^[0-9a-f]{64}$/)
 const planSchema = z.enum(['monthly', 'yearly', 'lifetime'])
 const providerSchema = z.enum(['alipay', 'wechat'])
@@ -17,9 +16,6 @@ export function registerLicenseIpc(ctx: IpcContext): void {
   handle('license:activate', z.tuple([codeSchema]), (_event, [code]) => license.activate(code))
   handle('license:restore', z.tuple([]), () => license.restoreByDevice())
   handle('license:refresh', z.tuple([]), () => license.refresh())
-  handle('license:email', z.tuple([emailSchema]), (_event, [email]) =>
-    license.emailCode(email)
-  )
   handle('license:devices', z.tuple([]), () => license.devices())
   handle('license:unbind', z.tuple([deviceHashSchema]), (_event, [deviceHash]) =>
     license.unbind(deviceHash)
@@ -35,9 +31,9 @@ export function registerLicenseIpc(ctx: IpcContext): void {
   )
   handle(
     'purchase:create-manual-order',
-    z.tuple([planSchema, providerSchema, emailSchema]),
-    (_event, [plan, provider, email]) =>
-      license.createManualOrder(plan, provider as PaymentProvider, email)
+    z.tuple([planSchema, providerSchema]),
+    (_event, [plan, provider]) =>
+      license.createManualOrder(plan, provider as PaymentProvider)
   )
   handle(
     'purchase:submit-manual-order',

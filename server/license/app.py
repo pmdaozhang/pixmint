@@ -13,10 +13,8 @@ import html
 import json
 import os
 import secrets
-import smtplib
 import sqlite3
 import time
-from email.message import EmailMessage
 from functools import wraps
 from typing import Any
 
@@ -134,7 +132,6 @@ CREATE TABLE IF NOT EXISTS orders (
   amount_cents INTEGER NOT NULL,
   status TEXT NOT NULL,
   device_id TEXT NOT NULL,
-  email TEXT,
   invite_code TEXT,
   pay_url TEXT,
   pay_form TEXT,
@@ -146,8 +143,6 @@ CREATE TABLE IF NOT EXISTS orders (
   confirmed_at INTEGER,
   reject_reason TEXT,
   expires_at INTEGER,
-  email_status TEXT,
-  email_error TEXT,
   channel TEXT
 );
 CREATE TABLE IF NOT EXISTS licenses (
@@ -187,15 +182,6 @@ CREATE TABLE IF NOT EXISTS referrals (
   reward_days INTEGER NOT NULL,
   granted_at INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS email_jobs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  license_id TEXT,
-  email TEXT NOT NULL,
-  status TEXT NOT NULL,
-  attempts INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT,
-  created_at INTEGER NOT NULL
-);
 """
 
 
@@ -215,8 +201,6 @@ def open_db(path: str) -> sqlite3.Connection:
             "confirmed_at": "INTEGER",
             "reject_reason": "TEXT",
             "expires_at": "INTEGER",
-            "email_status": "TEXT",
-            "email_error": "TEXT",
             "channel": "TEXT",
         },
     )
@@ -349,11 +333,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         mbd_base=os.environ.get("MBD_API_BASE", "https://newapi.mbd.pub"),
         pay_mock=os.environ.get("PIXMINT_PAY_MOCK", "") == "1",
         pay_mock_auto=os.environ.get("PIXMINT_PAY_MOCK_AUTO", "") == "1",
-        smtp_host=os.environ.get("PIXMINT_SMTP_HOST", ""),
-        smtp_port=int(os.environ.get("PIXMINT_SMTP_PORT", "465") or 465),
-        smtp_user=os.environ.get("PIXMINT_SMTP_USER", ""),
-        smtp_password=os.environ.get("PIXMINT_SMTP_PASSWORD", ""),
-        smtp_from=os.environ.get("PIXMINT_SMTP_FROM", ""),
     )
     if config:
         app.config.update(config)
@@ -531,18 +510,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "plan": order["sku"],
             "channel": order["channel"],
             "amountCents": order["amount_cents"],
-            "email": order["email"],
             "expiresAt": (order["expires_at"] or 0) * 1000,
             "qrUrls": manual_qr_urls(),
             "rejectReason": order["reject_reason"],
         }
-
-    def clean_email(value: Any) -> str:
-        text = clean_text(value, 200).strip().lower()
-        return text
-
-    def valid_email(text: str) -> bool:
-        return "@" in text and "." in text.rsplit("@", 1)[-1]
 
     @app.post("/v1/manual/orders")
     def create_manual_order() -> Any:
@@ -553,9 +524,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         channel = clean_text(body.get("provider"), 20)
         if channel not in ("alipay", "wechat"):
             return error("不支持的支付方式", "bad_provider")
-        email = clean_email(body.get("email"))
-        if not valid_email(email):
-            return error("邮箱格式不正确", "bad_email")
         try:
             device_id = clean_device(body.get("deviceId"))
         except ValueError:
@@ -570,11 +538,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         )
         existing = refresh_manual_order(existing)
         if existing and existing["status"] in ("pending_payment", "reviewing"):
-            if (
-                existing["sku"] == plan
-                and existing["channel"] == channel
-                and (existing["email"] or "") == email
-            ):
+            if existing["sku"] == plan and existing["channel"] == channel:
                 return jsonify(manual_order_payload(existing))
             if existing["status"] == "reviewing":
                 return error("已有待确认订单，请先联系客服", "order_reviewing", 409)
@@ -597,8 +561,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         expires_at = now_ts() + MANUAL_ORDER_TTL
         db().execute(
             "INSERT INTO orders (order_id, order_token, provider, channel, sku,"
-            " amount_cents, status, device_id, device_name, email, created_at, expires_at)"
-            " VALUES (?, ?, 'manual', ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?)",
+            " amount_cents, status, device_id, device_name, created_at, expires_at)"
+            " VALUES (?, ?, 'manual', ?, ?, ?, 'pending_payment', ?, ?, ?, ?)",
             (
                 order_id,
                 order_token,
@@ -607,7 +571,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                 PLANS[plan]["price"],
                 device_id,
                 device_name,
-                email,
                 now_ts(),
                 expires_at,
             ),
@@ -651,8 +614,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             if license_row:
                 result["code"] = license_row["code"]
                 result["token"] = sign_bound_license(license_row, order["device_id"])
-                result["emailSent"] = order["email_status"] == "sent"
-                result["emailError"] = order["email_error"]
         return jsonify(result)
 
     @app.post("/v1/pay/webhook/mbd")
@@ -918,37 +879,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         db().commit()
         return jsonify(activation_payload(license_row, device_id))
 
-    @app.post("/v1/license/email")
-    def send_code_email() -> Any:
-        body = json_body()
-        code = clean_text(body.get("code"), 4096)
-        email = clean_text(body.get("email"), 200)
-        if "@" not in email or "." not in email:
-            return error("邮箱格式不正确", "bad_email")
-        license_row = license_by_code(code, signer)
-        if not license_row:
-            return error("激活码无效", "invalid_code")
-        if not app.config["smtp_host"] or not app.config["smtp_from"]:
-            return error("邮件服务未配置", "email_unavailable", 503)
-        try:
-            send_email(app, email, license_row)
-        except Exception as exc:  # noqa: BLE001
-            db().execute(
-                "INSERT INTO email_jobs (license_id, email, status, attempts, last_error, created_at)"
-                " VALUES (?, ?, 'failed', 1, ?, ?)",
-                (license_row["id"], email, str(exc)[:300], now_ts()),
-            )
-            db().commit()
-            return error("邮件发送失败，请复制页面上的激活码", "email_failed", 502)
-        db().execute(
-            "INSERT INTO email_jobs (license_id, email, status, attempts, created_at)"
-            " VALUES (?, ?, 'sent', 1, ?)",
-            (license_row["id"], email, now_ts()),
-        )
-        db().execute("UPDATE orders SET email = ? WHERE order_id = ?", (email, license_row["order_id"]))
-        db().commit()
-        return jsonify({"ok": True})
-
     # -- 管理 --------------------------------------------------------------
 
     def require_admin(view):
@@ -989,7 +919,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "plan": row["sku"],
             "amountCents": row["amount_cents"],
             "channel": row["channel"],
-            "email": row["email"],
             "deviceId": row["device_id"],
             "deviceName": row["device_name"],
             "createdAt": row["created_at"],
@@ -998,8 +927,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "confirmedAt": row["confirmed_at"],
             "rejectReason": row["reject_reason"],
             "expiresAt": row["expires_at"],
-            "emailStatus": row["email_status"],
-            "emailError": row["email_error"],
             "licenseCode": row["license_code"],
         }
 
@@ -1021,10 +948,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             params.append(status)
         if query_text:
             like = f"%{query_text}%"
-            clauses.append(
-                "(o.order_id LIKE ? OR o.email LIKE ? OR o.device_id LIKE ?)"
-            )
-            params.extend([like, like, like])
+            clauses.append("(o.order_id LIKE ? OR o.device_id LIKE ?)")
+            params.extend([like, like])
         rows = query(
             "SELECT o.*, l.code AS license_code FROM orders o"
             " LEFT JOIN licenses l ON l.order_id = o.order_id"
@@ -1068,11 +993,6 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             return error("订单不存在", "not_found", 404)
         if order["status"] in ("rejected", "refunded"):
             return error("该订单已关闭，不能再确认", "closed", 409)
-        email = clean_email(body.get("email")) or (order["email"] or "")
-        if not valid_email(email):
-            return error("邮箱格式不正确", "bad_email")
-        send_email_flag = body.get("sendEmail", True) is not False
-
         license_row = one("SELECT * FROM licenses WHERE order_id = ?", (order_id,))
         if order["status"] != "paid":
             if order["status"] not in ("pending_payment", "reviewing"):
@@ -1094,8 +1014,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                     )
             db().execute(
                 "UPDATE orders SET status = 'paid', paid_at = COALESCE(paid_at, ?),"
-                " confirmed_at = ?, email = ? WHERE order_id = ?",
-                (now_ts(), now_ts(), email, order_id),
+                " confirmed_at = ? WHERE order_id = ?",
+                (now_ts(), now_ts(), order_id),
             )
             db().commit()
             order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
@@ -1104,43 +1024,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         if not license_row:
             return error("授权签发失败", "license_failed", 500)
 
-        email_sent = False
-        email_error: str | None = None
-        if send_email_flag:
-            if app.config["smtp_host"] and app.config["smtp_from"]:
-                try:
-                    send_email(app, email, license_row)
-                    email_sent = True
-                    db().execute(
-                        "UPDATE orders SET email = ?, email_status = 'sent',"
-                        " email_error = NULL WHERE order_id = ?",
-                        (email, order_id),
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    email_error = str(exc)[:300]
-                    db().execute(
-                        "UPDATE orders SET email = ?, email_status = 'failed',"
-                        " email_error = ? WHERE order_id = ?",
-                        (email, email_error, order_id),
-                    )
-                db().commit()
-            else:
-                email_error = "邮件服务未配置"
-                db().execute(
-                    "UPDATE orders SET email = ?, email_status = 'unconfigured',"
-                    " email_error = ? WHERE order_id = ?",
-                    (email, email_error, order_id),
-                )
-                db().commit()
-
         return jsonify(
             {
                 "ok": True,
                 "orderId": order_id,
                 "status": "paid",
                 "code": license_row["code"],
-                "emailSent": email_sent,
-                "emailError": email_error,
             }
         )
 
@@ -1347,58 +1236,6 @@ padding:0 20px;border:0;border-radius:10px;background:#111;color:#fff;font-size:
         return wrap_mobile_html("订单状态", f"<p>当前状态：{html.escape(order['status'])}</p>")
 
     return app
-
-
-def send_email(app: Flask, email: str, license_row: sqlite3.Row) -> None:
-    order = None
-    if license_row["order_id"]:
-        order = one(
-            "SELECT * FROM orders WHERE order_id = ?", (license_row["order_id"],)
-        )
-    order_id = license_row["order_id"] or "试用授权"
-    plan_label = {
-        "monthly": "月付",
-        "yearly": "年付",
-        "lifetime": "终身",
-    }.get(license_row["plan"], license_row["plan"])
-    expiry = (
-        f"有效期至：{iso(license_row['expires_at'])}\n"
-        if license_row["expires_at"]
-        else "有效期：终身\n"
-    )
-    message = EmailMessage()
-    message["Subject"] = (
-        f"【Pixmint】Pro 激活码 · 订单 {order_id}"
-        if order
-        else "【Pixmint】Pro 激活码"
-    )
-    message["From"] = app.config["smtp_from"]
-    message["To"] = email
-    message.set_content(
-        "你好，\n\n"
-        f"感谢购买 Pixmint Pro（{plan_label}）。\n"
-        f"订单号：{order_id}\n"
-        f"{expiry}\n"
-        "你的激活码（请整段复制，不要漏字符）：\n"
-        f"{license_row['code']}\n\n"
-        "使用方法：\n"
-        "打开 Pixmint → 升级 Pro → 已有激活码 → 粘贴 → 激活。\n\n"
-        "一个激活码最多绑定 5 台设备；换电脑时输入同一个激活码即可。\n"
-        "遇到问题直接回复本邮件。\n\n"
-        "—— Pixmint\n"
-    )
-    port = app.config["smtp_port"]
-    if port == 465:
-        server = smtplib.SMTP_SSL(app.config["smtp_host"], port, timeout=15)
-    else:
-        server = smtplib.SMTP(app.config["smtp_host"], port, timeout=15)
-        server.starttls()
-    try:
-        if app.config["smtp_user"]:
-            server.login(app.config["smtp_user"], app.config["smtp_password"])
-        server.send_message(message)
-    finally:
-        server.quit()
 
 
 app = create_app()

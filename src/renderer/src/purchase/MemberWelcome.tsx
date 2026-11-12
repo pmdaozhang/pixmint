@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, JSX } from 'react'
 import type { LicenseDevice, LicenseStatus } from '@shared/license'
 import { t, type Language } from '@shared/i18n'
+import { BrandMark } from '../components/BrandMark'
 import './member-welcome.css'
 
 const SHADOW_PADDING = 56
@@ -302,23 +303,7 @@ export function MemberWelcome({ status, language }: MemberWelcomeProps): JSX.Ele
 
         <header className="mw-head">
           <div className="mw-brand">
-            <span className="mw-logo" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M6 7.5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                />
-                <circle cx="9.2" cy="12.8" r="1.1" fill="currentColor" />
-                <circle cx="14.8" cy="12.8" r="1.1" fill="currentColor" />
-                <path
-                  d="M17 3.5h3.5V7"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
+            <BrandMark className="mw-logo" />
             <span>Pixmint</span>
           </div>
           <button
@@ -517,10 +502,6 @@ export function MemberWelcome({ status, language }: MemberWelcomeProps): JSX.Ele
               >
                 {tr('复制')}
               </button>
-            </div>
-            <div className="mw-info-row">
-              <span className="mw-info-label">{tr('绑定邮箱')}</span>
-              <span className="mw-info-value">{status.email || tr('未绑定')}</span>
             </div>
           </section>
 

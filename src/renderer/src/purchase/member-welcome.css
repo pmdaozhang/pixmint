@@ -41,16 +41,8 @@
 .mw-logo {
   width: 24px;
   height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  background: var(--primary-bg);
-  color: var(--primary-text);
-}
-
-.mw-logo svg {
-  width: 16px;
-  height: 16px;
+  flex: none;
+  color: var(--text);
 }
 
 .mw-close {
@@ -249,33 +241,6 @@
 
 .mw-code-row .mw-soft-btn {
   background: var(--bg-2);
-}
-
-.mw-info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.mw-info-label {
-  flex: 0 0 auto;
-  font-size: 12px;
-  color: var(--text-2);
-}
-
-.mw-info-value {
-  min-width: 0;
-  font-size: 13px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 设备列表 */

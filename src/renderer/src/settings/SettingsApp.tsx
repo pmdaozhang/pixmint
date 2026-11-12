@@ -6,6 +6,7 @@ import type { UsageView } from '@shared/usage'
 import { describeUpdate } from '@shared/update'
 import { t } from '@shared/i18n'
 import { Icon } from '../components/Icon'
+import { BrandMark } from '../components/BrandMark'
 import './settings.css'
 
 function applyTheme(theme: ThemeSetting): void {
@@ -27,29 +28,6 @@ function shortcutFromEvent(event: React.KeyboardEvent<HTMLInputElement>): string
   else if (key.length === 1) main = key.toUpperCase()
   parts.push(main)
   return parts.join('+')
-}
-
-function BrandMark(): JSX.Element {
-  return (
-    <svg className="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
-      <g transform="rotate(-2 256 270)">
-        <path
-          d="M 148 118 H 364 C 414 118 444 148 444 198 V 342 C 444 392 414 422 364 422 H 148 C 98 422 68 392 68 342 V 198 C 68 148 98 118 148 118 Z"
-          fill="currentColor"
-        />
-        <circle cx="190" cy="250" r="24" fill="var(--bg)" />
-        <circle cx="322" cy="250" r="24" fill="var(--bg)" />
-      </g>
-      <path
-        d="M 380 58 H 460 V 138"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="26"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
 }
 
 export function SettingsApp(): JSX.Element {
@@ -132,7 +110,7 @@ export function SettingsApp(): JSX.Element {
     <div className="settings-root">
       <header className="settings-header">
         <div className="settings-title">
-          <BrandMark />
+          <BrandMark className="brand-mark" />
           <div>
             <h1>Pixmint</h1>
             <p>{tr('截图 · 贴图 · OCR 翻译 · 录屏')}</p>

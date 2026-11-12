@@ -175,7 +175,6 @@ const api = {
       expiresAt: null,
       updateUntil: null,
       code: null,
-      email: null,
       devicesUsed: 0,
       devicesMax: 3,
       needsRefresh: false,
@@ -196,13 +195,11 @@ const api = {
       expiresAt: null,
       updateUntil: null,
       code: null,
-      email: null,
       devicesUsed: 0,
       devicesMax: 3,
       needsRefresh: false,
       offline: false
     }),
-    email: async () => {},
     devices: async () => [],
     unbind: async () => {},
     trial: async (code: string) => ({

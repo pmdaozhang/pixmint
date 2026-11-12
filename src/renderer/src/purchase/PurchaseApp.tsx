@@ -10,6 +10,7 @@ import {
 import type { Settings, ThemeSetting } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
 import { t } from '@shared/i18n'
+import { BrandMark } from '../components/BrandMark'
 import { MemberWelcome } from './MemberWelcome'
 import './purchase.css'
 
@@ -116,23 +117,6 @@ function PlanIcon({ plan }: { plan: PlanId }): JSX.Element {
   )
 }
 
-function BrandMark(): JSX.Element {
-  return (
-    <span className="pc-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path
-          d="M6 7.5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <circle cx="9.2" cy="12.8" r="1.1" fill="currentColor" />
-        <circle cx="14.8" cy="12.8" r="1.1" fill="currentColor" />
-        <path d="M17 3.5h3.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
-
 export function PurchaseApp(): JSX.Element {
   const [feature, setFeature] = useState<UsageFeature | null>(() => parseFeature())
   const cardRef = useRef<HTMLElement | null>(null)
@@ -144,13 +128,10 @@ export function PurchaseApp(): JSX.Element {
   const [provider, setProvider] = useState<PaymentProvider>('alipay')
   const [order, setOrder] = useState<ManualOrder | null>(null)
   const [code, setCode] = useState('')
-  const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [qrError, setQrError] = useState(false)
   const [qrRetry, setQrRetry] = useState(0)
-  const [emailSent, setEmailSent] = useState(false)
-  const [emailError, setEmailError] = useState('')
   const [devices, setDevices] = useState<LicenseDevice[]>([])
   const [deviceBusy, setDeviceBusy] = useState(false)
   const [confirmUnbind, setConfirmUnbind] = useState('')
@@ -183,7 +164,6 @@ export function PurchaseApp(): JSX.Element {
       if (nextSettings) {
         setSettings(nextSettings)
         applyTheme(nextSettings.theme)
-        setEmail(nextStatus?.email ?? '')
       }
       if (nextStatus) {
         setStatus(nextStatus)
@@ -220,23 +200,14 @@ export function PurchaseApp(): JSX.Element {
     }
   }, [step, message, usage, status])
 
-  const finishPaid = useCallback(
-    async (result: {
-      code?: string
-      emailSent?: boolean
-      emailError?: string | null
-    }) => {
-      if (result.code) setCode(result.code)
-      setEmailSent(result.emailSent === true)
-      setEmailError(result.emailError ?? '')
-      const nextStatus = await window.snapglass.license.status().catch(() => null)
-      if (nextStatus) setStatus(nextStatus)
-      const nextUsage = await window.snapglass.usage.get().catch(() => null)
-      if (nextUsage) setUsage(nextUsage)
-      setStep('done')
-    },
-    []
-  )
+  const finishPaid = useCallback(async (result: { code?: string }) => {
+    if (result.code) setCode(result.code)
+    const nextStatus = await window.snapglass.license.status().catch(() => null)
+    if (nextStatus) setStatus(nextStatus)
+    const nextUsage = await window.snapglass.usage.get().catch(() => null)
+    if (nextUsage) setUsage(nextUsage)
+    setStep('done')
+  }, [])
 
   // 人工收款订单轮询：管理员确认后自动激活，不需要用户再粘贴激活码。
   useEffect(() => {
@@ -290,21 +261,12 @@ export function PurchaseApp(): JSX.Element {
   )
 
   const startManualOrder = useCallback(async () => {
-    const value = email.trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setMessage(tr('请填写正确的邮箱，用于接收激活码'))
-      return
-    }
     setBusy(true)
     setMessage('')
     setQrError(false)
     setQrRetry(0)
     try {
-      const created = await window.snapglass.purchase.createManualOrder(
-        plan,
-        provider,
-        value
-      )
+      const created = await window.snapglass.purchase.createManualOrder(plan, provider)
       setOrder(created)
       setStep('manual_pay')
     } catch (error) {
@@ -312,7 +274,7 @@ export function PurchaseApp(): JSX.Element {
     } finally {
       setBusy(false)
     }
-  }, [email, plan, provider, tr])
+  }, [plan, provider, tr])
 
   const submitManualPayment = useCallback(async () => {
     if (!order) return
@@ -367,21 +329,6 @@ export function PurchaseApp(): JSX.Element {
       setBusy(false)
     }
   }, [code])
-
-  const sendEmail = useCallback(async () => {
-    const value = email.trim()
-    if (!value) return
-    setBusy(true)
-    setMessage('')
-    try {
-      await window.snapglass.license.email(value)
-      setMessage(tr('激活码已发送到 {email}', { email: value }))
-    } catch (error) {
-      setMessage(readableError(error))
-    } finally {
-      setBusy(false)
-    }
-  }, [email, tr])
 
   const loadDevices = useCallback(async (): Promise<void> => {
     setDeviceBusy(true)
@@ -447,7 +394,7 @@ export function PurchaseApp(): JSX.Element {
       <section className="pc-card" aria-label={tr('升级 Pixmint Pro')} ref={cardRef}>
         <header className="pc-head">
           <div className="pc-brand">
-            <BrandMark />
+            <BrandMark className="pc-logo" />
             <span>Pixmint Pro</span>
           </div>
           <button className="pc-close" type="button" aria-label={tr('关闭')} onClick={() => window.close()}>
@@ -551,19 +498,6 @@ export function PurchaseApp(): JSX.Element {
                 ))}
               </div>
 
-              <div className="pc-email pc-email-inline">
-                <label htmlFor="pc-buy-email">{tr('接收激活码的邮箱')}</label>
-                <input
-                  id="pc-buy-email"
-                  className="pc-input"
-                  type="email"
-                  value={email}
-                  placeholder="you@example.com"
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-                <p>{tr('付款确认后会自动把激活码发到这个邮箱')}</p>
-              </div>
-
               <div className="pc-provider">
                 <span>{tr('支付方式')}</span>
                 <div className="pc-seg">
@@ -598,9 +532,6 @@ export function PurchaseApp(): JSX.Element {
               <div className="pc-links">
                 <button type="button" onClick={() => { setCode(''); setMessage(''); setStep('activate') }}>
                   {tr('已有激活码')}
-                </button>
-                <button type="button" onClick={() => { setCode(''); setMessage(''); setStep('invite') }}>
-                  {tr('填写邀请码，领 7 天 Pro')}
                 </button>
               </div>
             </>
@@ -687,9 +618,7 @@ export function PurchaseApp(): JSX.Element {
                 </button>
               </div>
               <div className="pc-pay-note">
-                {tr('确认后会自动激活，并把激活码发送到 {email}', {
-                  email: order.email
-                })}
+                {tr('确认后会自动激活，无需重复操作。')}
               </div>
               {message && <div className="pc-message">{message}</div>}
               <button className="pc-secondary" type="button" onClick={() => setStep('plans')}>
@@ -718,32 +647,9 @@ export function PurchaseApp(): JSX.Element {
                 </div>
               )}
 
-              <div className="pc-email">
-                <label htmlFor="pc-email-input">{tr('邮箱（用于接收激活码）')}</label>
-                {emailSent && (
-                  <p className="pc-pay-note">
-                    {tr('激活码已发送至 {email}', { email })}
-                  </p>
-                )}
-                {emailError && (
-                  <div className="pc-message">
-                    {tr('自动发信失败：{error}', { error: emailError })}
-                  </div>
-                )}
-                <div className="pc-email-row">
-                  <input
-                    id="pc-email-input"
-                    type="email"
-                    value={email}
-                    placeholder="you@example.com"
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                  <button type="button" disabled={busy || !email.trim()} onClick={() => void sendEmail()}>
-                    {tr('重新发送')}
-                  </button>
-                </div>
-                <p>{tr('换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。')}</p>
-              </div>
+              <p className="pc-pay-note">
+                {tr('换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。')}
+              </p>
 
               <button className="pc-secondary" type="button" onClick={() => setStep('devices')}>
                 {tr('管理设备')}
@@ -850,10 +756,6 @@ export function PurchaseApp(): JSX.Element {
           )}
         </div>
 
-        <footer className="pc-foot">
-          <span>{tr('截图 · 标注 · 钉图 永久免费')}</span>
-          <span>{tr('支持支付宝 / 微信')}</span>
-        </footer>
       </section>
     </div>
   )

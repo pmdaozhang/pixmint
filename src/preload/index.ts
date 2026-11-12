@@ -183,7 +183,6 @@ const api: SnapglassApi = {
       ipcRenderer.invoke('license:activate', code) as Promise<LicenseActivation>,
     restore: () => ipcRenderer.invoke('license:restore') as Promise<LicenseStatus | null>,
     refresh: () => ipcRenderer.invoke('license:refresh') as Promise<LicenseStatus>,
-    email: (email: string) => ipcRenderer.invoke('license:email', email) as Promise<void>,
     devices: () => ipcRenderer.invoke('license:devices') as Promise<LicenseDevice[]>,
     unbind: (deviceHash: string) =>
       ipcRenderer.invoke('license:unbind', deviceHash) as Promise<void>,
@@ -198,14 +197,12 @@ const api: SnapglassApi = {
       ipcRenderer.invoke('purchase:order-status', orderId, orderToken) as Promise<PurchaseOrderResult>,
     createManualOrder: (
       plan: 'monthly' | 'yearly' | 'lifetime',
-      provider: PaymentProvider,
-      email: string
+      provider: PaymentProvider
     ) =>
       ipcRenderer.invoke(
         'purchase:create-manual-order',
         plan,
-        provider,
-        email
+        provider
       ) as Promise<ManualOrder>,
     submitManualOrder: (orderId: string, orderToken: string) =>
       ipcRenderer.invoke(

@@ -162,7 +162,7 @@ class LicenseApiTest(unittest.TestCase):
         )
         self.assertEqual(again.status_code, 409)
 
-    def create_manual_order(self, device_id, email="buyer@example.com"):
+    def create_manual_order(self, device_id):
         response = self.client.post(
             "/v1/manual/orders",
             json={
@@ -170,7 +170,6 @@ class LicenseApiTest(unittest.TestCase):
                 "provider": "alipay",
                 "deviceId": device_id,
                 "deviceName": "测试机",
-                "email": email,
             },
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -205,7 +204,6 @@ class LicenseApiTest(unittest.TestCase):
 
         confirmed = self.client.post(
             f"/v1/admin/manual/orders/{order_id}/confirm",
-            json={"sendEmail": False},
             headers=self.orders_headers(),
         )
         self.assertEqual(confirmed.status_code, 200, confirmed.data)
@@ -226,7 +224,6 @@ class LicenseApiTest(unittest.TestCase):
 
         again = self.client.post(
             f"/v1/admin/manual/orders/{order_id}/confirm",
-            json={"sendEmail": False},
             headers=self.orders_headers(),
         )
         self.assertEqual(again.status_code, 200, again.data)
@@ -249,23 +246,21 @@ class LicenseApiTest(unittest.TestCase):
         self.assertEqual(status["rejectReason"], "未查到对应金额")
         blocked = self.client.post(
             f"/v1/admin/manual/orders/{order_id}/confirm",
-            json={"sendEmail": False},
             headers=self.orders_headers(),
         )
         self.assertEqual(blocked.status_code, 409)
 
-    def test_manual_order_requires_email(self):
+    def test_manual_order_without_email(self):
         response = self.client.post(
             "/v1/manual/orders",
             json={
                 "plan": "monthly",
                 "provider": "wechat",
                 "deviceId": "cd" * 32,
-                "email": "not-an-email",
             },
         )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.get_json()["code"], "bad_email")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.get_json()["status"], "pending_payment")
 
     def test_unknown_code_rejected(self):
         response = self.client.post(

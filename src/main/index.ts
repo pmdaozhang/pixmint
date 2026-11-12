@@ -259,12 +259,9 @@ function initServices(): void {
     store: licenseStore,
     deviceId: () => deviceIdStore.get(),
     onChange: () => refreshTrayMenu(),
-    // 开发版默认模拟终身会员，方便预览会员 UI；打包发布版恒为 false。
-    // PIXMINT_DEV_LICENSE=free 或 PIXMINT_ENFORCE_QUOTA=1 时回退为免费用户。
-    devPro:
-      !app.isPackaged &&
-      process.env.PIXMINT_ENFORCE_QUOTA !== '1' &&
-      process.env.PIXMINT_DEV_LICENSE !== 'free',
+    // 开发版默认是免费用户；需要预览会员页时设置 PIXMINT_DEV_LICENSE=pro。
+    // 打包发布版恒为 false。
+    devPro: !app.isPackaged && process.env.PIXMINT_DEV_LICENSE === 'pro',
     fetchImpl: (url, init) =>
       net.fetch(url, init as RequestInit) as unknown as Promise<{
         ok: boolean

@@ -147,7 +147,6 @@ export interface SnapglassApi {
     activate(code: string): Promise<LicenseActivation>
     restore(): Promise<LicenseStatus | null>
     refresh(): Promise<LicenseStatus>
-    email(email: string): Promise<void>
     devices(): Promise<LicenseDevice[]>
     unbind(deviceHash: string): Promise<void>
     trial(inviteCode: string): Promise<LicenseActivation>
@@ -161,8 +160,7 @@ export interface SnapglassApi {
     orderStatus(orderId: string, orderToken: string): Promise<PurchaseOrderResult>
     createManualOrder(
       plan: 'monthly' | 'yearly' | 'lifetime',
-      provider: PaymentProvider,
-      email: string
+      provider: PaymentProvider
     ): Promise<ManualOrder>
     submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder>
     manualOrderStatus(orderId: string, orderToken: string): Promise<ManualOrderResult>

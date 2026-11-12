@@ -116,7 +116,6 @@ export class LicenseService {
         expiresAt: null,
         updateUntil: null,
         code: record.code || null,
-        email: record.email || null,
         devicesUsed: record.devicesUsed ?? 0,
         devicesMax: record.devicesMax ?? 5,
         needsRefresh: false,
@@ -135,7 +134,6 @@ export class LicenseService {
         expiresAt: null,
         updateUntil: null,
         code: record.code || null,
-        email: record.email || null,
         devicesUsed: record.devicesUsed ?? 0,
         devicesMax: record.devicesMax ?? 5,
         needsRefresh: false,
@@ -149,7 +147,6 @@ export class LicenseService {
       expiresAt: verified.payload.exp,
       updateUntil: verified.payload.upd,
       code: record.code || null,
-      email: record.email || null,
       devicesUsed: record.devicesUsed ?? 0,
       devicesMax: record.devicesMax ?? 5,
       needsRefresh: verified.needsRefresh,
@@ -165,7 +162,6 @@ export class LicenseService {
       expiresAt: null,
       updateUntil: null,
       code: 'PM261112-DEV1',
-      email: 'dev@pixmint.local',
       devicesUsed: 1,
       devicesMax: 5,
       needsRefresh: false,
@@ -247,13 +243,6 @@ export class LicenseService {
     } finally {
       this.refreshing = null
     }
-  }
-
-  async emailCode(email: string): Promise<void> {
-    const record = this.options.store.get()
-    if (!record.code) throw new LicenseApiError('尚未激活', 'not_activated', 400)
-    await this.request('/license/email', { code: record.code, email: email.trim() })
-    this.options.store.save({ email: email.trim() })
   }
 
   async devices(): Promise<LicenseDevice[]> {
@@ -349,18 +338,14 @@ export class LicenseService {
 
   async createManualOrder(
     plan: 'monthly' | 'yearly' | 'lifetime',
-    provider: PaymentProvider,
-    email: string
+    provider: PaymentProvider
   ): Promise<ManualOrder> {
-    const response = await this.request<ManualOrder>('/manual/orders', {
+    return this.request<ManualOrder>('/manual/orders', {
       plan,
       provider,
-      email: email.trim(),
       deviceId: this.options.deviceId(),
       deviceName: process.platform
     })
-    this.options.store.save({ email: email.trim() })
-    return response
   }
 
   async submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder> {

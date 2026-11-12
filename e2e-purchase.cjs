@@ -30,7 +30,6 @@ function signToken(deviceId) {
 const state = {
   deviceId: '',
   orderPolls: 0,
-  emails: [],
   trialCode: ''
 }
 
@@ -55,7 +54,6 @@ function manualOrder(input, status = 'pending_payment') {
     plan: input.plan || 'lifetime',
     channel: input.provider || 'alipay',
     amountCents: amount,
-    email: input.email || 'user@example.com',
     expiresAt: Date.now() + 86400000,
     qrUrls: { alipay: QR_DATA, wechat: QR_DATA }
   }
@@ -76,7 +74,6 @@ const server = http.createServer((req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/manual/orders') {
       state.deviceId = input.deviceId || state.deviceId
-      state.email = input.email || state.email
       return json(res, 200, manualOrder(input))
     }
     if (
@@ -90,14 +87,12 @@ const server = http.createServer((req, res) => {
       if (state.orderPolls < 2) {
         return json(res, 200, {
           status: 'reviewing',
-          emailSent: false
         })
       }
       return json(res, 200, {
         status: 'paid',
         code: 'PIXMINT-E2E-CODE',
         token: signToken(state.deviceId),
-        emailSent: true
       })
     }
     if (req.method === 'POST' && url.pathname === '/license/status') {
@@ -125,10 +120,6 @@ const server = http.createServer((req, res) => {
         devicesUsed: 1,
         devicesMax: 1
       })
-    }
-    if (req.method === 'POST' && url.pathname === '/license/email') {
-      state.emails.push(input.email)
-      return json(res, 200, { ok: true })
     }
     if (req.method === 'POST' && url.pathname === '/license/by-device') {
       return json(res, 404, { error: 'not found' })
@@ -181,7 +172,6 @@ const server = http.createServer((req, res) => {
       throw new Error('lifetime plan card missing')
     }
 
-    await page.locator('#pc-buy-email').fill('user@example.com')
     await page.locator('.pc-primary').click()
     await page.waitForSelector('.pc-qr img', { timeout: 10000 })
     const orderNumber = (await page.locator('.pc-order-no code').innerText()).trim()

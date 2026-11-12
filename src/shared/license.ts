@@ -30,7 +30,6 @@ export interface LicenseStatus {
   expiresAt: number | null
   updateUntil: number | null
   code: string | null
-  email: string | null
   devicesUsed: number
   devicesMax: number
   /** 仅本地验签成功但需要联网续签 */
@@ -106,7 +105,6 @@ export interface ManualOrder {
   plan: 'monthly' | 'yearly' | 'lifetime'
   channel: PaymentProvider
   amountCents: number
-  email: string
   /** 毫秒时间戳 */
   expiresAt: number
   qrUrls: Record<PaymentProvider, string>
@@ -117,7 +115,5 @@ export interface ManualOrderResult {
   status: ManualOrderStatus
   code?: string
   token?: string
-  emailSent?: boolean
-  emailError?: string | null
   rejectReason?: string | null
 }

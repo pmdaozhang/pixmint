@@ -23,7 +23,6 @@ export interface LicenseRecord {
   version: number
   code: string
   token: string
-  email: string
   lastRefreshAt: number
   lastSeenAt: number
   devicesUsed: number
@@ -34,7 +33,6 @@ const EMPTY: LicenseRecord = {
   version: 1,
   code: '',
   token: '',
-  email: '',
   lastRefreshAt: 0,
   lastSeenAt: 0,
   devicesUsed: 0,
@@ -92,7 +90,6 @@ export class LicenseStore {
         version: 1,
         code: typeof parsed.code === 'string' ? parsed.code : '',
         token: typeof parsed.token === 'string' ? parsed.token : '',
-        email: typeof parsed.email === 'string' ? parsed.email : '',
         lastRefreshAt:
           typeof parsed.lastRefreshAt === 'number' ? parsed.lastRefreshAt : 0,
         lastSeenAt: typeof parsed.lastSeenAt === 'number' ? parsed.lastSeenAt : 0,

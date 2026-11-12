@@ -493,7 +493,6 @@ const EN: Record<string, string> = {
   '已有激活码': 'I have a code',
   '换电脑恢复只需输入激活码，一个激活码最多绑定 5 台设备。':
     'To restore on a new PC, just enter your activation code; one code binds up to 5 devices.',
-  '填写邀请码，领 7 天 Pro': 'Enter an invite code for 7 days of Pro',
   '扫码支付': 'Scan to pay',
   '用手机扫码完成支付': 'Scan the code with your phone',
   '支付成功后会自动激活，本窗口无需其他操作。':
@@ -510,8 +509,6 @@ const EN: Record<string, string> = {
   '有效期至 {date}': 'Valid until {date}',
   '已解锁全部 Pro 功能': 'All Pro features unlocked',
   '激活码': 'Activation code',
-  '输入邮箱，把激活码发给你': 'Enter your email and we will send the code',
-  '发送': 'Send',
   '换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。':
     'Enter this code on a new PC. One code can bind up to 5 devices.',
   '恢复购买': 'Restore purchase',
@@ -528,13 +525,10 @@ const EN: Record<string, string> = {
     'New devices only; each device can claim once.',
   '输入邀请码': 'Enter invite code',
   '领取中…': 'Claiming…',
-  '截图 · 标注 · 钉图 永久免费': 'Screenshot · Annotate · Pin are free forever',
-  '支持支付宝 / 微信': 'Alipay / WeChat supported',
   '今日翻译次数已用完，明天再来吧': 'Translation limit reached for today. Come back tomorrow.',
   '支付暂未开放，请稍后再试': 'Payments are not open yet. Please try again later.',
   '二维码已过期，请重新下单': 'QR code expired. Please place a new order.',
   '订单已退款': 'Order refunded',
-  '激活码已发送到 {email}': 'Activation code sent to {email}',
   '激活码已复制': 'Activation code copied',
   'Pixmint Pro': 'Pixmint Pro',
   '免费版': 'Free',
@@ -560,9 +554,6 @@ const EN: Record<string, string> = {
   '升级 Pro': 'Upgrade to Pro',
   '换电脑时输入此码，最多绑定 5 台设备':
     'Enter this code on a new PC; up to 5 devices',
-  '接收激活码的邮箱': 'Email for your activation code',
-  '付款确认后会自动把激活码发到这个邮箱':
-    'We will email the activation code here after payment is confirmed.',
   '生成订单并付款': 'Create order and pay',
   '支付 {amount}': 'Pay {amount}',
   '{plan} · 付款后人工确认，通常 10 分钟内完成':
@@ -586,14 +577,7 @@ const EN: Record<string, string> = {
   '正在核对付款': 'Verifying your payment',
   '已收到你的付款信息，人工确认通常 10 分钟内完成。此窗口会自动更新，无需重复操作。':
     'We received your payment details. Manual confirmation usually takes under 10 minutes; this window updates automatically.',
-  '确认后会自动激活，并把激活码发送到 {email}':
-    'Once confirmed, Pro activates automatically and the code is emailed to {email}.',
-  '激活码已发送至 {email}': 'Activation code sent to {email}',
-  '自动发信失败：{error}': 'Automatic email failed: {error}',
-  '重新发送': 'Resend',
-  '邮箱（用于接收激活码）': 'Email (for your activation code)',
-  '请填写正确的邮箱，用于接收激活码':
-    'Enter a valid email to receive your activation code.',
+  '确认后会自动激活，无需重复操作。': 'Once confirmed, Pro activates automatically.',
   '下单失败，请稍后再试': 'Could not create the order. Please try again.',
   '提交失败，请稍后再试': 'Could not submit. Please try again.',
   '订单未通过审核，请重新下单':
