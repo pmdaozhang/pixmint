@@ -67,12 +67,16 @@
 .ocr-root,
 .pc-card,
 .onb-card,
-.wn-card,
-.preview-card {
+.wn-card {
   background: var(--bg);
   border-color: var(--border);
   box-shadow: var(--shadow);
 }
+
+/*
+ * 录制完成卡是浮在桌面上的深色通知，不是普通窗口表面。
+ * 它的白字/深色样式定义在 record-preview.css，不能被这里的浅色窗口规则覆盖。
+ */
 
 .settings-root .card {
   background: var(--bg-2);

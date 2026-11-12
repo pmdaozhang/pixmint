@@ -17,13 +17,14 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     await window.snapglass.settings.update({ translationProvider: 'free' })
     window.dispatchEvent(new Event('focus'))
   })
-  await window.locator('#ocr-original').fill('Hello world')
-  await window.locator('.ocr-compact-footer .secondary').click()
-  await new Promise((resolve) => setTimeout(resolve, 6000))
-  const result = await window.locator('.translate-result').textContent()
-  const error = await window.locator('.ocr-error').textContent().catch(() => '')
+  // 翻译输入框在只读模式下不能 fill，直接走 preload 的翻译 API，
+  // 测的是真实的 IPC + 网络翻译链路。
+  const started = Date.now()
+  const result = await window.evaluate(() =>
+    window.snapglass.translation.translate('Hello world')
+  )
+  console.log('LIVE_TRANSLATION_MS', Date.now() - started)
   console.log('LIVE_TRANSLATION_RESULT', result)
-  console.log('LIVE_TRANSLATION_ERROR', error)
   await app.close()
   process.exit(0)
 })().catch((error) => {

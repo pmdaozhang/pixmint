@@ -50,20 +50,24 @@ export function registerSystemIpc(ctx: IpcContext): void {
     ctx.feedbackService.submit(input)
   )
 
-  // 购买窗按内容高度自适应
+  // 购买窗按内容高度自适应；会员页会同时收窄到 480px 卡片宽度
   on(
     'purchase:resize',
-    z.tuple([z.number().finite().min(360).max(980)]),
-    (event, [height]) => {
+    z.tuple([
+      z.number().finite().min(360).max(980),
+      z.number().finite().min(360).max(1200).optional()
+    ]),
+    (event, [height, width]) => {
       const window = BrowserWindow.fromWebContents(event.sender)
       if (!window || window.isDestroyed()) return
       const bounds = window.getBounds()
       const nextHeight = Math.round(height)
-      if (bounds.height === nextHeight) return
+      const nextWidth = width ? Math.round(width) : bounds.width
+      if (bounds.height === nextHeight && bounds.width === nextWidth) return
       window.setBounds({
-        x: bounds.x,
+        x: Math.round(bounds.x + (bounds.width - nextWidth) / 2),
         y: Math.round(bounds.y + (bounds.height - nextHeight) / 2),
-        width: bounds.width,
+        width: nextWidth,
         height: nextHeight
       })
     }

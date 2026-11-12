@@ -11,6 +11,8 @@ export interface UsageServiceOptions {
   store: UsageStore
   license: LicenseService
   now?: () => number
+  /** 开发版不限次数；打包发布版和强制测试模式下为 false。 */
+  devUnlimited?: boolean
   /** 超限时由入口层决定：隐藏覆盖层并打开购买窗 */
   onExceeded?: (feature: UsageFeature) => void
 }
@@ -26,12 +28,20 @@ export class UsageService {
     this.now = options.now ?? Date.now
   }
 
+  private isUnlimited(): boolean {
+    return this.options.devUnlimited === true || this.options.license.isPro()
+  }
+
   view(): UsageView {
-    return { pro: this.options.license.isPro(), ...this.options.store.snapshot() }
+    return {
+      pro: this.options.license.isPro(),
+      unlimited: this.options.devUnlimited === true,
+      ...this.options.store.snapshot()
+    }
   }
 
   check(feature: UsageFeature): UsageEvaluation {
-    if (this.options.license.isPro()) {
+    if (this.isUnlimited()) {
       return {
         feature,
         day: dayKey(this.now()),
@@ -45,14 +55,14 @@ export class UsageService {
   }
 
   consume(feature: UsageFeature): UsageEvaluation {
-    if (this.options.license.isPro()) return this.check(feature)
+    if (this.isUnlimited()) return this.check(feature)
     const evaluation = this.options.store.consume(feature)
     if (!evaluation.allowed) this.options.onExceeded?.(feature)
     return evaluation
   }
 
   refund(feature: UsageFeature): void {
-    if (this.options.license.isPro()) return
+    if (this.isUnlimited()) return
     this.options.store.refund(feature)
   }
 }

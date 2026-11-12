@@ -287,8 +287,13 @@ function patchDiff(a, b) {
     })
     await overlay.mouse.up()
     await sleep(500)
-    if ((await overlay.locator('.magnifier').count()) !== 0) {
-      fail('进入编辑态后放大镜没有隐藏')
+    // 编辑阶段放大镜组件仍挂载（拖动控制点时要跟随），但必须隐藏。
+    const editingMagnifierDisplay = await overlay.evaluate(() => {
+      const panel = document.querySelector('.magnifier')
+      return panel ? getComputedStyle(panel).display : 'missing'
+    })
+    if (editingMagnifierDisplay !== 'none' && editingMagnifierDisplay !== 'missing') {
+      fail(`进入编辑态后放大镜没有隐藏（${editingMagnifierDisplay}）`)
     }
     await sleep(700)
     await overlay.keyboard.press('Escape').catch(() => {})

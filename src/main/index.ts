@@ -259,6 +259,12 @@ function initServices(): void {
     store: licenseStore,
     deviceId: () => deviceIdStore.get(),
     onChange: () => refreshTrayMenu(),
+    // 开发版默认模拟终身会员，方便预览会员 UI；打包发布版恒为 false。
+    // PIXMINT_DEV_LICENSE=free 或 PIXMINT_ENFORCE_QUOTA=1 时回退为免费用户。
+    devPro:
+      !app.isPackaged &&
+      process.env.PIXMINT_ENFORCE_QUOTA !== '1' &&
+      process.env.PIXMINT_DEV_LICENSE !== 'free',
     fetchImpl: (url, init) =>
       net.fetch(url, init as RequestInit) as unknown as Promise<{
         ok: boolean
@@ -270,6 +276,9 @@ function initServices(): void {
   usageService = new UsageService({
     store: usageStore,
     license: licenseService,
+    // 源码运行（开发版）不限制次数，方便自测；打包发布版恢复每日额度。
+    // PIXMINT_ENFORCE_QUOTA=1 用于让自动化测试在开发版里也验证限制逻辑。
+    devUnlimited: !app.isPackaged && process.env.PIXMINT_ENFORCE_QUOTA !== '1',
     onExceeded: (feature: UsageFeature) => {
       overlayManager.hideAll()
       createPurchaseWindow(preloadPath, feature)

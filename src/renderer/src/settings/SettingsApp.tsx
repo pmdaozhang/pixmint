@@ -382,7 +382,9 @@ export function SettingsApp(): JSX.Element {
                         date: new Date(licenseStatus.expiresAt).toLocaleDateString()
                       })
                     : tr('永久授权')
-                  : usage
+                  : usage?.unlimited
+                    ? tr('开发版 · 不限次数')
+                    : usage
                     ? tr('今日剩余：OCR {ocr}/{ocrLimit} · 翻译 {translate}/{translateLimit} · GIF {gif}/{gifLimit} · 视频 {video}/{videoLimit}', {
                         ocr: usage.remaining.ocr,
                         ocrLimit: usage.limits.ocr,

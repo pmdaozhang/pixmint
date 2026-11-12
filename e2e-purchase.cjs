@@ -161,6 +161,8 @@ const server = http.createServer((req, res) => {
     env: {
       ...process.env,
       PIXMINT_USER_DATA_DIR: userData,
+      // 购买窗测试要验证“额度用完”的文案，开发版默认不限次数，必须强制启用限制。
+      PIXMINT_ENFORCE_QUOTA: '1',
       PIXMINT_LICENSE_URL: `http://127.0.0.1:${port}`,
       PIXMINT_LICENSE_PUBLIC_KEY: PUBLIC_PEM
     }
@@ -187,35 +189,20 @@ const server = http.createServer((req, res) => {
     console.log('PURCHASE_QR_SHOWN', true)
 
     await page.locator('.pc-primary').click()
-    await page.waitForFunction(
-      () => (document.querySelector('.pc-body h1')?.textContent || '').includes('Pro 已激活'),
-      undefined,
-      { timeout: 25000 }
-    )
-    const code = (await page.locator('.pc-code code').innerText()).trim()
-    console.log('PURCHASE_ACTIVATED', code)
-    if (code !== 'PIXMINT-E2E-CODE') throw new Error('activation code mismatch')
-
-    await page.waitForFunction(
-      () => (document.querySelector('.pc-email')?.textContent || '').includes('激活码已发送至'),
-      undefined,
-      { timeout: 10000 }
-    )
-    console.log('PURCHASE_EMAIL_AUTO', true)
+    // 激活成功后会直接进入终身会员恭喜页
+    await page.waitForSelector('.mw-card', { timeout: 25000 })
+    const memberHeadline = (await page.locator('.mw-hero h1').innerText()).trim()
+    console.log('PURCHASE_MEMBER_PAGE', memberHeadline)
+    if (!memberHeadline.includes('您已是终身会员')) throw new Error('member welcome page missing')
+    const maskedCode = (await page.locator('.mw-code').innerText()).trim()
+    console.log('PURCHASE_MEMBER_CODE', maskedCode)
+    if (!maskedCode.includes('•')) throw new Error('activation code should be masked')
     await page.screenshot({ path: path.join(PROJECT, 'test-results', 'purchase-activated.png') })
 
-    // 换电脑恢复：重新打开购买窗 → 已有激活码 → 激活
+    // 再次打开会员入口仍然显示恭喜页，不再回到支付页
     await page.evaluate(() => window.snapglass.purchase.open())
-    await page.waitForSelector('.pc-links button', { timeout: 10000 })
-    await page.locator('.pc-links button').first().click()
-    await page.locator('.pc-input').fill('PIXMINT-E2E-CODE')
-    await page.locator('.pc-primary').click()
-    await page.waitForFunction(
-      () => (document.querySelector('.pc-body h1')?.textContent || '').includes('Pro 已激活'),
-      undefined,
-      { timeout: 10000 }
-    )
-    console.log('PURCHASE_ACTIVATE_E2E_OK')
+    await page.waitForSelector('.mw-card', { timeout: 10000 })
+    console.log('PURCHASE_MEMBER_REOPEN_OK')
     console.log('PURCHASE_E2E_OK')
   } finally {
     await app.close().catch(() => {})

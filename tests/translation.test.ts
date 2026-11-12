@@ -124,6 +124,35 @@ describe('translateText', () => {
     expect(calls).toBe(2)
   })
 
+  it('races free providers so a blocked Google request does not add latency', async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url.includes('translate.googleapis.com')) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new Error('aborted')),
+            { once: true }
+          )
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ responseData: { translatedText: '你好' } })
+      } as Response)
+    })
+    const started = Date.now()
+    await expect(
+      translateText(
+        'Hello',
+        { ...settings, translationProvider: 'free' },
+        '',
+        fetchMock as unknown as typeof fetch,
+        250
+      )
+    ).resolves.toBe('你好')
+    expect(Date.now() - started).toBeLessThan(200)
+  })
+
   it('rejects without an API key', async () => {
     await expect(translateText('Hello', settings, '')).rejects.toThrow('API Key')
   })

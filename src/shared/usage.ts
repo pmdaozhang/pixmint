@@ -42,6 +42,8 @@ export interface UsageSnapshot {
 
 export interface UsageView extends UsageSnapshot {
   pro: boolean
+  /** 开发版（未打包）默认不限次数；打包发布版和强制测试模式下为 false。 */
+  unlimited: boolean
 }
 
 export interface UsageConsumeResult {

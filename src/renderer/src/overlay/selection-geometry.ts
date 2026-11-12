@@ -40,6 +40,17 @@ export function resizeSelectionRect(
   }
 }
 
+/**
+ * 选区变化时标注的补偿位移。
+ * 标注固定在屏幕坐标上：画布原点（选区左上角）移动多少，标注就要反向移动多少。
+ */
+export function annotationShiftForSelection(
+  previous: Pick<Rect, 'x' | 'y'>,
+  next: Pick<Rect, 'x' | 'y'>
+): { dx: number; dy: number } {
+  return { dx: previous.x - next.x, dy: previous.y - next.y }
+}
+
 export function moveSelectionRect(
   start: Rect,
   dx: number,

@@ -10,11 +10,14 @@ import {
 import type { Settings, ThemeSetting } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
 import { t } from '@shared/i18n'
+import { MemberWelcome } from './MemberWelcome'
 import './purchase.css'
 
 const SHADOW_PADDING = 56
 const MIN_WINDOW_HEIGHT = 480
 const MAX_WINDOW_HEIGHT = 960
+/** 购买流程固定 760px 卡片宽度（会员恭喜页会临时收窄，回到购买页时恢复） */
+const PURCHASE_WINDOW_WIDTH = 816
 
 type PlanId = 'monthly' | 'yearly' | 'lifetime'
 type Step = 'plans' | 'manual_pay' | 'review' | 'done' | 'activate' | 'invite' | 'devices'
@@ -202,7 +205,7 @@ export function PurchaseApp(): JSX.Element {
       )
       if (target === applied) return
       applied = target
-      window.snapglass.purchase.resize(target)
+      window.snapglass.purchase.resize(target, PURCHASE_WINDOW_WIDTH)
     }
     const schedule = (): void => {
       cancelAnimationFrame(frame)
@@ -282,7 +285,9 @@ export function PurchaseApp(): JSX.Element {
   }, [step, order])
 
   const featureLimit = feature && usage ? (usage.limits[feature] ?? 0) : 0
-  const exhausted = Boolean(feature && usage && usage.remaining[feature] === 0)
+  const exhausted = Boolean(
+    feature && usage && !usage.unlimited && usage.remaining[feature] === 0
+  )
 
   const startManualOrder = useCallback(async () => {
     const value = email.trim()
@@ -431,6 +436,11 @@ export function PurchaseApp(): JSX.Element {
 
   const formatAmount = (cents: number): string =>
     `¥${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
+
+  // 终身会员打开会员入口时显示恭喜页，不再展示购买套餐
+  if (status?.pro) {
+    return <MemberWelcome status={status} language={language} />
+  }
 
   return (
     <div className="pc-root">

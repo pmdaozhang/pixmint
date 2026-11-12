@@ -58,6 +58,20 @@ describe('UsageService', () => {
     expect(store.snapshot().used.video).toBe(0)
   })
 
+  it('开发版无限次数且不写计数', () => {
+    const store = new UsageStore(tempFile(), () => AT, { video: 0 })
+    const license = { isPro: () => false } as unknown as LicenseService
+    const service = new UsageService({
+      store,
+      license,
+      now: () => AT,
+      devUnlimited: true
+    })
+    expect(service.consume('video').allowed).toBe(true)
+    expect(store.snapshot().used.video).toBe(0)
+    expect(service.view().unlimited).toBe(true)
+  })
+
   it('超限触发一次购买窗回调', () => {
     const store = new UsageStore(tempFile(), () => AT, { video: 0 })
     const license = { isPro: () => false } as unknown as LicenseService

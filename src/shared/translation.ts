@@ -1,6 +1,9 @@
 import type { Settings } from './types'
 
 const TRANSLATION_TIMEOUT_MS = 15_000
+// 国内网络访问 Google 免费接口通常直接超时。两个免费接口并行请求，
+// 哪个先返回用哪个，避免先等 Google 超时再走 MyMemory。
+const FREE_GOOGLE_TIMEOUT_MS = 5_000
 
 export interface TranslationRequest {
   url: string
@@ -158,24 +161,28 @@ export async function translateText(
     throw new Error('未配置翻译 API Key')
   }
   if (settings.translationProvider === 'free') {
-    try {
-      return await requestTranslation(
+    // 并行请求两个免费接口，取最先成功的那个。Google 在国内经常被墙，
+    // 串行会先白等满超时；并行后 MyMemory 通常 1–3 秒就能出结果。
+    const attempts = [
+      requestTranslation(
         buildFreeTranslationRequest(text, settings),
         parseFreeTranslation,
         fetchImpl,
+        Math.min(timeoutMs, FREE_GOOGLE_TIMEOUT_MS)
+      ),
+      requestTranslation(
+        buildMyMemoryTranslationRequest(text, settings),
+        parseMyMemoryTranslation,
+        fetchImpl,
         timeoutMs
       )
-    } catch (firstError) {
-      try {
-        return await requestTranslation(
-          buildMyMemoryTranslationRequest(text, settings),
-          parseMyMemoryTranslation,
-          fetchImpl,
-          timeoutMs
-        )
-      } catch {
-        throw firstError
-      }
+    ]
+    try {
+      return await Promise.any(attempts)
+    } catch (error) {
+      // 两个都失败时保留第一个（Google）的错误，便于用户看到真实原因。
+      const failures = (error as AggregateError).errors
+      throw failures?.[0] ?? error
     }
   }
   const request =

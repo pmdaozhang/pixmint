@@ -219,7 +219,8 @@ const api: SnapglassApi = {
         orderId,
         orderToken
       ) as Promise<ManualOrderResult>,
-    resize: (height: number) => ipcRenderer.send('purchase:resize', height)
+    resize: (height: number, width?: number) =>
+      ipcRenderer.send('purchase:resize', height, width)
   },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<UpdateState>,

@@ -166,6 +166,6 @@ export interface SnapglassApi {
     ): Promise<ManualOrder>
     submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder>
     manualOrderStatus(orderId: string, orderToken: string): Promise<ManualOrderResult>
-    resize(height: number): void
+    resize(height: number, width?: number): void
   }
 }

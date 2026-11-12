@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { JSX } from 'react'
+import type { CSSProperties, JSX } from 'react'
 import type {
   OverlayAction,
   OverlayInit,
@@ -30,6 +30,18 @@ type RecordPhase =
   | 'paused'
   | 'encoding'
   | 'result'
+
+// 拖拽控制点时的鼠标样式；拖拽期间强制覆盖整个覆盖层，避免指针离开节点后变成手型。
+const RESIZE_CURSOR: Record<string, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize'
+}
 const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   mode: 'gif',
   fps: 15,
@@ -97,6 +109,9 @@ export function OverlayApp(): JSX.Element {
     canUndo,
     canRedo,
     selectionDragging,
+    resizing,
+    resizeDir,
+    resizeDirRef,
     selectionRef,
     resetSelection,
     setOptions,
@@ -739,13 +754,19 @@ export function OverlayApp(): JSX.Element {
       : Math.max(8, effectiveSelection.y - 68)
     : 0
 
+  const resizeCursor = resizing && resizeDir ? RESIZE_CURSOR[resizeDir] : undefined
   return (
     <div
       className={`overlay-root${effectivePhase === 'selecting' ? ' selecting' : ''}${
         selectionDragging ? ' dragging-selection' : ''
-      }${
+      }${resizing ? ' resizing' : ''}${
         recorderModeActive ? ' recording' : ''
       }`}
+      style={
+        resizeCursor
+          ? ({ '--resize-cursor': resizeCursor } as CSSProperties)
+          : undefined
+      }
       onPointerDown={onSelectDown}
       onPointerMove={onSelectMove}
       onPointerUp={onSelectUp}
@@ -942,12 +963,19 @@ export function OverlayApp(): JSX.Element {
           />
         </div>
       )}
-      {init && imageReady && !recorderModeActive && effectivePhase === 'selecting' && !warmRect && (
+      {init && imageReady && !recorderModeActive && (
         <Magnifier
           init={init}
           imageCanvasRef={imageCanvasRef}
           language={init.settings.language}
           onCopied={showColorCopied}
+          // 框选阶段常驻跟随；编辑阶段只在拖拽控制点时跟随。
+          active={(effectivePhase === 'selecting' && !warmRect) || resizing}
+          // 编辑阶段不接管取色快捷键，避免抢走复制截图。
+          interactiveKeys={effectivePhase === 'selecting' && !warmRect}
+          // 拖控制点时把放大镜限制在选区外侧，不遮挡截图内容。
+          avoidRectRef={selectionRef}
+          resizeDirRef={resizeDirRef}
         />
       )}
       {options.tool === 'mosaic' && options.mosaicMode === 'brush' && phase === 'editing' && (

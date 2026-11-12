@@ -37,6 +37,11 @@ export interface LicenseServiceOptions {
   now?: () => number
   /** 授权状态变化（激活、续签成功、退款清空）后回调，用于刷新托盘菜单。 */
   onChange?: () => void
+  /**
+   * 开发版模拟终身会员，只用于预览会员 UI；由主进程按 !app.isPackaged 注入，
+   * 打包发布版永远为 false。不写本地授权文件，也不请求授权服务。
+   */
+  devPro?: boolean
 }
 
 export class LicenseApiError extends Error {
@@ -101,6 +106,7 @@ export class LicenseService {
   }
 
   status(): LicenseStatus {
+    if (this.options.devPro) return this.devStatus()
     const record = this.options.store.get()
     const now = this.now()
     if (!record.token) {
@@ -151,6 +157,22 @@ export class LicenseService {
     }
   }
 
+  /** 开发版会员预览用的固定状态：终身有效、单设备、不落盘。 */
+  private devStatus(): LicenseStatus {
+    return {
+      pro: true,
+      plan: 'pro',
+      expiresAt: null,
+      updateUntil: null,
+      code: 'PM261112-DEV1',
+      email: 'dev@pixmint.local',
+      devicesUsed: 1,
+      devicesMax: 5,
+      needsRefresh: false,
+      offline: false
+    }
+  }
+
   isPro(): boolean {
     return this.status().pro
   }
@@ -188,6 +210,7 @@ export class LicenseService {
   }
 
   async refresh(): Promise<LicenseStatus> {
+    if (this.options.devPro) return this.devStatus()
     if (this.refreshing) return this.refreshing
     const record = this.options.store.get()
     if (!record.token) return this.status()
@@ -234,6 +257,25 @@ export class LicenseService {
   }
 
   async devices(): Promise<LicenseDevice[]> {
+    if (this.options.devPro) {
+      const now = Math.floor(this.now() / 1000)
+      return [
+        {
+          deviceHash: '0'.repeat(64),
+          name: 'Windows 预览设备',
+          firstSeen: now - 24 * 60 * 60,
+          lastSeen: now,
+          current: true
+        },
+        {
+          deviceHash: '1'.repeat(64),
+          name: 'Windows 备用设备',
+          firstSeen: now - 10 * 24 * 60 * 60,
+          lastSeen: now - 3 * 24 * 60 * 60,
+          current: false
+        }
+      ]
+    }
     const record = this.options.store.get()
     if (!record.code) return []
     const response = await this.request<{ devices: LicenseDevice[] }>('/license/devices', {

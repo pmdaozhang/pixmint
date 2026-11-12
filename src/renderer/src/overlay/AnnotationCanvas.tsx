@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState
 } from 'react'
@@ -99,6 +100,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     const editingTextIdRef = useRef<string | null>(null)
     const seqRef = useRef(0)
     const sizeRef = useRef({ width: selection.width, height: selection.height })
+    const originRef = useRef({ x: selection.x, y: selection.y })
     const [textDraft, setTextDraft] = useState<TextDraft | null>(null)
 
     const dpr = window.devicePixelRatio || 1
@@ -258,7 +260,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
      * 不再复制整屏 ImageData；成本低，同时避免切工具后马赛克退化成虚线框。
      * 关键约束：选区变化时重建背景画布，保证像素化坐标与当前画布一致。
      */
-    useEffect(() => {
+    useLayoutEffect(() => {
       backgroundCanvasRef.current = null
       const width = Math.max(1, Math.round(selection.width))
       const height = Math.max(1, Math.round(selection.height))
@@ -299,15 +301,33 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       selection.height
     ])
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const canvas = canvasRef.current
       if (!canvas) return
       canvas.width = Math.max(1, Math.round(selection.width * dpr))
       canvas.height = Math.max(1, Math.round(selection.height * dpr))
-      canvas.style.width = `${selection.width}px`
-      canvas.style.height = `${selection.height}px`
       redraw()
     }, [selection.width, selection.height])
+
+    /**
+     * 背景：标注坐标是相对画布的，画布原点跟着选区走。
+     * 设计意图：选区左上角变化时，在同一帧内把标注反向平移，保证标注固定在屏幕坐标上。
+     * 关键约束：必须在 layout effect 里做，不能放在指针事件里同步 redraw，
+     * 否则画布内容和元素位置会分属两帧，拖动时出现来回抖动。
+     */
+    useLayoutEffect(() => {
+      const previous = originRef.current
+      originRef.current = { x: selection.x, y: selection.y }
+      const dx = previous.x - selection.x
+      const dy = previous.y - selection.y
+      if (!dx && !dy) return
+      annotationsRef.current = annotationsRef.current.map((annotation) =>
+        moveAnnotation(structuredClone(annotation), dx, dy)
+      )
+      if (tempRef.current) moveAnnotation(tempRef.current, dx, dy)
+      setTextDraft((draft) => (draft ? { ...draft, x: draft.x + dx, y: draft.y + dy } : null))
+      redraw()
+    }, [selection.x, selection.y])
 
     const pointFromEvent = (event: ReactPointerEvent<HTMLCanvasElement>): Point => {
       const rect = event.currentTarget.getBoundingClientRect()
@@ -745,7 +765,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
               redraw()
             }
           }}
-          style={{ cursor }}
+          style={{ cursor, width: selection.width, height: selection.height }}
         />
         {textDraft && (
           <input

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   MIN_SELECTION,
   RESIZE_DIRS,
+  annotationShiftForSelection,
   clampWindowRect,
   moveSelectionRect,
   resizeSelectionRect
@@ -36,6 +37,22 @@ describe('overlay selection geometry', () => {
   it('exposes all eight resize directions', () => {
     expect(RESIZE_DIRS).toHaveLength(8)
     expect(new Set(RESIZE_DIRS).size).toBe(8)
+  })
+
+  it('compensates selection origin movement so annotations stay on screen', () => {
+    const current = { x: 100, y: 100, width: 200, height: 100 }
+    const next = { x: 130, y: 90, width: 170, height: 110 }
+    const shift = annotationShiftForSelection(current, next)
+    expect(shift).toEqual({ dx: -30, dy: 10 })
+    // 屏幕坐标 = 新画布原点 + 补偿后的本地坐标，必须等于原屏幕位置。
+    expect(next.x + shift.dx).toBe(current.x)
+    expect(next.y + shift.dy).toBe(current.y)
+  })
+
+  it('does not shift annotations when only the size changes', () => {
+    const current = { x: 100, y: 100, width: 200, height: 100 }
+    const next = { x: 100, y: 100, width: 260, height: 140 }
+    expect(annotationShiftForSelection(current, next)).toEqual({ dx: 0, dy: 0 })
   })
 
   it('moves a selection without changing its size', () => {

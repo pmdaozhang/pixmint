@@ -11,6 +11,7 @@ import { DEFAULT_OPTIONS, type OverlayOptions } from './options'
 import {
   MIN_SELECTION,
   RESIZE_DIRS,
+  annotationShiftForSelection,
   moveSelectionRect,
   resizeSelectionRect,
   type ResizeDir
@@ -40,7 +41,14 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [selectionDragging, setSelectionDragging] = useState(false)
+  const [resizing, setResizing] = useState(false)
+  const [resizeDir, setResizeDir] = useState<ResizeDir | null>(null)
+  // 同步记录拖拽方向，供放大镜在第一次 pointermove 时就拿到正确方向，
+  // 不依赖 React state 提交时机。
+  const resizeDirRef = useRef<ResizeDir | null>(null)
   const selectionRef = useRef<Rect | null>(null)
+  // 选区整体移动时累计的标注补偿量，松手后同步到撤销/重做历史。
+  const moveShiftRef = useRef({ x: 0, y: 0 })
   const dragRef = useRef<{
     startX: number
     startY: number
@@ -74,7 +82,11 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     setCanUndo(false)
     setCanRedo(false)
     selectionDragRef.current = null
+    moveShiftRef.current = { x: 0, y: 0 }
     setSelectionDragging(false)
+    setResizing(false)
+    resizeDirRef.current = null
+    setResizeDir(null)
   }, [updateSelection])
 
   const point = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } => {
@@ -121,6 +133,7 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
         startY: event.clientY,
         startRect: current
       }
+      moveShiftRef.current = { x: 0, y: 0 }
       setSelectionDragging(true)
       return
     }
@@ -141,15 +154,24 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     const selectionDrag = selectionDragRef.current
     if (selectionDrag) {
       event.preventDefault()
-      updateSelection(
-        moveSelectionRect(
-          selectionDrag.startRect,
-          event.clientX - selectionDrag.startX,
-          event.clientY - selectionDrag.startY,
-          window.innerWidth,
-          window.innerHeight
-        )
+      const next = moveSelectionRect(
+        selectionDrag.startRect,
+        event.clientX - selectionDrag.startX,
+        event.clientY - selectionDrag.startY,
+        window.innerWidth,
+        window.innerHeight
       )
+      // 整体移动选区时，标注要固定在原屏幕位置：画布跟着选区走，
+      // 就把标注朝反方向平移同样的距离。
+      // 标注的实时平移由 AnnotationCanvas 在 layout effect 里随选区原点变化完成，
+      // 这里只累计补偿量，松手后同步到撤销/重做历史。
+      const current = selectionRef.current
+      if (current) {
+        const { dx, dy } = annotationShiftForSelection(current, next)
+        moveShiftRef.current.x += dx
+        moveShiftRef.current.y += dy
+      }
+      updateSelection(next)
       return
     }
     updateBrushCursor(event)
@@ -178,6 +200,9 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     if (selectionDrag) {
       selectionDragRef.current = null
       setSelectionDragging(false)
+      const shift = moveShiftRef.current
+      if (shift.x || shift.y) annotationRef.current?.shiftHistory(shift.x, shift.y)
+      moveShiftRef.current = { x: 0, y: 0 }
       try {
         event.currentTarget.releasePointerCapture(selectionDrag.pointerId)
       } catch {
@@ -217,6 +242,9 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     if (!startRect) return
     event.preventDefault()
     event.stopPropagation()
+    setResizing(true)
+    resizeDirRef.current = dir
+    setResizeDir(dir)
     const startX = event.clientX
     const startY = event.clientY
     let totalShiftX = 0
@@ -232,24 +260,26 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
         window.innerWidth,
         window.innerHeight
       )
-      const shiftX = next.x - current.x
-      const shiftY = next.y - current.y
-      if (shiftX || shiftY) {
-        annotationRef.current?.shift(shiftX, shiftY)
-        totalShiftX += shiftX
-        totalShiftY += shiftY
-      }
+      // 拖左边/上边控制点时选区原点会变化。实时平移由 AnnotationCanvas
+      // 在 layout effect 里完成，这里只累计补偿量，松手后同步到撤销/重做历史。
+      const { dx, dy } = annotationShiftForSelection(current, next)
+      totalShiftX += dx
+      totalShiftY += dy
       updateSelection(next)
     }
     const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointermove', onMove, true)
+      window.removeEventListener('pointerup', onUp, true)
+      setResizing(false)
+      resizeDirRef.current = null
+      setResizeDir(null)
       if (totalShiftX || totalShiftY) {
         annotationRef.current?.shiftHistory(totalShiftX, totalShiftY)
       }
     }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp, { once: true })
+    // 捕获阶段先更新选区，放大镜（冒泡阶段）再读 selectionRef 时拿到的就是最新值。
+    window.addEventListener('pointermove', onMove, true)
+    window.addEventListener('pointerup', onUp, { once: true, capture: true })
   }
 
   const onToolClick = useCallback(
@@ -311,6 +341,9 @@ export function useOverlaySelection(options: OverlaySelectionOptions) {
     canUndo,
     canRedo,
     selectionDragging,
+    resizing,
+    resizeDir,
+    resizeDirRef,
     selectionRef,
     updateSelection,
     resetSelection,

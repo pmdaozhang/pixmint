@@ -41,7 +41,12 @@ async function waitForPage(app, selector, timeout = 20000) {
     executablePath: ELECTRON,
     args: ['.', '--smoke-overlay-ocr'],
     cwd: PROJECT,
-    env: { ...process.env, PIXMINT_USER_DATA_DIR: userData }
+    // 开发版默认不限制次数；额度测试必须显式强制启用限制。
+    env: {
+      ...process.env,
+      PIXMINT_USER_DATA_DIR: userData,
+      PIXMINT_ENFORCE_QUOTA: '1'
+    }
   })
   try {
     const overlay = await waitForPage(app, '.overlay-root')
