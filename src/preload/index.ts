@@ -148,7 +148,8 @@ const api: SnapglassApi = {
   },
   app: {
     platform: process.platform,
-    version: () => ipcRenderer.invoke('app:version')
+    version: () => ipcRenderer.invoke('app:version'),
+    contentReady: () => ipcRenderer.send('window:content-ready')
   },
   diagnostics: {
     info: () => ipcRenderer.invoke('diagnostics:info') as Promise<DiagnosticsInfo>,

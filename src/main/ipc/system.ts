@@ -4,12 +4,18 @@ import { translateText } from '../../shared/translation'
 import { lookupDictionary } from '../dictionary'
 import { t } from '../../shared/i18n'
 import { feedbackSubmitSchema } from './schemas'
+import { markWindowReady } from '../windows/show-when-ready'
 import type { IpcContext } from './types'
 import { handle, on } from './validate'
 
 /** 版本、剪贴板、词典、翻译、意见反馈。 */
 export function registerSystemIpc(ctx: IpcContext): void {
   handle('app:version', z.tuple([]), () => app.getVersion())
+
+  // 渲染层首帧（含初始数据、主题、窗口尺寸）完成后放行窗口显示。
+  on('window:content-ready', z.tuple([]), (event) => {
+    markWindowReady(event.sender.id)
+  })
 
   handle('clipboard:write-text', z.tuple([z.string().max(1_000_000)]), (_event, [text]) => {
     clipboard.writeText(text)

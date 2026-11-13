@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { JSX } from 'react'
 import type { DiagnosticsInfo, Settings, ThemeSetting, UpdateState } from '@shared/types'
 import type { LicenseStatus } from '@shared/license'
@@ -39,6 +39,7 @@ export function SettingsApp(): JSX.Element {
   const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null)
   const [usage, setUsage] = useState<UsageView | null>(null)
+  const [booted, setBooted] = useState(false)
   const language = settings?.language ?? 'zh-CN'
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
     t(language, zh, vars)
@@ -65,11 +66,30 @@ export function SettingsApp(): JSX.Element {
       console.warn('DIAGNOSTICS_INFO_FAILED', error)
     }
     applyTheme(nextSettings.theme)
+    setBooted(true)
   }
+
+  // 设置读取完成前先跟随系统主题，避免默认深色一闪。
+  useLayoutEffect(() => {
+    applyTheme('system')
+  }, [])
 
   useEffect(() => {
     void load()
   }, [])
+
+  // 等初始数据和主题都渲染完成（两次 rAF 保证已出帧）再让主进程显示窗口。
+  useEffect(() => {
+    if (!booted) return
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => window.snapglass.app.contentReady())
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [booted])
 
   useEffect(() => {
     let active = true

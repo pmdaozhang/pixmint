@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { appIcon } from '../app-icon'
 import { loadRoute } from './load'
+import { showWhenRendererReady } from './show-when-ready'
 import { disableWindowTransitions } from '../native-window'
 
 let purchaseWindow: BrowserWindow | null = null
@@ -59,9 +60,10 @@ export function createPurchaseWindow(preloadPath: string, feature?: string): Bro
     purchaseWindow.moveTop()
     purchaseWindow.focus()
   }
-  window.once('ready-to-show', show)
+  // 等渲染层确认授权状态、会员页/购买页和窗口尺寸都确定后再显示，
+  // 避免会员先闪一下购买套餐页再切到恭喜页。
+  showWhenRendererReady(window, show)
   loadRoute(window, route)
-  setTimeout(show, 800)
   return window
 }
 

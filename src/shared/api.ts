@@ -116,6 +116,8 @@ export interface SnapglassApi {
   app: {
     platform: string
     version(): Promise<string>
+    /** 设置窗/购买窗首帧渲染完成后通知主进程显示窗口。 */
+    contentReady(): void
   }
   diagnostics: {
     info(): Promise<DiagnosticsInfo>

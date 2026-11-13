@@ -265,6 +265,11 @@
   padding-bottom: 0;
 }
 
+/* 设备列表网络加载中的同高占位行，避免窗口出现后高度跳变 */
+.mw-device-loading {
+  opacity: 0.55;
+}
+
 .mw-device-ico {
   width: 32px;
   height: 32px;

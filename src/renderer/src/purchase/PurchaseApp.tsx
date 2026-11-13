@@ -135,6 +135,7 @@ export function PurchaseApp(): JSX.Element {
   const [devices, setDevices] = useState<LicenseDevice[]>([])
   const [deviceBusy, setDeviceBusy] = useState(false)
   const [confirmUnbind, setConfirmUnbind] = useState('')
+  const [booted, setBooted] = useState(false)
 
   const language = settings?.language ?? 'zh-CN'
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
@@ -169,8 +170,23 @@ export function PurchaseApp(): JSX.Element {
         setStatus(nextStatus)
         if (nextStatus.code) setCode(nextStatus.code)
       }
+      setBooted(true)
     })
   }, [])
+
+  // 等授权状态确定、会员页/购买页与窗口尺寸都渲染完成后，再让主进程显示窗口。
+  // 设备列表是网络请求，不参与显示门控；会员页用同高占位行撑住高度。
+  useEffect(() => {
+    if (!booted) return
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => window.snapglass.app.contentReady())
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [booted])
 
   // 窗口高度随步骤内容变化
   useEffect(() => {

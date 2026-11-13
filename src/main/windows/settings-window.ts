@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { appIcon } from '../app-icon'
 import { loadRoute } from './load'
+import { showWhenRendererReady } from './show-when-ready'
 import { disableWindowTransitions } from '../native-window'
 
 let settingsWindow: BrowserWindow | null = null
@@ -25,6 +26,7 @@ export function createSettingsWindow(preloadPath: string): BrowserWindow {
     roundedCorners: false,
     hasShadow: false,
     show: false,
+    center: true,
     title: 'Pixmint 设置',
     icon: appIcon(),
     webPreferences: {
@@ -60,14 +62,9 @@ export function createSettingsWindow(preloadPath: string): BrowserWindow {
     settingsWindow.moveTop()
     settingsWindow.focus()
   }
-  // 监听必须在 loadRoute 之前注册；打包版页面加载很快，晚注册会错过 ready-to-show。
-  settingsWindow.once('ready-to-show', showSettings)
+  // 等渲染层读完设置/授权状态、首帧就是最终界面后再显示，避免先闪"正在加载设置…"。
+  showWhenRendererReady(settingsWindow, showSettings)
   loadRoute(settingsWindow, 'settings')
-  setTimeout(() => {
-    if (settingsWindow && !settingsWindow.isDestroyed() && !settingsWindow.isVisible()) {
-      showSettings()
-    }
-  }, 800)
   return settingsWindow
 }
 

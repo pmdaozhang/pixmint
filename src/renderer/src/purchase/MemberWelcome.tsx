@@ -513,6 +513,24 @@ export function MemberWelcome({ status, language }: MemberWelcomeProps): JSX.Ele
               </span>
             </div>
             <ul className="mw-devices">
+              {/* 设备列表走网络请求；先用与真实行同高的占位行撑住高度，
+                  网络回来原地替换，窗口既不用等网络，也不会在出现后变高。 */}
+              {devices === null &&
+                Array.from({ length: Math.max(1, status.devicesUsed) }).map((_, index) => (
+                  <li
+                    className="mw-device mw-device-loading"
+                    key={`device-loading-${index}`}
+                    aria-hidden="true"
+                  >
+                    <span className="mw-device-ico">
+                      <MonitorIcon />
+                    </span>
+                    <div className="mw-device-main">
+                      <div className="mw-device-name">{tr('正在读取设备…')}</div>
+                      <div className="mw-device-sub">{tr('请稍候')}</div>
+                    </div>
+                  </li>
+                ))}
               {(devices ?? []).map((device) => (
                 <li className="mw-device" key={device.deviceHash}>
                   <span className="mw-device-ico">

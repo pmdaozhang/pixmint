@@ -81,7 +81,8 @@ const api = {
   },
   app: {
     platform: 'win32',
-    version: async (): Promise<string> => '0.3.7-dev'
+    version: async (): Promise<string> => '0.3.7-dev',
+    contentReady: (): void => {}
   },
   diagnostics: {
     info: async () => ({
