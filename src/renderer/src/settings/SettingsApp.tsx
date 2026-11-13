@@ -7,12 +7,8 @@ import { describeUpdate } from '@shared/update'
 import { t } from '@shared/i18n'
 import { Icon } from '../components/Icon'
 import { BrandMark } from '../components/BrandMark'
+import { applyTheme } from '../theme'
 import './settings.css'
-
-function applyTheme(theme: ThemeSetting): void {
-  const media = window.matchMedia('(prefers-color-scheme: dark)').matches
-  document.documentElement.dataset.theme = theme === 'system' ? (media ? 'dark' : 'light') : theme
-}
 
 function shortcutFromEvent(event: React.KeyboardEvent<HTMLInputElement>): string | null {
   const key = event.key

@@ -1,4 +1,5 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, nativeTheme, screen } from 'electron'
+import type { ThemeSetting } from '../../shared/types'
 
 const WIDTH = 168
 const HEIGHT = 40
@@ -19,8 +20,12 @@ function escapeHtml(value: string): string {
 export class StatusToast {
   private window: BrowserWindow | null = null
 
-  show(message: string): void {
+  show(message: string, theme: ThemeSetting = 'system'): void {
     this.hide()
+    const dark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
+    const background = dark ? '#1c1c1c' : '#ffffff'
+    const color = dark ? '#ffffff' : '#0d0d0d'
+    const border = dark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.08)'
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
     const x = Math.round(display.workArea.x + (display.workArea.width - WIDTH) / 2)
     const y = Math.round(display.workArea.y + Math.min(96, display.workArea.height * 0.12))
@@ -63,10 +68,11 @@ export class StatusToast {
         align-items: center;
         justify-content: center;
         border-radius: 12px;
-        background: #1c1c1c;
-        color: #fff;
+        border: 1px solid ${border};
+        background: ${background};
+        color: ${color};
         font: 13px/1.2 "Segoe UI", "Microsoft YaHei", sans-serif;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
       }
     </style>
   </head>

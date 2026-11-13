@@ -11,6 +11,13 @@ const SHADOW_MARGIN = 28
  * 设计意图：用独立无边框窗口承载更新介绍，样式与首次引导一致。
  * 关键约束：同一版本只弹一次（由 skippedUpdateVersion 控制）；关闭窗口不退出应用。
  */
+/** 收进系统托盘：隐藏窗口但保留进程和更新状态。 */
+export function minimizeWhatsNewWindow(): void {
+  if (whatsNewWindow && !whatsNewWindow.isDestroyed()) {
+    whatsNewWindow.hide()
+  }
+}
+
 export function createWhatsNewWindow(preloadPath: string, route = 'whats-new'): BrowserWindow {
   if (whatsNewWindow && !whatsNewWindow.isDestroyed()) {
     whatsNewWindow.show()

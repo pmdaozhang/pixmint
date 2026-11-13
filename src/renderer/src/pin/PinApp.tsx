@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { OcrTextBlock, PinInit, Rect, TextAnno, Tool } from '@shared/types'
 import { Icon } from '../components/Icon'
@@ -7,6 +7,7 @@ import { DEFAULT_OPTIONS, type OverlayOptions } from '../overlay/options'
 import { Toolbar } from '../overlay/Toolbar'
 import { t, type Language } from '@shared/i18n'
 import { layoutPinTextLines } from './pin-text'
+import { applyTheme } from '../theme'
 import './pin.css'
 
 type PinTextState = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
@@ -33,10 +34,18 @@ export function PinApp(): JSX.Element {
   const textLayerRef = useRef<HTMLDivElement | null>(null)
   const ocrCacheRef = useRef<{ imageUrl: string; blocks: OcrTextBlock[] } | null>(null)
 
+  // 钉图窗口跟随用户主题；设置读取完成前先跟随系统。
+  useLayoutEffect(() => {
+    applyTheme('system')
+  }, [])
+
   useEffect(() => {
     window.snapglass.settings
       .get()
-      .then((settings) => setLanguage(settings.language))
+      .then((settings) => {
+        setLanguage(settings.language)
+        applyTheme(settings.theme)
+      })
       .catch(() => {})
   }, [])
 

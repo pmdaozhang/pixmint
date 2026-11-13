@@ -7,10 +7,11 @@ import {
   type ManualOrder,
   type PaymentProvider
 } from '@shared/license'
-import type { Settings, ThemeSetting } from '@shared/types'
+import type { Settings } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
 import { t } from '@shared/i18n'
 import { BrandMark } from '../components/BrandMark'
+import { applyTheme } from '../theme'
 import { MemberWelcome } from './MemberWelcome'
 import './purchase.css'
 
@@ -36,11 +37,6 @@ function readableError(error: unknown): string {
     .replace(/^Error invoking remote method '[^']+':\s*/, '')
     .replace(/^LicenseApiError:\s*/, '')
     .trim()
-}
-
-function applyTheme(theme: ThemeSetting): void {
-  const media = window.matchMedia('(prefers-color-scheme: dark)').matches
-  document.documentElement.dataset.theme = theme === 'system' ? (media ? 'dark' : 'light') : theme
 }
 
 function parseFeature(): UsageFeature | null {

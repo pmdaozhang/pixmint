@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { JSX } from 'react'
-import type { RecorderPreviewInfo } from '@shared/types'
+import type { RecorderPreviewInfo, ThemeSetting } from '@shared/types'
+import { applyTheme, watchSystemTheme } from '../theme'
 import { formatBytes, formatRecordingDuration } from '@shared/recording'
 import './record-preview.css'
 import { t, type Language } from '@shared/i18n'
@@ -11,13 +12,23 @@ export function RecordPreviewApp(): JSX.Element {
   const [saving, setSaving] = useState(false)
   const [gifUrl, setGifUrl] = useState('')
   const [language, setLanguage] = useState<Language>('zh-CN')
+  const [theme, setTheme] = useState<ThemeSetting>('system')
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
     t(language, zh, vars)
+
+  useLayoutEffect(() => {
+    applyTheme(theme)
+  }, [theme])
+
+  useEffect(() => watchSystemTheme(theme, () => applyTheme(theme)), [theme])
 
   useEffect(() => {
     window.snapglass.settings
       .get()
-      .then((settings) => setLanguage(settings.language))
+      .then((settings) => {
+        setLanguage(settings.language)
+        setTheme(settings.theme)
+      })
       .catch(() => {})
   }, [])
 
@@ -27,8 +38,6 @@ export function RecordPreviewApp(): JSX.Element {
   }
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    document.documentElement.dataset.theme = media.matches ? 'dark' : 'light'
     void window.snapglass.recorderPreview.ready().then((value) => {
       if (value) setInfo(value)
     })

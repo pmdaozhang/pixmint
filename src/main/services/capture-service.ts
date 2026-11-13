@@ -148,8 +148,10 @@ export async function handleOverlayComplete(
     try {
       // 快速识别不闪 toast；超过 150ms 才提示，避免短任务频繁闪窗。
       toastTimer = setTimeout(
-        () =>
-          deps.statusToast.show(t(deps.settingsStore.get().language, '识别中...')),
+        () => {
+          const settings = deps.settingsStore.get()
+          deps.statusToast.show(t(settings.language, '识别中...'), settings.theme)
+        },
         150
       )
       const result = await deps.platformServices.ocr.recognizeDataUrl(

@@ -14,11 +14,11 @@ import {
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { RecorderMode, Settings } from '../shared/types'
+import type { RecorderMode, Settings, UpdateState } from '../shared/types'
 import { FeedbackService } from './feedback'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
-import { buildTrayMenu, createTray, type TrayActions } from './tray'
+import { buildTrayMenu, createTray, trayTooltip, type TrayActions } from './tray'
 import { OverlayManager } from './windows/overlay'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
@@ -132,12 +132,14 @@ let usageStore: UsageStore
 let usageService: UsageService
 let tray: Tray | null = null
 let trayActions: TrayActions | null = null
+let updateState: UpdateState = { status: 'idle' }
 let preloadPath = ''
 const captureGate = new CaptureGate()
 
 function refreshTrayMenu(): void {
   if (tray && trayActions) {
-    tray.setContextMenu(buildTrayMenu(trayActions, settingsStore.get().language))
+    tray.setContextMenu(buildTrayMenu(trayActions, settingsStore.get().language, updateState))
+    tray.setToolTip(trayTooltip(updateState))
   }
 }
 
@@ -346,6 +348,10 @@ function initServices(): void {
     onAvailable: (version) => {
       if (settingsStore.get().skippedUpdateVersion === version) return
       createWhatsNewWindow(preloadPath)
+    },
+    onState: (state) => {
+      updateState = state
+      refreshTrayMenu()
     }
   })
   app.on('web-contents-created', (_event, contents) => {
@@ -493,6 +499,7 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
         createPurchaseWindow(preloadPath)
       },
       onFeedback: () => createFeedbackWindow(preloadPath),
+      onShowUpdate: () => createWhatsNewWindow(preloadPath),
       onQuit: () => app.quit(),
       isPro: () => licenseService.isPro()
     }

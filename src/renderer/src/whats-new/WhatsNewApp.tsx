@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { Settings, ThemeSetting, UpdateState } from '@shared/types'
+import type { Settings, UpdateState } from '@shared/types'
 import { t } from '@shared/i18n'
+import { BrandMark } from '../components/BrandMark'
+import { applyTheme } from '../theme'
 import './whats-new.css'
 
 /** 窗口尺寸 = 卡片高度 + 四周 28px 透明阴影边距 */
@@ -10,29 +12,6 @@ const SHADOW_PADDING = 56
 const MAX_BODY_HEIGHT = 520
 const MIN_WINDOW_HEIGHT = 380
 const MAX_WINDOW_HEIGHT = 860
-
-function applyTheme(theme: ThemeSetting): void {
-  const media = window.matchMedia('(prefers-color-scheme: dark)').matches
-  document.documentElement.dataset.theme = theme === 'system' ? (media ? 'dark' : 'light') : theme
-}
-
-/** 与首次引导页相同的品牌标识 */
-function BrandMark(): JSX.Element {
-  return (
-    <span className="wn-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path
-          d="M6 7.5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <circle cx="9.2" cy="12.8" r="1.1" fill="currentColor" />
-        <circle cx="14.8" cy="12.8" r="1.1" fill="currentColor" />
-        <path d="M17 3.5h3.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
 
 function parseDemo(): { version: string; notes: string } | null {
   const hash = window.location.hash
@@ -106,7 +85,6 @@ export function WhatsNewApp(): JSX.Element {
   const downloading = state.status === 'downloading' || state.status === 'verifying'
   const installing = state.status === 'installing'
   const downloaded = state.status === 'downloaded'
-  const busy = downloading || installing
 
   // 窗口高度随更新条目多少变化：测出内容高度后交给主进程调整窗口
   const contentKey = `${language}:${state.status}:${list.length}:${state.error ?? ''}`
@@ -142,8 +120,14 @@ export function WhatsNewApp(): JSX.Element {
   }, [contentKey])
 
   const primary = async (): Promise<void> => {
+    if (installing) return
     if (downloaded) {
       await window.snapglass.updater.install()
+      return
+    }
+    if (downloading) {
+      // 下载已经在进行：收进托盘，进度由托盘显示，下载完自动静默安装。
+      window.snapglass.whatsNew?.minimize()
       return
     }
     await window.snapglass.updater.download()
@@ -161,7 +145,7 @@ export function WhatsNewApp(): JSX.Element {
   const primaryLabel = downloaded
     ? tr('重启并安装')
     : downloading
-      ? tr('下载中…')
+      ? tr('后台更新')
       : installing
         ? tr('安装中…')
         : tr('立即更新')
@@ -171,12 +155,22 @@ export function WhatsNewApp(): JSX.Element {
       <section className="wn-card" aria-label={tr('新版本介绍')}>
         <header className="wn-head" ref={headRef}>
           <div className="wn-brand">
-            <BrandMark />
+            <BrandMark className="wn-logo" />
             <span>Pixmint</span>
           </div>
-          <button className="wn-close" type="button" aria-label={tr('关闭')} onClick={skip}>
-            ×
-          </button>
+          <div className="wn-actions">
+            <button
+              className="wn-min"
+              type="button"
+              aria-label={tr('最小化到托盘')}
+              onClick={() => window.snapglass.whatsNew?.minimize()}
+            >
+              −
+            </button>
+            <button className="wn-close" type="button" aria-label={tr('关闭')} onClick={skip}>
+              ×
+            </button>
+          </div>
         </header>
 
         <div className="wn-body" ref={bodyRef}>
@@ -209,7 +203,12 @@ export function WhatsNewApp(): JSX.Element {
           <button className="wn-secondary" type="button" onClick={skip}>
             {tr('跳过此版本')}
           </button>
-          <button className="wn-primary" type="button" disabled={busy} onClick={() => void primary()}>
+          <button
+            className="wn-primary"
+            type="button"
+            disabled={installing}
+            onClick={() => void primary()}
+          >
             {primaryLabel}
           </button>
         </footer>

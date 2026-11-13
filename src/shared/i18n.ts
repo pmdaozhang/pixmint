@@ -118,6 +118,11 @@ const EN: Record<string, string> = {
   '正在安装 {version}，应用即将重启…':
     'Installing {version}; the app will restart shortly…',
   '安装中…': 'Installing…',
+  '后台更新': 'Update in background',
+  '后台更新中 {percent}%': 'Updating in background {percent}%',
+  '正在安装更新…': 'Installing update…',
+  '查看更新进度': 'View update progress',
+  '最小化到托盘': 'Minimize to tray',
   '正在替换程序文件': 'Replacing application files',
   '请不要手动关闭进程，安装完成后会自动启动':
     'Do not close the process manually; it will relaunch when installation finishes',

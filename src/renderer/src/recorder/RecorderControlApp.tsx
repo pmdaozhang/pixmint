@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { JSX } from 'react'
-import type { RecorderState } from '@shared/types'
+import type { RecorderState, ThemeSetting } from '@shared/types'
+import { applyTheme, watchSystemTheme } from '../theme'
 import { formatRecordingDuration } from '@shared/recording'
 import './recorder-control.css'
 import { t, type Language } from '@shared/i18n'
@@ -41,19 +42,27 @@ function CloseIcon(): JSX.Element {
 export function RecorderControlApp(): JSX.Element {
   const [state, setState] = useState<RecorderState | null>(null)
   const [language, setLanguage] = useState<Language>('zh-CN')
+  const [theme, setTheme] = useState<ThemeSetting>('system')
+
+  useLayoutEffect(() => {
+    applyTheme(theme)
+  }, [theme])
+
+  useEffect(() => watchSystemTheme(theme, () => applyTheme(theme)), [theme])
 
   useEffect(() => {
     window.snapglass.settings
       .get()
-      .then((settings) => setLanguage(settings.language))
+      .then((settings) => {
+        setLanguage(settings.language)
+        setTheme(settings.theme)
+      })
       .catch(() => {})
   }, [])
 
   const tr = (zh: string): string => t(language, zh)
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    document.documentElement.dataset.theme = media.matches ? 'dark' : 'light'
     const off = window.snapglass.recorderControl.onState(setState)
     void window.snapglass.recorderControl.ready().then((value) => {
       if (value) setState(value)

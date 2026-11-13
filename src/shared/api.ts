@@ -140,6 +140,7 @@ export interface SnapglassApi {
   }
   whatsNew: {
     resize(height: number): void
+    minimize(): void
   }
   usage: {
     get(): Promise<UsageView>

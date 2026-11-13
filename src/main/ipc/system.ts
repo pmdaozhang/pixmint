@@ -5,6 +5,7 @@ import { lookupDictionary } from '../dictionary'
 import { t } from '../../shared/i18n'
 import { feedbackSubmitSchema } from './schemas'
 import { markWindowReady } from '../windows/show-when-ready'
+import { minimizeWhatsNewWindow } from '../windows/whats-new-window'
 import type { IpcContext } from './types'
 import { handle, on } from './validate'
 
@@ -15,6 +16,11 @@ export function registerSystemIpc(ctx: IpcContext): void {
   // 渲染层首帧（含初始数据、主题、窗口尺寸）完成后放行窗口显示。
   on('window:content-ready', z.tuple([]), (event) => {
     markWindowReady(event.sender.id)
+  })
+
+  // 更新弹框右上角“最小化到托盘”。
+  on('whats-new:minimize', z.tuple([]), () => {
+    minimizeWhatsNewWindow()
   })
 
   handle('clipboard:write-text', z.tuple([z.string().max(1_000_000)]), (_event, [text]) => {

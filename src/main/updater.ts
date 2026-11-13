@@ -14,6 +14,7 @@ let snapshot: UpdateState = { status: 'idle' }
 let initialized = false
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let installRequested = false
+let stateListener: ((state: UpdateState) => void) | null = null
 
 function broadcast(): void {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -25,6 +26,7 @@ function broadcast(): void {
 function setState(patch: Partial<UpdateState>): UpdateState {
   snapshot = { ...snapshot, ...patch }
   broadcast()
+  stateListener?.(snapshot)
   return snapshot
 }
 
@@ -143,11 +145,14 @@ export function installUpdate(): void {
 export interface UpdaterOptions {
   /** 检测到新版本时回调，用于打开“更新介绍”窗口 */
   onAvailable?: (version: string) => void
+  /** 更新状态变化回调，用于在托盘显示后台下载/安装进度 */
+  onState?: (state: UpdateState) => void
 }
 
 export function initUpdater(options: UpdaterOptions = {}): void {
   if (initialized) return
   initialized = true
+  stateListener = options.onState ?? null
 
   ipcMain.handle('updater:get-state', () => getUpdateState())
   ipcMain.handle('updater:check', () => checkForUpdates())
@@ -252,6 +257,11 @@ export function initUpdater(options: UpdaterOptions = {}): void {
         ? { ...snapshot.progress, percent: 100 }
         : { percent: 100, transferred: 0, total: 0 }
     })
+    // 下载完成后自动静默安装：NSIS 安装器不弹向导，应用退出并完成更新。
+    // 延迟 1.5 秒让托盘和界面先显示“已下载”，避免状态一闪而过。
+    setTimeout(() => {
+      if (snapshot.status === 'downloaded') installUpdate()
+    }, 1500)
   })
   autoUpdater.on('error', (error) => {
     if (

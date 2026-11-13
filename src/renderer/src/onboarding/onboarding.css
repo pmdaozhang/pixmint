@@ -46,16 +46,8 @@
 .onb-brand-mark {
   width: 26px;
   height: 26px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-md);
-  color: var(--primary-text);
-  background: var(--primary-bg);
-}
-
-.onb-brand-mark svg {
-  width: 17px;
-  height: 17px;
+  flex: none;
+  color: var(--text);
 }
 
 .onb-stepper {

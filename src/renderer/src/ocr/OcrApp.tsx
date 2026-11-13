@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { OcrInit, Settings, WordCardEntry } from '@shared/types'
 import { detectTranslationTarget } from '@shared/text-analysis'
 import { Icon } from '../components/Icon'
+import { applyTheme } from '../theme'
 import { t } from '@shared/i18n'
 import './ocr.css'
 
@@ -22,6 +23,15 @@ export function OcrApp(): JSX.Element {
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const resultRef = useRef<HTMLDivElement | null>(null)
   const directionRef = useRef<HTMLDivElement | null>(null)
+
+  // OCR/翻译窗口也要跟随用户主题；设置读取完成前先跟随系统，避免默认深色一闪。
+  useLayoutEffect(() => {
+    applyTheme('system')
+  }, [])
+
+  useLayoutEffect(() => {
+    if (settings) applyTheme(settings.theme)
+  }, [settings])
 
   useEffect(() => {
     void window.snapglass.ocr.ready().then((data) => {

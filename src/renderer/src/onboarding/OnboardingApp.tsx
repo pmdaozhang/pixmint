@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import type { LineStyle, Settings, ThemeSetting } from '@shared/types'
+import type { LineStyle, Settings } from '@shared/types'
 import { drawArrowHead, strokePathStyled } from '../overlay/annotation/draw'
 import { GifScene, OcrScene, VideoScene } from './OnboardingScenes'
 import { t, type Language } from '@shared/i18n'
+import { BrandMark } from '../components/BrandMark'
+import { applyTheme } from '../theme'
 import './onboarding.css'
 
 const ONBOARDING_VERSION = 2
@@ -13,28 +15,6 @@ const STYLE_OPTIONS: Array<{ value: LineStyle; label: string }> = [
   { value: 'thin', label: '细线' },
   { value: 'dotted', label: '点线' }
 ]
-
-function applyTheme(theme: ThemeSetting): void {
-  const media = window.matchMedia('(prefers-color-scheme: dark)').matches
-  document.documentElement.dataset.theme = theme === 'system' ? (media ? 'dark' : 'light') : theme
-}
-
-function BrandMark(): JSX.Element {
-  return (
-    <span className="onb-brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path
-          d="M6 7.5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <circle cx="9.2" cy="12.8" r="1.1" fill="currentColor" />
-        <circle cx="14.8" cy="12.8" r="1.1" fill="currentColor" />
-        <path d="M17 3.5h3.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
 
 function LineStyleOption({ style, label }: { style: LineStyle; label: string }): JSX.Element {
   const ref = useRef<HTMLCanvasElement | null>(null)
@@ -537,7 +517,7 @@ export function OnboardingApp(): JSX.Element {
       <section className="onb-card" aria-label={tr('Pixmint 首次使用引导')}>
         <header className="onb-top">
           <div className="onb-brand">
-            <BrandMark />
+            <BrandMark className="onb-brand-mark" />
             Pixmint
           </div>
 

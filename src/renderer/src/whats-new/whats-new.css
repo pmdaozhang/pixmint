@@ -43,19 +43,19 @@
 .wn-logo {
   width: 26px;
   height: 26px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--primary-bg);
-  color: var(--primary-text);
+  flex: none;
+  color: var(--text);
 }
 
-.wn-logo svg {
-  width: 17px;
-  height: 17px;
+.wn-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
 }
 
-.wn-close {
+.wn-close,
+.wn-min {
   -webkit-app-region: no-drag;
   width: 28px;
   height: 28px;
@@ -67,7 +67,8 @@
   line-height: 1;
 }
 
-.wn-close:hover {
+.wn-close:hover,
+.wn-min:hover {
   background: var(--bg-3);
   color: var(--text);
 }

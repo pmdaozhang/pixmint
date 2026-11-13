@@ -173,7 +173,8 @@ const api: SnapglassApi = {
     }
   },
   whatsNew: {
-    resize: (height: number) => ipcRenderer.send('whats-new:resize', height)
+    resize: (height: number) => ipcRenderer.send('whats-new:resize', height),
+    minimize: () => ipcRenderer.send('whats-new:minimize')
   },
   usage: {
     get: () => ipcRenderer.invoke('usage:get') as Promise<UsageView>
