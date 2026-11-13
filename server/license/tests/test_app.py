@@ -385,10 +385,14 @@ class LicenseApiTest(unittest.TestCase):
         ).get_json()
         self.assertEqual(status["status"], "refunded")
 
-        actions = self.client.get(
-            f"/v1/admin/manual/orders/{order_id}/actions",
-            headers=self.orders_headers(),
-        ).get_json()["actions"]
+        actions = [
+            item
+            for item in self.client.get(
+                f"/v1/admin/manual/orders/{order_id}/actions",
+                headers=self.orders_headers(),
+            ).get_json()["actions"]
+            if item["action"] != "notify"
+        ]
         self.assertEqual(
             [item["action"] for item in actions],
             ["reject", "reopen", "confirm", "revoke"],
@@ -397,6 +401,42 @@ class LicenseApiTest(unittest.TestCase):
             [item["actor"] for item in actions],
             ["admin", "admin", "admin", "admin"],
         )
+
+    def test_manual_notify_and_watchdog(self):
+        order = self.create_manual_order("d2" * 32)
+        order_id = order["orderId"]
+        self.client.post(
+            f"/v1/manual/orders/{order_id}/submit", json={"token": order["orderToken"]}
+        )
+        time.sleep(0.4)
+        self.push_post.reset_mock()
+
+        resent = self.client.post(
+            f"/v1/admin/manual/orders/{order_id}/notify",
+            headers=self.orders_headers(),
+        )
+        self.assertEqual(resent.status_code, 200, resent.data)
+        self.assertTrue(resent.get_json()["ok"])
+        self.assertTrue(self.push_post.called)
+
+        import sqlite3
+
+        conn = sqlite3.connect(self.app.config["db"])
+        conn.execute(
+            "UPDATE orders SET submitted_at = ?, notified_at = NULL, notify_count = 0"
+            " WHERE order_id = ?",
+            (int(time.time()) - 700, order_id),
+        )
+        conn.commit()
+        conn.close()
+
+        self.push_post.reset_mock()
+        watchdog = self.client.post(
+            "/v1/admin/manual/watchdog", headers=self.orders_headers()
+        )
+        self.assertEqual(watchdog.status_code, 200, watchdog.data)
+        self.assertGreaterEqual(watchdog.get_json()["sent"], 1)
+        self.assertTrue(self.push_post.called)
 
     def test_wecom_notify_priority(self):
         self.app.config.update(

@@ -232,6 +232,8 @@ def open_db(path: str) -> sqlite3.Connection:
             "reject_reason": "TEXT",
             "expires_at": "INTEGER",
             "channel": "TEXT",
+            "notified_at": "INTEGER",
+            "notify_count": "INTEGER DEFAULT 0",
         },
     )
     # 一个订单最多签发一张授权；重复点击“确认收款”时由唯一索引兜底。
@@ -414,6 +416,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
     @app.get("/healthz")
     def health() -> Response:
+        try:
+            db().execute("SELECT 1").fetchone()
+        except Exception as exc:
+            return Response(f"db error: {exc}\n", status=503, mimetype="text/plain")
         return Response("ok\n", mimetype="text/plain")
 
     @app.get("/v1/plans")
@@ -685,14 +691,13 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             app.logger.warning("wecom send error: %s", exc)
             return False
 
-    def notify_reviewing(order: sqlite3.Row) -> None:
+    def build_order_message(order: sqlite3.Row) -> str:
         url = order_action_url(order["order_id"])
         if not url:
-            app.logger.warning("action secret not configured; skip push")
-            return
+            return ""
         plan = PLANS.get(order["sku"], {}).get("title", order["sku"])
         amount = (order["amount_cents"] or 0) / 100
-        content = (
+        return (
             f"## Pixmint 新订单待确认\n\n"
             f"订单号：{order['order_id']}\n\n"
             f"支付方式：{channel_label(order['channel'])}\n\n"
@@ -701,14 +706,48 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             f"[点击确认收款]({url})"
         )
 
-        def deliver() -> None:
-            # 企业微信优先，失败再走 PushPlus 兜底。
-            if wecom_send(content):
-                return
-            pushplus_send("Pixmint 新订单待确认", content)
+    def record_notification(order_id: str, actor: str) -> None:
+        """推送线程里没有 Flask 上下文，单独开连接记录。"""
+        try:
+            conn = sqlite3.connect(str(app.config["db"]), timeout=15)
+            conn.execute(
+                "UPDATE orders SET notified_at = ?,"
+                " notify_count = COALESCE(notify_count, 0) + 1 WHERE order_id = ?",
+                (now_ts(), order_id),
+            )
+            conn.execute(
+                "INSERT INTO order_actions(order_id, action, actor, note, created_at)"
+                " VALUES (?,?,?,?,?)",
+                (order_id, "notify", actor, "", now_ts()),
+            )
+            conn.commit()
+            conn.close()
+        except Exception as exc:
+            app.logger.warning("record notification failed: %s", exc)
 
+    def deliver_order_notification(
+        order: sqlite3.Row, actor: str = "system"
+    ) -> bool:
+        content = build_order_message(order)
+        if not content:
+            app.logger.warning("action secret not configured; skip push")
+            return False
+        if wecom_send(content):
+            record_notification(order["order_id"], actor)
+            return True
+        if pushplus_send("Pixmint 新订单待确认", content):
+            record_notification(order["order_id"], actor)
+            return True
+        app.logger.warning(
+            "order %s notify failed on all channels", order["order_id"]
+        )
+        return False
+
+    def notify_reviewing(order: sqlite3.Row) -> None:
         # 后台发送，避免推送慢或超时拖住用户点「我已完成支付」的响应。
-        threading.Thread(target=deliver, daemon=True).start()
+        threading.Thread(
+            target=deliver_order_notification, args=(order, "system"), daemon=True
+        ).start()
 
     def manual_order_row(order_id: str) -> sqlite3.Row | None:
         return one(
@@ -1437,6 +1476,35 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         return jsonify(
             {"orderId": order_id, "actions": [dict(row) for row in rows]}
         )
+
+    @app.post("/v1/admin/manual/orders/<order_id>/notify")
+    @require_orders_admin
+    def admin_manual_notify(order_id: str) -> Any:
+        order = manual_order_row(order_id)
+        if not order:
+            return error("订单不存在", "not_found", 404)
+        if order["status"] not in ("pending_payment", "reviewing"):
+            return error("该订单当前不需要确认", "bad_status", 409)
+        ok = deliver_order_notification(order, "admin")
+        return jsonify({"ok": ok, "orderId": order_id})
+
+    @app.post("/v1/admin/manual/watchdog")
+    @require_orders_admin
+    def admin_manual_watchdog() -> Any:
+        """未确认订单看门狗：10 分钟没确认就重发，30 分钟内最多一次，最多 6 次。"""
+        now = now_ts()
+        rows = query(
+            "SELECT * FROM orders WHERE provider = 'manual' AND status = 'reviewing'"
+            " AND submitted_at IS NOT NULL AND submitted_at <= ?"
+            " AND (notified_at IS NULL OR notified_at <= ?)"
+            " AND COALESCE(notify_count, 0) < 6 ORDER BY submitted_at",
+            (now - 600, now - 1800),
+        )
+        sent = 0
+        for order in rows:
+            if deliver_order_notification(order, "watchdog"):
+                sent += 1
+        return jsonify({"ok": True, "checked": len(rows), "sent": sent})
 
     @app.get("/v1/admin/orders")
     @require_admin
