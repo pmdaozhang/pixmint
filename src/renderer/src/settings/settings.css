@@ -547,14 +547,3 @@ button.primary:disabled {
   color: var(--text);
 }
 
-.license-code {
-  max-width: 220px;
-  overflow: hidden;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-3);
-  color: var(--text-2);
-  font: 11px var(--mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

@@ -306,7 +306,7 @@ export function SettingsApp(): JSX.Element {
 
         <section className="card">
           <div className="card-title">
-            <Icon name="folder" size={16} />
+            <Icon name="palette" size={16} />
             {tr('外观与启动')}
           </div>
           <div className="row">
@@ -367,7 +367,7 @@ export function SettingsApp(): JSX.Element {
 
         <section className="card">
           <div className="card-title">
-            <Icon name="settings" size={16} />
+            <Icon name="crown" size={16} />
             {tr('Pixmint Pro')}
           </div>
           <div className="row">
@@ -407,32 +407,12 @@ export function SettingsApp(): JSX.Element {
               </button>
             </div>
           </div>
-          {licenseStatus?.code && (
-            <div className="row">
-              <div className="row-label">
-                <strong>{tr('激活码')}</strong>
-                <span>{tr('换电脑时输入此码，最多绑定 5 台设备')}</span>
-              </div>
-              <div className="row-actions">
-                <code className="license-code">{licenseStatus.code}</code>
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(licenseStatus.code ?? '')
-                    flash(tr('激活码已复制'))
-                  }}
-                >
-                  {tr('复制')}
-                </button>
-              </div>
-            </div>
-          )}
         </section>
 
         <section className="card">
           <div className="card-title">
             <Icon name="settings" size={16} />
-            {tr('关于与更新')}
+            {tr('版本与更新')}
             {updateView.showBadge && <span className="update-chip">NEW</span>}
           </div>
           <div className="row update-row">
@@ -580,8 +560,7 @@ export function SettingsApp(): JSX.Element {
         )}
 
         <footer className="settings-footer">
-          <span>Pixmint v{version} · {window.snapglass.app.platform}</span>
-          <span>P0–P4</span>
+          <span>Pixmint v{version}</span>
         </footer>
       </div>
 

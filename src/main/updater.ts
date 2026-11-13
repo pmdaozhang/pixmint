@@ -207,14 +207,21 @@ export function initUpdater(options: UpdaterOptions = {}): void {
   })
   autoUpdater.on('update-available', (info) => {
     const size = info.files?.[0]?.size
+    const releaseNotes = normalizeReleaseNotes(info.releaseNotes)
     setState({
       status: 'available',
       version: info.version,
       sizeBytes: typeof size === 'number' ? size : undefined,
-      releaseNotes: normalizeReleaseNotes(info.releaseNotes),
+      releaseNotes,
       error: undefined,
       reason: undefined
     })
+    // 这一版没有发版说明时，不弹更新说明窗，直接后台下载，退出时自动安装。
+    // 有发版说明的版本仍走原来的“先弹窗、用户点击后下载”流程。
+    if (!releaseNotes) {
+      void downloadUpdate()
+      return
+    }
     options.onAvailable?.(info.version)
   })
   autoUpdater.on('update-not-available', () => {

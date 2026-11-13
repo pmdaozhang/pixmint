@@ -65,7 +65,7 @@ const EN: Record<string, string> = {
   '切换后立即生效': 'Applies immediately',
   '开机自启': 'Launch at login',
   '登录系统后自动驻留托盘': 'Stay in the tray after sign-in',
-  '关于与更新': 'About & Updates',
+  '版本与更新': 'Version & Updates',
   '诊断': 'Diagnostics',
   '诊断日志': 'Diagnostics log',
   '导出报告': 'Export report',
