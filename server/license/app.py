@@ -14,6 +14,7 @@ import json
 import os
 import secrets
 import sqlite3
+import threading
 import time
 from functools import wraps
 from typing import Any
@@ -22,6 +23,7 @@ import requests
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from flask import Flask, g, jsonify, request, Response
 
 try:  # 二维码可选：未安装时降级为支付链接
@@ -68,6 +70,25 @@ def iso(ts: int | None) -> str | None:
 
 def error(message: str, code: str = "bad_request", status: int = 400) -> tuple[Any, int]:
     return jsonify({"error": message, "code": code}), status
+
+
+def wecom_callback_signature(token: str, timestamp: str, nonce: str, encrypt: str) -> str:
+    """企业微信回调签名：token、timestamp、nonce、encrypt 排序后 SHA1。"""
+    return hashlib.sha1(
+        "".join(sorted([token, timestamp, nonce, encrypt])).encode("utf-8")
+    ).hexdigest()
+
+
+def wecom_callback_decrypt(encrypt: str, aes_key: str) -> str:
+    """解密企业微信回调 echostr：AES-CBC + PKCS7，前 16 字节随机串，4 字节长度。"""
+    key = base64.b64decode(aes_key + "=")
+    cipher = Cipher(algorithms.AES(key), modes.CBC(key[:16]))
+    decryptor = cipher.decryptor()
+    plain = decryptor.update(base64.b64decode(encrypt)) + decryptor.finalize()
+    pad = plain[-1]
+    plain = plain[:-pad]
+    msg_len = int.from_bytes(plain[16:20], "big")
+    return plain[20 : 20 + msg_len].decode("utf-8")
 
 
 def json_body() -> dict[str, Any]:
@@ -182,6 +203,15 @@ CREATE TABLE IF NOT EXISTS referrals (
   reward_days INTEGER NOT NULL,
   granted_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS order_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  note TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_order_actions_order ON order_actions(order_id, id);
 """
 
 
@@ -238,6 +268,17 @@ def query(sql: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
 
 def one(sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
     return db().execute(sql, params).fetchone()
+
+
+def log_order_action(
+    order_id: str, action: str, actor: str, note: str = ""
+) -> None:
+    """记录人工操作，调用方负责提交事务。"""
+    db().execute(
+        "INSERT INTO order_actions(order_id, action, actor, note, created_at)"
+        " VALUES (?,?,?,?,?)",
+        (order_id, action, actor, note or "", now_ts()),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +366,16 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         base_url=os.environ.get("PIXMINT_BASE_URL", "https://data.hugproducthub.top"),
         admin_token=os.environ.get("PIXMINT_ADMIN_TOKEN", ""),
         orders_token=os.environ.get("PIXMINT_ORDERS_TOKEN", ""),
+        pushplus_token=os.environ.get("PIXMINT_PUSHPLUS_TOKEN", ""),
+        pushplus_url=os.environ.get(
+            "PIXMINT_PUSHPLUS_URL", "https://www.pushplus.plus/send"
+        ),
+        action_secret=os.environ.get("PIXMINT_ACTION_SECRET", ""),
+        wecom_corp_id=os.environ.get("PIXMINT_WECOM_CORP_ID", ""),
+        wecom_agent_id=os.environ.get("PIXMINT_WECOM_AGENT_ID", ""),
+        wecom_secret=os.environ.get("PIXMINT_WECOM_SECRET", ""),
+        wecom_callback_token=os.environ.get("PIXMINT_WECOM_CALLBACK_TOKEN", ""),
+        wecom_callback_aes_key=os.environ.get("PIXMINT_WECOM_CALLBACK_AES_KEY", ""),
         manual_qr_base=os.environ.get(
             "PIXMINT_MANUAL_QR_BASE", "https://pixmint.hugproducthub.top/manual-qr"
         ),
@@ -515,6 +566,252 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "rejectReason": order["reject_reason"],
         }
 
+    # -- 手机确认：PushPlus 通知 + 签名链接 --------------------------------
+
+    def action_token(order_id: str, ttl: int = DAY) -> str:
+        """只对单笔订单有效的签名 token；不携带后台 admin token。"""
+        secret = str(app.config["action_secret"] or "")
+        if not secret:
+            return ""
+        exp = now_ts() + ttl
+        payload = f"{order_id}|{exp}".encode("utf-8")
+        sig = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+        return f"{exp}.{sig}"
+
+    def action_valid(order_id: str, token: str) -> bool:
+        secret = str(app.config["action_secret"] or "")
+        if not secret or not token or "." not in token:
+            return False
+        exp_text, sig = token.split(".", 1)
+        try:
+            exp = int(exp_text)
+        except ValueError:
+            return False
+        if exp < now_ts():
+            return False
+        expected = hmac.new(
+            secret.encode("utf-8"), f"{order_id}|{exp}".encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(sig, expected)
+
+    def order_action_url(order_id: str) -> str:
+        token = action_token(order_id)
+        if not token:
+            return ""
+        base = str(app.config["base_url"]).rstrip("/")
+        return f"{base}/pay/confirm/{order_id}?t={token}"
+
+    def pushplus_send(title: str, content: str) -> bool:
+        token = str(app.config["pushplus_token"] or "")
+        if not token:
+            app.logger.warning("pushplus token not configured")
+            return False
+        try:
+            response = requests.post(
+                str(app.config["pushplus_url"]),
+                json={
+                    "token": token,
+                    "title": title,
+                    "content": content,
+                    "template": "markdown",
+                },
+                timeout=10,
+            )
+            data = response.json()
+            if response.ok and data.get("code") == 200:
+                return True
+            app.logger.warning(
+                "pushplus failed: status=%s body=%s", response.status_code, data
+            )
+            return False
+        except Exception as exc:  # 推送失败不能影响订单提交
+            app.logger.warning("pushplus error: %s", exc)
+            return False
+
+    def channel_label(value: str) -> str:
+        return "支付宝" if value == "alipay" else "微信支付"
+
+    wecom_token_cache: dict[str, Any] = {"value": "", "expires_at": 0.0}
+
+    def wecom_access_token() -> str:
+        corp_id = str(app.config["wecom_corp_id"] or "")
+        secret = str(app.config["wecom_secret"] or "")
+        if not corp_id or not secret:
+            return ""
+        now = time.time()
+        if wecom_token_cache["value"] and wecom_token_cache["expires_at"] > now + 60:
+            return str(wecom_token_cache["value"])
+        try:
+            response = requests.get(
+                "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
+                params={"corpid": corp_id, "corpsecret": secret},
+                timeout=10,
+            )
+            data = response.json()
+            if data.get("errcode") != 0 or not data.get("access_token"):
+                app.logger.warning("wecom gettoken failed: %s", data)
+                return ""
+            wecom_token_cache["value"] = data["access_token"]
+            wecom_token_cache["expires_at"] = now + int(data.get("expires_in", 7200))
+            return str(data["access_token"])
+        except Exception as exc:
+            app.logger.warning("wecom gettoken error: %s", exc)
+            return ""
+
+    def wecom_send(content: str) -> bool:
+        token = wecom_access_token()
+        agent_id = str(app.config["wecom_agent_id"] or "").strip()
+        if not token or not agent_id.isdigit():
+            app.logger.warning("wecom not configured properly; skip")
+            return False
+        try:
+            response = requests.post(
+                "https://qyapi.weixin.qq.com/cgi-bin/message/send",
+                params={"access_token": token},
+                json={
+                    "touser": "@all",
+                    "msgtype": "markdown",
+                    "agentid": int(agent_id),
+                    "markdown": {"content": content},
+                },
+                timeout=10,
+            )
+            data = response.json()
+            if data.get("errcode") == 0:
+                return True
+            app.logger.warning("wecom send failed: %s", data)
+            return False
+        except Exception as exc:
+            app.logger.warning("wecom send error: %s", exc)
+            return False
+
+    def notify_reviewing(order: sqlite3.Row) -> None:
+        url = order_action_url(order["order_id"])
+        if not url:
+            app.logger.warning("action secret not configured; skip push")
+            return
+        plan = PLANS.get(order["sku"], {}).get("title", order["sku"])
+        amount = (order["amount_cents"] or 0) / 100
+        content = (
+            f"## Pixmint 新订单待确认\n\n"
+            f"订单号：{order['order_id']}\n\n"
+            f"支付方式：{channel_label(order['channel'])}\n\n"
+            f"套餐：{plan}\n\n"
+            f"金额：¥{amount:.2f}\n\n"
+            f"[点击确认收款]({url})"
+        )
+
+        def deliver() -> None:
+            # 企业微信优先，失败再走 PushPlus 兜底。
+            if wecom_send(content):
+                return
+            pushplus_send("Pixmint 新订单待确认", content)
+
+        # 后台发送，避免推送慢或超时拖住用户点「我已完成支付」的响应。
+        threading.Thread(target=deliver, daemon=True).start()
+
+    def manual_order_row(order_id: str) -> sqlite3.Row | None:
+        return one(
+            "SELECT * FROM orders WHERE order_id = ? AND provider = 'manual'",
+            (order_id,),
+        )
+
+    def confirm_order(
+        order_id: str, actor: str = "admin"
+    ) -> tuple[bool, str | None, tuple[str, str, int] | None]:
+        """确认收款并签发授权；供管理台和手机确认页共用。"""
+        order = manual_order_row(order_id)
+        if not order:
+            return False, None, ("订单不存在", "not_found", 404)
+        if order["status"] in ("rejected", "refunded"):
+            return False, None, ("该订单已关闭，不能再确认", "closed", 409)
+        license_row = one("SELECT * FROM licenses WHERE order_id = ?", (order_id,))
+        if order["status"] != "paid":
+            if order["status"] not in ("pending_payment", "reviewing"):
+                return False, None, ("订单状态不允许确认", "bad_status", 409)
+            if not license_row:
+                try:
+                    license_row = create_license(
+                        order_id=order_id,
+                        plan=order["sku"],
+                        device_id=order["device_id"],
+                        expires_at=None,
+                        trial=False,
+                    )
+                except sqlite3.IntegrityError:
+                    # 并发点击确认时唯一索引会拦住第二次，回读已签发的授权。
+                    db().rollback()
+                    license_row = one(
+                        "SELECT * FROM licenses WHERE order_id = ?", (order_id,)
+                    )
+            db().execute(
+                "UPDATE orders SET status = 'paid', paid_at = COALESCE(paid_at, ?),"
+                " confirmed_at = ? WHERE order_id = ?",
+                (now_ts(), now_ts(), order_id),
+            )
+            db().commit()
+        elif not license_row:
+            license_row = ensure_license_for_order(order)
+        if not license_row:
+            return False, None, ("授权签发失败", "license_failed", 500)
+        log_order_action(order_id, "confirm", actor)
+        db().commit()
+        return True, license_row["code"], None
+
+    def reject_order(
+        order_id: str, reason: str, actor: str = "admin"
+    ) -> tuple[bool, tuple[str, str, int] | None]:
+        order = manual_order_row(order_id)
+        if not order:
+            return False, ("订单不存在", "not_found", 404)
+        if order["status"] == "paid":
+            return False, ("已付款订单不能拒绝", "already_paid", 409)
+        db().execute(
+            "UPDATE orders SET status = 'rejected', reject_reason = ?, confirmed_at = ?"
+            " WHERE order_id = ? AND status != 'paid'",
+            (reason or "未收到对应款项", now_ts(), order_id),
+        )
+        log_order_action(order_id, "reject", actor, reason or "未收到对应款项")
+        db().commit()
+        return True, None
+
+    def reopen_order(
+        order_id: str, actor: str = "admin"
+    ) -> tuple[bool, tuple[str, str, int] | None]:
+        order = manual_order_row(order_id)
+        if not order:
+            return False, ("订单不存在", "not_found", 404)
+        if order["status"] != "rejected":
+            return False, ("只有已拒绝的订单可以恢复", "bad_status", 409)
+        db().execute(
+            "UPDATE orders SET status = 'reviewing', reject_reason = NULL,"
+            " confirmed_at = NULL WHERE order_id = ? AND status = 'rejected'",
+            (order_id,),
+        )
+        log_order_action(order_id, "reopen", actor)
+        db().commit()
+        return True, None
+
+    def revoke_order(
+        order_id: str, actor: str = "admin"
+    ) -> tuple[bool, tuple[str, str, int] | None]:
+        order = manual_order_row(order_id)
+        if not order:
+            return False, ("订单不存在", "not_found", 404)
+        if order["status"] != "paid":
+            return False, ("只有已付款订单可以撤销", "bad_status", 409)
+        db().execute(
+            "UPDATE orders SET status = 'refunded', refunded_at = ? WHERE order_id = ?",
+            (now_ts(), order_id),
+        )
+        db().execute(
+            "UPDATE licenses SET revoked_at = ? WHERE order_id = ?",
+            (now_ts(), order_id),
+        )
+        log_order_action(order_id, "revoke", actor)
+        db().commit()
+        return True, None
+
     @app.post("/v1/manual/orders")
     def create_manual_order() -> Any:
         body = json_body()
@@ -589,6 +886,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         order = refresh_manual_order(order)
         if order["status"] == "expired":
             return error("订单已过期，请重新下单", "expired", 410)
+        moved_to_review = False
         if order["status"] == "pending_payment":
             db().execute(
                 "UPDATE orders SET status = 'reviewing', submitted_at = ?"
@@ -597,6 +895,9 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             )
             db().commit()
             order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
+            moved_to_review = True
+        if moved_to_review:
+            notify_reviewing(order)
         return jsonify(manual_order_payload(order))
 
     @app.get("/v1/manual/orders/<order_id>")
@@ -694,6 +995,97 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             wrap_mobile_html("支付完成", "<p>请回到 Pixmint，授权正在自动生效。</p>"),
             mimetype="text/html",
         )
+
+    # -- 手机确认页（PushPlus 消息里的签名链接） ---------------------------
+
+    def confirm_html(title: str, body: str, status: int = 200) -> Response:
+        return Response(
+            wrap_mobile_html(title, body),
+            status=status,
+            mimetype="text/html",
+            headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY"},
+        )
+
+    @app.get("/pay/confirm/<order_id>")
+    def mobile_confirm(order_id: str) -> Response:
+        token = clean_text(request.args.get("t"), 200)
+        if not action_valid(order_id, token):
+            return confirm_html("链接已失效", "<p>请回到数据台处理这笔订单。</p>", 403)
+        order = manual_order_row(order_id)
+        if not order:
+            return confirm_html("订单不存在", "", 404)
+        if order["status"] == "paid":
+            return confirm_html("已确认", "<p>这笔订单已经确认过了。</p>")
+        if order["status"] in ("rejected", "refunded"):
+            return confirm_html("订单已关闭", "<p>这笔订单已经拒绝或关闭。</p>")
+        plan = PLANS.get(order["sku"], {}).get("title", order["sku"])
+        amount = (order["amount_cents"] or 0) / 100
+        body = f"""
+<p>订单号：{html.escape(order_id)}<br>
+支付方式：{html.escape(channel_label(order["channel"]))}<br>
+套餐：{html.escape(plan)}<br>
+金额：¥{amount:.2f}</p>
+<form method="post" action="/pay/confirm/{html.escape(order_id)}">
+  <input type="hidden" name="t" value="{html.escape(token)}">
+  <button name="action" value="confirm" style="background:#07c160">确认收款</button>
+  <button name="action" value="reject" onclick="return confirm('确认拒绝这笔订单？')" style="background:#fff;color:#c00;border:1px solid #c00;margin-top:10px">拒绝</button>
+</form>
+<p style="font-size:12px;color:#999">确认后授权自动签发，用户端会自动生效。</p>
+"""
+        return confirm_html("确认收款", body)
+
+    @app.post("/pay/confirm/<order_id>")
+    def mobile_confirm_action(order_id: str) -> Response:
+        token = clean_text(request.form.get("t"), 200)
+        action = clean_text(request.form.get("action"), 20)
+        if not action_valid(order_id, token):
+            return confirm_html("链接已失效", "<p>请回到数据台处理这笔订单。</p>", 403)
+        if action == "confirm":
+            ok, code, problem = confirm_order(order_id, "phone")
+            if ok:
+                return confirm_html(
+                    "已确认收款",
+                    "<p>激活码已生成，用户端会自动生效。</p>",
+                )
+            message = problem[0] if problem else "确认失败"
+            return confirm_html("确认失败", f"<p>{html.escape(message)}</p>", 409)
+        if action == "reject":
+            ok, problem = reject_order(order_id, "手机端拒绝", "phone")
+            if ok:
+                return confirm_html("已拒绝", "<p>订单已关闭。</p>")
+            message = problem[0] if problem else "拒绝失败"
+            return confirm_html("拒绝失败", f"<p>{html.escape(message)}</p>", 409)
+        return confirm_html("无效操作", "", 400)
+
+    # -- 企业微信接收消息服务器 URL 校验 -----------------------------------
+    # 配好这个 URL 后，管理后台才允许填写「企业可信IP」。
+
+    @app.get("/pay/wecom/callback")
+    def wecom_callback_get() -> Response:
+        token = str(app.config["wecom_callback_token"] or "")
+        aes_key = str(app.config["wecom_callback_aes_key"] or "")
+        if not token or not aes_key:
+            return Response("not configured", status=404, mimetype="text/plain")
+        args = request.args
+        signature = wecom_callback_signature(
+            token,
+            args.get("timestamp", ""),
+            args.get("nonce", ""),
+            args.get("echostr", ""),
+        )
+        if not hmac.compare_digest(signature, args.get("msg_signature", "")):
+            return Response("invalid signature", status=403, mimetype="text/plain")
+        try:
+            echo = wecom_callback_decrypt(args.get("echostr", ""), aes_key)
+        except Exception as exc:
+            app.logger.warning("wecom callback decrypt failed: %s", exc)
+            return Response("bad request", status=400, mimetype="text/plain")
+        return Response(echo, mimetype="text/plain")
+
+    @app.post("/pay/wecom/callback")
+    def wecom_callback_post() -> Response:
+        # 当前不处理企业微信事件，按规范回 success 即可。
+        return Response("success", mimetype="text/plain")
 
     # -- 授权 --------------------------------------------------------------
 
@@ -984,52 +1376,18 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     @app.post("/v1/admin/manual/orders/<order_id>/confirm")
     @require_orders_admin
     def admin_manual_confirm(order_id: str) -> Any:
-        body = json_body()
-        order = one(
-            "SELECT * FROM orders WHERE order_id = ? AND provider = 'manual'",
-            (order_id,),
-        )
-        if not order:
-            return error("订单不存在", "not_found", 404)
-        if order["status"] in ("rejected", "refunded"):
-            return error("该订单已关闭，不能再确认", "closed", 409)
-        license_row = one("SELECT * FROM licenses WHERE order_id = ?", (order_id,))
-        if order["status"] != "paid":
-            if order["status"] not in ("pending_payment", "reviewing"):
-                return error("订单状态不允许确认", "bad_status", 409)
-            if not license_row:
-                try:
-                    license_row = create_license(
-                        order_id=order_id,
-                        plan=order["sku"],
-                        device_id=order["device_id"],
-                        expires_at=None,
-                        trial=False,
-                    )
-                except sqlite3.IntegrityError:
-                    # 并发点击确认时唯一索引会拦住第二次，回读已签发的授权。
-                    db().rollback()
-                    license_row = one(
-                        "SELECT * FROM licenses WHERE order_id = ?", (order_id,)
-                    )
-            db().execute(
-                "UPDATE orders SET status = 'paid', paid_at = COALESCE(paid_at, ?),"
-                " confirmed_at = ? WHERE order_id = ?",
-                (now_ts(), now_ts(), order_id),
-            )
-            db().commit()
-            order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
-        elif not license_row:
-            license_row = ensure_license_for_order(order)
-        if not license_row:
+        ok, code, problem = confirm_order(order_id, "admin")
+        if not ok:
+            if problem:
+                message, error_code, status = problem
+                return error(message, error_code, status)
             return error("授权签发失败", "license_failed", 500)
-
         return jsonify(
             {
                 "ok": True,
                 "orderId": order_id,
                 "status": "paid",
-                "code": license_row["code"],
+                "code": code,
             }
         )
 
@@ -1037,22 +1395,48 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     @require_orders_admin
     def admin_manual_reject(order_id: str) -> Any:
         body = json_body()
-        order = one(
-            "SELECT * FROM orders WHERE order_id = ? AND provider = 'manual'",
+        reason = clean_text(body.get("reason"), 300) or "未收到对应款项"
+        ok, problem = reject_order(order_id, reason, "admin")
+        if not ok:
+            if problem:
+                message, error_code, status = problem
+                return error(message, error_code, status)
+            return error("订单不存在", "not_found", 404)
+        return jsonify({"ok": True, "orderId": order_id, "status": "rejected"})
+
+    @app.post("/v1/admin/manual/orders/<order_id>/reopen")
+    @require_orders_admin
+    def admin_manual_reopen(order_id: str) -> Any:
+        ok, problem = reopen_order(order_id, "admin")
+        if not ok:
+            if problem:
+                message, error_code, status = problem
+                return error(message, error_code, status)
+            return error("订单不存在", "not_found", 404)
+        return jsonify({"ok": True, "orderId": order_id, "status": "reviewing"})
+
+    @app.post("/v1/admin/manual/orders/<order_id>/revoke")
+    @require_orders_admin
+    def admin_manual_revoke(order_id: str) -> Any:
+        ok, problem = revoke_order(order_id, "admin")
+        if not ok:
+            if problem:
+                message, error_code, status = problem
+                return error(message, error_code, status)
+            return error("订单不存在", "not_found", 404)
+        return jsonify({"ok": True, "orderId": order_id, "status": "refunded"})
+
+    @app.get("/v1/admin/manual/orders/<order_id>/actions")
+    @require_orders_admin
+    def admin_manual_actions(order_id: str) -> Any:
+        rows = query(
+            "SELECT action, actor, note, created_at FROM order_actions"
+            " WHERE order_id = ? ORDER BY id",
             (order_id,),
         )
-        if not order:
-            return error("订单不存在", "not_found", 404)
-        if order["status"] == "paid":
-            return error("已付款订单不能拒绝", "already_paid", 409)
-        reason = clean_text(body.get("reason"), 300) or "未收到对应款项"
-        db().execute(
-            "UPDATE orders SET status = 'rejected', reject_reason = ?, confirmed_at = ?"
-            " WHERE order_id = ? AND status != 'paid'",
-            (reason, now_ts(), order_id),
+        return jsonify(
+            {"orderId": order_id, "actions": [dict(row) for row in rows]}
         )
-        db().commit()
-        return jsonify({"ok": True, "orderId": order_id, "status": "rejected"})
 
     @app.get("/v1/admin/orders")
     @require_admin
@@ -1098,6 +1482,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "UPDATE licenses SET revoked_at = ? WHERE order_id = ?",
             (now_ts(), order_id),
         )
+        log_order_action(order_id, "refund", "admin")
         db().commit()
         return jsonify({"ok": True})
 

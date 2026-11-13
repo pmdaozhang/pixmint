@@ -1,10 +1,14 @@
 """授权服务端回归测试。运行：python -m unittest discover -s tests"""
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -43,9 +47,31 @@ class LicenseApiTest(unittest.TestCase):
                 "TESTING": True,
                 "pay_mock": True,
                 "orders_token": "test-orders-token",
+                "pushplus_token": "test-pushplus-token",
+                "pushplus_url": "https://pushplus.invalid/send",
+                "action_secret": "test-action-secret",
             }
         )
         cls.client = cls.app.test_client()
+
+    def setUp(self):
+        class FakeResponse:
+            ok = True
+            status_code = 200
+
+            def json(self):
+                return {"code": 200}
+
+        patcher = patch("app.requests.post", return_value=FakeResponse())
+        self.push_post = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def mobile_token(self, order_id, ttl=300):
+        exp = int(time.time()) + ttl
+        sig = hmac.new(
+            b"test-action-secret", f"{order_id}|{exp}".encode(), hashlib.sha256
+        ).hexdigest()
+        return f"{exp}.{sig}"
 
     def admin_headers(self):
         return {"Authorization": "Bearer test-admin-token"}
@@ -162,12 +188,12 @@ class LicenseApiTest(unittest.TestCase):
         )
         self.assertEqual(again.status_code, 409)
 
-    def create_manual_order(self, device_id):
+    def create_manual_order(self, device_id, provider="alipay"):
         response = self.client.post(
             "/v1/manual/orders",
             json={
                 "plan": "lifetime",
-                "provider": "alipay",
+                "provider": provider,
                 "deviceId": device_id,
                 "deviceName": "测试机",
             },
@@ -261,6 +287,196 @@ class LicenseApiTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.get_json()["status"], "pending_payment")
+
+    def test_pushplus_notify_and_mobile_confirm(self):
+        order = self.create_manual_order("e1" * 32, provider="wechat")
+        order_id = order["orderId"]
+        order_token = order["orderToken"]
+
+        submitted = self.client.post(
+            f"/v1/manual/orders/{order_id}/submit", json={"token": order_token}
+        )
+        self.assertEqual(submitted.status_code, 200, submitted.data)
+
+        for _ in range(100):
+            if self.push_post.called:
+                break
+            time.sleep(0.02)
+        self.assertTrue(self.push_post.called)
+        payload = self.push_post.call_args.kwargs["json"]
+        self.assertEqual(payload["token"], "test-pushplus-token")
+        self.assertIn(order_id, payload["content"])
+        self.assertIn("微信支付", payload["content"])
+        self.assertIn(f"/pay/confirm/{order_id}", payload["content"])
+
+        # 重复提交同一订单不应重复推送
+        self.push_post.reset_mock()
+        self.client.post(
+            f"/v1/manual/orders/{order_id}/submit", json={"token": order_token}
+        )
+        time.sleep(0.3)
+        self.assertFalse(self.push_post.called)
+
+        mobile = self.mobile_token(order_id)
+        page = self.client.get(f"/pay/confirm/{order_id}?t={mobile}")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(order_id.encode(), page.data)
+        self.assertIn("微信支付".encode("utf-8"), page.data)
+        self.assertIn("确认拒绝这笔订单？".encode("utf-8"), page.data)
+
+        confirmed = self.client.post(
+            f"/pay/confirm/{order_id}", data={"t": mobile, "action": "confirm"}
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertIn("已确认收款".encode("utf-8"), confirmed.data)
+
+        status = self.client.get(
+            f"/v1/manual/orders/{order_id}?token={order_token}"
+        ).get_json()
+        self.assertEqual(status["status"], "paid")
+        self.assertTrue(status["code"])
+
+        actions = self.client.get(
+            f"/v1/admin/manual/orders/{order_id}/actions",
+            headers=self.orders_headers(),
+        ).get_json()["actions"]
+        self.assertEqual(actions[-1]["action"], "confirm")
+        self.assertEqual(actions[-1]["actor"], "phone")
+
+    def test_reopen_revoke_and_action_log(self):
+        order = self.create_manual_order("d1" * 32)
+        order_id = order["orderId"]
+        order_token = order["orderToken"]
+        self.client.post(
+            f"/v1/manual/orders/{order_id}/submit", json={"token": order_token}
+        )
+
+        rejected = self.client.post(
+            f"/v1/admin/manual/orders/{order_id}/reject",
+            json={"reason": "测试拒绝"},
+            headers=self.orders_headers(),
+        )
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+
+        reopened = self.client.post(
+            f"/v1/admin/manual/orders/{order_id}/reopen",
+            headers=self.orders_headers(),
+        )
+        self.assertEqual(reopened.status_code, 200, reopened.data)
+        status = self.client.get(
+            f"/v1/manual/orders/{order_id}?token={order_token}"
+        ).get_json()
+        self.assertEqual(status["status"], "reviewing")
+
+        confirmed = self.client.post(
+            f"/v1/admin/manual/orders/{order_id}/confirm",
+            headers=self.orders_headers(),
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertTrue(confirmed.get_json()["code"])
+
+        revoked = self.client.post(
+            f"/v1/admin/manual/orders/{order_id}/revoke",
+            headers=self.orders_headers(),
+        )
+        self.assertEqual(revoked.status_code, 200, revoked.data)
+        status = self.client.get(
+            f"/v1/manual/orders/{order_id}?token={order_token}"
+        ).get_json()
+        self.assertEqual(status["status"], "refunded")
+
+        actions = self.client.get(
+            f"/v1/admin/manual/orders/{order_id}/actions",
+            headers=self.orders_headers(),
+        ).get_json()["actions"]
+        self.assertEqual(
+            [item["action"] for item in actions],
+            ["reject", "reopen", "confirm", "revoke"],
+        )
+        self.assertEqual(
+            [item["actor"] for item in actions],
+            ["admin", "admin", "admin", "admin"],
+        )
+
+    def test_wecom_notify_priority(self):
+        self.app.config.update(
+            wecom_corp_id="ww-test-corp",
+            wecom_agent_id="1000003",
+            wecom_secret="test-wecom-secret",
+        )
+        self.addCleanup(
+            lambda: self.app.config.update(
+                wecom_corp_id="", wecom_agent_id="", wecom_secret=""
+            )
+        )
+
+        class TokenResponse:
+            ok = True
+            status_code = 200
+
+            def json(self):
+                return {
+                    "errcode": 0,
+                    "access_token": "test-access-token",
+                    "expires_in": 7200,
+                }
+
+        class SendResponse:
+            ok = True
+            status_code = 200
+
+            def json(self):
+                return {"errcode": 0, "errmsg": "ok"}
+
+        order = self.create_manual_order("c1" * 32)
+        order_id = order["orderId"]
+        with patch("app.requests.get", return_value=TokenResponse()), patch(
+            "app.requests.post", return_value=SendResponse()
+        ) as post:
+            self.client.post(
+                f"/v1/manual/orders/{order_id}/submit",
+                json={"token": order["orderToken"]},
+            )
+            for _ in range(100):
+                if post.called:
+                    break
+                time.sleep(0.02)
+            self.assertTrue(post.called)
+            kwargs = post.call_args.kwargs
+            self.assertEqual(kwargs["json"]["agentid"], 1000003)
+            self.assertEqual(kwargs["json"]["touser"], "@all")
+            self.assertIn("支付宝", kwargs["json"]["markdown"]["content"])
+            self.assertIn(
+                f"/pay/confirm/{order_id}", kwargs["json"]["markdown"]["content"]
+            )
+            self.assertEqual(kwargs["params"]["access_token"], "test-access-token")
+
+    def test_mobile_confirm_rejects_bad_token(self):
+        order = self.create_manual_order("e2" * 32)
+        response = self.client.get(f"/pay/confirm/{order['orderId']}?t=1.deadbeef")
+        self.assertEqual(response.status_code, 403)
+
+    def test_mobile_reject(self):
+        order = self.create_manual_order("e3" * 32)
+        order_id = order["orderId"]
+        self.client.post(
+            f"/v1/manual/orders/{order_id}/submit", json={"token": order["orderToken"]}
+        )
+        mobile = self.mobile_token(order_id)
+
+        rejected = self.client.post(
+            f"/pay/confirm/{order_id}", data={"t": mobile, "action": "reject"}
+        )
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        status = self.client.get(
+            f"/v1/manual/orders/{order_id}?token={order['orderToken']}"
+        ).get_json()
+        self.assertEqual(status["status"], "rejected")
+
+        blocked = self.client.post(
+            f"/pay/confirm/{order_id}", data={"t": mobile, "action": "confirm"}
+        )
+        self.assertEqual(blocked.status_code, 409)
 
     def test_unknown_code_rejected(self):
         response = self.client.post(
