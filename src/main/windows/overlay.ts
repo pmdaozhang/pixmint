@@ -313,6 +313,11 @@ export class OverlayManager {
     entry.bounds = { ...bounds }
     window.setAlwaysOnTop(true, 'screen-saver')
     window.setIgnoreMouseEvents(true)
+    // 这里直接改了窗口的原生状态，缓存的录制态必须作废：
+    // 否则上一次录制留下的 { active: true, interactive: false } 会让下一次
+    // setRecordingMode 误判“状态没变”而跳过，全屏覆盖层保持可点击并置顶，
+    // 录制期间锁死整个桌面。
+    entry.recordingMode = null
     if (!window.isVisible()) window.showInactive()
     window.moveTop()
   }
@@ -328,6 +333,8 @@ export class OverlayManager {
     window.setOpacity(0)
     window.setAlwaysOnTop(false)
     window.setBounds(this.parkedBounds(entry.bounds))
+    // 停靠态已经恢复成“穿透、不置顶”，缓存不再代表窗口真实状态。
+    entry.recordingMode = null
     this.send(entry, 'overlay:reset')
     this.assertParked(entry)
   }
@@ -476,9 +483,10 @@ export class OverlayManager {
         window.setAlwaysOnTop(true, 'screen-saver')
         window.setIgnoreMouseEvents(false)
       } else {
-        // 录制/倒计时阶段控制条是 screen-saver 级；覆盖层降一级，
-        // 否则全屏选区时控制条会被透明覆盖层压在下面，看起来像消失了。
-        window.setAlwaysOnTop(true, 'floating')
+        // 录制/倒计时阶段覆盖层必须保持最高置顶，否则用户点一下任何普通窗口，
+        // 那个窗口就会被提到覆盖层上面，红框和录制徽章整段消失。
+        // 控制条在覆盖层之后创建并 moveTop，仍然压在覆盖层之上，不会被挡住。
+        window.setAlwaysOnTop(true, 'screen-saver')
         window.setIgnoreMouseEvents(true)
       }
       window.setOpacity(1)
@@ -489,7 +497,7 @@ export class OverlayManager {
       window.setAlwaysOnTop(true, 'screen-saver')
       window.setIgnoreMouseEvents(false)
     } else {
-      window.setAlwaysOnTop(true, 'floating')
+      window.setAlwaysOnTop(true, 'screen-saver')
       window.setIgnoreMouseEvents(true)
     }
     window.setOpacity(1)

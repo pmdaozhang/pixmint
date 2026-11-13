@@ -1,4 +1,5 @@
 const { _electron: electron } = require('playwright-core')
+const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -38,6 +39,42 @@ async function boundsByHash(app, hash) {
   }, hash)
 }
 
+function overlayNativeState(app) {
+  if (process.platform !== 'win32') return { clickThrough: true, topmost: true }
+  return app
+    .evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find((candidate) =>
+        candidate.webContents.getURL().includes('overlay')
+      )
+      if (!window) return null
+      const handle = window.getNativeWindowHandle()
+      return handle.length >= 8
+        ? handle.readBigUInt64LE(0).toString()
+        : handle.readUInt32LE(0).toString()
+    })
+    .then((hwnd) => {
+      if (!hwnd) return { clickThrough: false, topmost: false }
+      const out = execFileSync(
+        'powershell.exe',
+        [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Add-Type -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int i);'; [W.U]::GetWindowLong([IntPtr]::new([long]${hwnd}), -20)`
+        ],
+        { encoding: 'utf8' }
+      )
+      const ex = Number(out.trim())
+      return {
+        // WS_EX_TRANSPARENT = 0x20：录制期间覆盖层必须鼠标穿透，否则锁死桌面。
+        clickThrough: (ex & 0x20) !== 0,
+        // WS_EX_TOPMOST = 0x8：覆盖层必须保持置顶，否则点一下别的窗口红框就消失。
+        topmost: (ex & 0x8) !== 0
+      }
+    })
+}
+
 async function recordOverlay(app, mode) {
   await app.evaluate(() => globalThis.__snapglassShowOverlay?.())
   const overlay = await waitForWindow(app, '.overlay-root')
@@ -52,6 +89,14 @@ async function recordOverlay(app, mode) {
 
   const control = await waitForWindow(app, '.rec-control', 15000)
   await control.waitForSelector('.rec-control .cb.stop', { timeout: 15000 })
+  const overlayState = await overlayNativeState(app)
+  console.log('OVERLAY_NATIVE_STATE', mode, overlayState)
+  if (!overlayState.clickThrough) {
+    throw new Error('overlay is not click-through during recording; desktop would be blocked')
+  }
+  if (!overlayState.topmost) {
+    throw new Error('overlay lost topmost during recording; red frame would disappear')
+  }
   const liveFrame = await overlay.locator('.recording-frame.recording').isVisible()
   const liveBadge = (await overlay.locator('.recording-badge.live').innerText()).replace(/\s+/g, ' ')
   console.log('RECORDING_FRAME_VISIBLE', liveFrame, 'BADGE', liveBadge)

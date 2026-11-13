@@ -62,7 +62,7 @@ export const recorderBeginSchema = z.object({
   options: z.object({
     mode: recorderModeSchema,
     fps: z.union([z.literal(10), z.literal(15), z.literal(30)]),
-    size: z.enum(['original', '720', '480']),
+    size: z.enum(['original', '1080', '720', '480']),
     countdown: z.union([z.literal(3), z.literal(1), z.literal(0)]),
     mic: z.boolean(),
     systemAudio: z.boolean()

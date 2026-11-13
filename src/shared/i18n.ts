@@ -378,6 +378,7 @@ const EN: Record<string, string> = {
   '麦克风': 'Microphone',
   '系统音': 'System audio',
   '输出尺寸': 'Output size',
+  '输出分辨率': 'Output resolution',
   '倒计时': 'Countdown',
   '开始录制': 'Start recording',
   '建议先把鼠标移到选区外，避免录进点击动作。':
@@ -438,7 +439,7 @@ const EN: Record<string, string> = {
   'OCR 失败': 'OCR failed',
   '录制初始化超时，已退出': 'Recording setup timed out; exited.',
   '共 {count} 帧 · 调色板两遍量化': '{count} frames · two-pass palette quantization',
-  ' · 已缩放至 720 长边以保证流畅': ' · scaled to 720px long edge for smoothness',
+  ' · 已缩放至 1080 长边': ' · scaled to 1080px long edge',
   '视频写入失败，请检查磁盘空间':
     'Failed to write video; check disk space.',
   '没有可读取的录制结果': 'No recording result available.',

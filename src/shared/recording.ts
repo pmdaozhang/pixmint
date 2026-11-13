@@ -3,7 +3,7 @@ import type { RecorderMode, RecorderSize } from './types'
 export const MAX_GIF_DURATION_MS = 60_000
 export const MAX_VIDEO_DURATION_MS = 600_000
 export const GIF_FRAME_COLORS = 256
-export const GIF_MAX_LONG_SIDE = 720
+export const GIF_MAX_LONG_SIDE = 1080
 
 export interface OutputSize {
   width: number
@@ -49,24 +49,46 @@ export function fitOutputSize(width: number, height: number, size: RecorderSize)
 }
 
 /**
- * 背景：GIF 每帧要做调色板量化和 LZW 压缩，全屏 1919×1079 实测只有约 1.5 FPS。
- * 设计意图：把 GIF 长边限制在 720，优先保证帧率；小选区不超过 720 时不缩放。
- * 关键约束：这是 GIF 专用上限，视频仍按原尺寸 1920 长边保护。
+ * 视频输出尺寸：720/1080 是“短边上限”，只缩小、不放大。
+ * 选区本身小于目标时保持原生分辨率，避免把小区域拉伸放糊；
+ * 选区大于目标时才按比例缩小到目标短边。
+ * GIF 不走这里，仍用 fitGifOutputSize 限制长边 720。
  */
-export function fitGifOutputSize(width: number, height: number): OutputSize {
-  return fitOutputSize(width, height, '720')
+export function fitVideoOutputSize(width: number, height: number, size: RecorderSize): OutputSize {
+  const safeWidth = Math.max(2, Math.round(width))
+  const safeHeight = Math.max(2, Math.round(height))
+  if (size === 'original') return fitOutputSize(safeWidth, safeHeight, 'original')
+  if (size === '480') return fitOutputSize(safeWidth, safeHeight, '480')
+  const target = size === '1080' ? 1080 : 720
+  const shortSide = Math.min(safeWidth, safeHeight)
+  if (shortSide <= target) return { width: safeWidth, height: safeHeight }
+  const scale = target / shortSide
+  return {
+    width: Math.max(2, Math.round(safeWidth * scale)),
+    height: Math.max(2, Math.round(safeHeight * scale))
+  }
 }
 
 /**
- * 背景：GIF 每帧 quantize 是全像素扫描，720 长边下仍会拖慢帧率。
- * 设计意图：大帧用降采样样本生成 256 色调色板，再把调色板应用到完整帧；
- * 调色板质量足够，但 quantize 成本显著下降。
- * 关键约束：小帧保持全像素量化；样本步长越大速度越快，颜色细节越少。
+ * 背景：GIF 每帧要做调色板量化和 LZW 压缩，全屏 1919×1079 实测只有约 1.5 FPS。
+ * 设计意图：把 GIF 长边限制在 1080，让小选区保持原生分辨率、大选区也只缩到 1080，
+ * 避免 720 长边把界面文字先缩糊；帧率靠录制器按实际编码速度丢帧兜底。
+ * 关键约束：这是 GIF 专用上限，视频不走这里。
+ */
+export function fitGifOutputSize(width: number, height: number): OutputSize {
+  return fitOutputSize(width, height, '1080')
+}
+
+/**
+ * 背景：GIF 每帧 quantize 是全像素扫描，1080 长边下全像素统计仍然偏慢。
+ * 设计意图：1080 以内的帧尽量用全像素生成调色板，保证文字抗锯齿和小色块不丢色；
+ * 只有接近 1080×1080 的方形大帧才降采样，控制编码压力。
+ * 关键约束：只影响调色板统计，不改变最终帧尺寸和逐像素映射。
  */
 export function gifPaletteSampleStep(width: number, height: number): number {
   const pixels = Math.max(1, width * height)
-  if (pixels <= 120_000) return 1
-  if (pixels <= 300_000) return 2
+  if (pixels <= 900_000) return 1
+  if (pixels <= 1_800_000) return 2
   return 3
 }
 
@@ -76,8 +98,10 @@ export function pickVideoMime(isSupported: (mimeType: string) => boolean): Video
 
 export function estimateVideoBitrate(width: number, height: number, fps: number): number {
   const pixels = Math.max(1, width * height)
-  const base = pixels * Math.max(10, Math.min(60, fps)) * 0.09
-  return Math.round(Math.max(2_000_000, Math.min(24_000_000, base)))
+  // 0.18 bit/pixel 是文字、表格类屏幕内容比较稳妥的码率；
+  // 旧值 0.09 在 720p/1080p 下文字边缘会糊。
+  const base = pixels * Math.max(10, Math.min(60, fps)) * 0.18
+  return Math.round(Math.max(3_000_000, Math.min(30_000_000, base)))
 }
 
 /**

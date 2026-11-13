@@ -20,7 +20,7 @@ export type ArrowMode = 'single' | 'none' | 'double'
 export type AnnoType = 'rect' | 'ellipse' | 'arrow' | 'pen' | 'mosaic' | 'text' | 'seq'
 export type RecorderMode = 'gif' | 'video'
 export type RecorderFps = 10 | 15 | 30
-export type RecorderSize = 'original' | '720' | '480'
+export type RecorderSize = 'original' | '1080' | '720' | '480'
 export type RecorderCountdown = 3 | 1 | 0
 export type RecorderPhase =
   | 'preparing'

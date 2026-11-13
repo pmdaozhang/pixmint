@@ -1,12 +1,14 @@
 import type { JSX } from 'react'
-import type { RecorderMode } from '@shared/types'
+import type { RecorderMode, RecorderSize } from '@shared/types'
 import { formatRecordingDuration } from '@shared/recording'
 import { t, type Language } from '@shared/i18n'
 
 interface Props {
   mode: RecorderMode
+  size: RecorderSize
   mic: boolean
   systemAudio: boolean
+  onSizeChange(size: RecorderSize): void
   onMicToggle(): void
   onSystemAudioToggle(): void
   language: Language
@@ -24,8 +26,10 @@ function CloseIcon(): JSX.Element {
 
 export function RecorderBar({
   mode,
+  size,
   mic,
   systemAudio,
+  onSizeChange,
   onMicToggle,
   onSystemAudioToggle,
   language,
@@ -44,6 +48,18 @@ export function RecorderBar({
         <i />
         {tr('开始')}
       </button>
+      {mode === 'video' ? (
+        <label className="rec-size" title={tr('输出分辨率')}>
+          <select
+            value={size === '1080' ? '1080' : '720'}
+            aria-label={tr('输出分辨率')}
+            onChange={(event) => onSizeChange(event.target.value as RecorderSize)}
+          >
+            <option value="720">720P</option>
+            <option value="1080">1080P</option>
+          </select>
+        </label>
+      ) : null}
       <span className="tm">
         <span>{formatRecordingDuration(0)}</span>
       </span>

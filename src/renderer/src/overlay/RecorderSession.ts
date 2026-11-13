@@ -11,7 +11,7 @@ import {
   MAX_VIDEO_DURATION_MS,
   estimateVideoBitrate,
   fitGifOutputSize,
-  fitOutputSize,
+  fitVideoOutputSize,
   gifFrameDelay,
   pickVideoMime
 } from '@shared/recording'
@@ -153,6 +153,10 @@ export class RecorderSession {
       this.stream = null
       throw new Error(this.tr('录制已取消'))
     }
+    // 屏幕内容以文字、表格为主：告诉编码器优先保留细节，而不是按运动画面平滑。
+    for (const track of this.stream.getVideoTracks()) {
+      track.contentHint = 'text'
+    }
     const video = document.createElement('video')
     video.muted = true
     video.playsInline = true
@@ -184,7 +188,7 @@ export class RecorderSession {
     const output =
       this.options.mode === 'gif'
         ? fitGifOutputSize(physicalWidth, physicalHeight)
-        : fitOutputSize(physicalWidth, physicalHeight, this.options.size)
+        : fitVideoOutputSize(physicalWidth, physicalHeight, this.options.size)
     this.outputWidth = output.width
     this.outputHeight = output.height
     console.log('RECORDER_PREPARE', {
@@ -200,6 +204,9 @@ export class RecorderSession {
     canvas.height = this.outputHeight
     const ctx = canvas.getContext('2d', { willReadFrequently: this.options.mode === 'gif' })
     if (!ctx) throw new Error(this.tr('无法创建录制画布'))
+    // 默认 low 的双线性缩放会把文字边缘拉软；high 使用更好的重采样。
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
     this.canvas = canvas
     this.ctx = ctx
     this.drawFrame()
@@ -525,6 +532,8 @@ export class RecorderSession {
     document.body.appendChild(this.canvas)
     const canvasStream = this.canvas.captureStream(0)
     const videoTrack = canvasStream.getVideoTracks()[0]
+    // 画布输出的也是屏幕文字内容，同样让编码器优先保证细节。
+    if (videoTrack) videoTrack.contentHint = 'text'
     this.videoTrack = videoTrack as CanvasCaptureMediaStreamTrack
     this.combinedStream = new MediaStream([
       ...canvasStream.getVideoTracks(),

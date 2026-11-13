@@ -45,7 +45,7 @@ const RESIZE_CURSOR: Record<string, string> = {
 const DEFAULT_RECORDER_OPTIONS: RecorderOptions = {
   mode: 'gif',
   fps: 15,
-  size: 'original',
+  size: '720',
   countdown: 3,
   mic: true,
   systemAudio: false
@@ -403,7 +403,7 @@ export function OverlayApp(): JSX.Element {
       ...previous,
       mode,
       fps: mode === 'video' ? 30 : 15,
-      size: 'original',
+      size: mode === 'video' ? '720' : 'original',
       countdown: 3,
       mic: mode === 'video' ? true : previous.mic,
       systemAudio: mode === 'video' ? false : previous.systemAudio
@@ -451,7 +451,7 @@ export function OverlayApp(): JSX.Element {
       ...recorderOptionsRef.current,
       mode,
       fps: mode === 'video' ? 30 : recorderOptionsRef.current.fps,
-      size: 'original',
+      size: recorderOptionsRef.current.size,
       countdown: 3
     }
     recordCancelledRef.current = false
@@ -869,8 +869,12 @@ export function OverlayApp(): JSX.Element {
               <RecorderBar
                 mode={recorderMode}
                 language={language ?? 'zh-CN'}
+                size={recorderOptions.size}
                 mic={recorderOptions.mic}
                 systemAudio={recorderOptions.systemAudio}
+                onSizeChange={(size) =>
+                  setRecorderOptions((previous) => ({ ...previous, size }))
+                }
                 onMicToggle={() =>
                   setRecorderOptions((previous) => ({ ...previous, mic: !previous.mic }))
                 }

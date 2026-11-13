@@ -239,7 +239,7 @@ export class RecorderManager {
       note:
         meta.frameCount > 0
           ? this.tr('共 {count} 帧 · 调色板两遍量化', { count: meta.frameCount }) +
-            (scaled ? this.tr(' · 已缩放至 720 长边以保证流畅') : '')
+            (scaled ? this.tr(' · 已缩放至 1080 长边') : '')
           : undefined
     })
   }

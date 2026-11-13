@@ -220,6 +220,7 @@
 .rec-ctrl .rec-start {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   height: 32px;
   padding: 0 16px;
@@ -227,6 +228,8 @@
   background: #ff453a;
   color: #fff;
   font-size: 12px;
+  /* 中文按钮文字在 flex 里会被默认行高推低，1 行高让文字和圆点垂直居中。 */
+  line-height: 1;
   flex: none;
 }
 
@@ -245,6 +248,36 @@
   height: 9px;
   border-radius: 50%;
   background: #fff;
+  flex: none;
+}
+
+.rec-ctrl .rec-size {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.rec-ctrl .rec-size select {
+  height: 28px;
+  padding: 0 22px 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.08);
+  /* 隐藏原生箭头，用右侧的白色小三角，避免深色工具条里出现系统白色控件。 */
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23ffffff' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  outline: none;
+  cursor: pointer;
+}
+
+.rec-ctrl .rec-size select option {
+  background: #1b1b1b;
+  color: #fff;
 }
 
 .rec-ctrl .tm {
