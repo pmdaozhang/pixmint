@@ -1,0 +1,6 @@
+[Unit]
+Description=Pixmint unconfirmed order watchdog
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pixmint-license-watchdog.sh
