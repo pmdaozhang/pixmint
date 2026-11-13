@@ -18,7 +18,13 @@ import type { RecorderMode, Settings, UpdateState } from '../shared/types'
 import { FeedbackService } from './feedback'
 import { SettingsStore } from './settings-store'
 import { SecretStore } from './secret-store'
-import { buildTrayMenu, createTray, trayTooltip, type TrayActions } from './tray'
+import {
+  buildTrayMenu,
+  createTray,
+  setTrayDownloading,
+  trayTooltip,
+  type TrayActions
+} from './tray'
 import { OverlayManager } from './windows/overlay'
 import { PinManager } from './windows/pin'
 import { OcrManager } from './windows/ocr'
@@ -141,6 +147,15 @@ function refreshTrayMenu(): void {
     tray.setContextMenu(buildTrayMenu(trayActions, settingsStore.get().language, updateState))
     tray.setToolTip(trayTooltip(updateState))
   }
+}
+
+/** 下载/校验阶段让托盘图标显示红色下载箭头，进入安装前恢复普通图标。 */
+function syncTrayDownloadState(): void {
+  if (!tray) return
+  setTrayDownloading(
+    tray,
+    updateState.status === 'downloading' || updateState.status === 'verifying'
+  )
 }
 
 function applySystemSettings(): void {
@@ -352,6 +367,7 @@ function initServices(): void {
     onState: (state) => {
       updateState = state
       refreshTrayMenu()
+      syncTrayDownloadState()
     }
   })
   app.on('web-contents-created', (_event, contents) => {
@@ -504,6 +520,7 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
       isPro: () => licenseService.isPro()
     }
     tray = createTray(trayActions, settingsStore.get().language)
+    syncTrayDownloadState()
     if (flags.debugTrayMenu) {
       setTimeout(() => tray?.popUpContextMenu(), 500)
     }
