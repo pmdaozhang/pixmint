@@ -98,7 +98,7 @@ export function MemberWelcome({ status, language }: MemberWelcomeProps): JSX.Ele
 
   const copyText = useCallback(
     (text: string, okText: string) => {
-      void navigator.clipboard
+      void window.snapglass.clipboard
         .writeText(text)
         .then(() => showToast(okText))
         .catch(() => showToast(tr('复制失败，请稍后重试')))

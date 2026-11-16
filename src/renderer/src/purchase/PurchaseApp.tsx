@@ -383,13 +383,13 @@ export function PurchaseApp(): JSX.Element {
 
   const copyCode = (): void => {
     if (!code) return
-    void navigator.clipboard.writeText(code)
+    void window.snapglass.clipboard.writeText(code)
     setMessage(tr('激活码已复制'))
   }
 
   const copyOrderNumber = (): void => {
     if (!order) return
-    void navigator.clipboard.writeText(order.orderNumber)
+    void window.snapglass.clipboard.writeText(order.orderNumber)
     setMessage(tr('订单号已复制'))
   }
 
@@ -660,7 +660,7 @@ export function PurchaseApp(): JSX.Element {
               )}
 
               <p className="pc-pay-note">
-                {tr('换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。')}
+                {tr('换电脑时输入这个激活码即可，一个激活码最多绑定 3 台设备。')}
               </p>
 
               <button className="pc-secondary" type="button" onClick={() => setStep('devices')}>
@@ -722,7 +722,7 @@ export function PurchaseApp(): JSX.Element {
               <div className="pc-eyebrow">{tr('授权设备')}</div>
               <h1>{tr('管理设备')}</h1>
               <p className="pc-lead">
-                {tr('一个激活码最多绑定 5 台设备；解绑后该设备下次使用需要重新激活。')}
+                {tr('一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。')}
               </p>
               {deviceBusy && devices.length === 0 ? (
                 <div className="pc-message">{tr('正在加载设备…')}</div>
