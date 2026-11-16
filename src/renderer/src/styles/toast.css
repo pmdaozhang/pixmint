@@ -1,0 +1,45 @@
+/*
+ * 统一提示浮层：浅色纸白幽灵胶囊，深色磨砂玻璃胶囊。
+ * 只覆盖表面，不碰各组件自己的定位、尺寸和出现/消失动画。
+ */
+
+:is(
+  .overlay-toast,
+  .settings-toast,
+  .feedback-toast,
+  .pin-toast,
+  .mw-toast,
+  .recording-encoding,
+  .pin-text-status
+) {
+  border: 1px solid var(--toast-border);
+  border-radius: 999px;
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  box-shadow: var(--toast-shadow), var(--toast-inset);
+  -webkit-backdrop-filter: var(--toast-blur);
+  backdrop-filter: var(--toast-blur);
+  font-weight: 500;
+}
+
+/* 钉图提示贴在图片上，保持紧凑，只给胶囊一点呼吸空间。 */
+.pin-toast {
+  padding: 5px 11px;
+}
+
+/* 反馈窗的提示比通用 toast 更小，统一到可读下限。 */
+.feedback-toast {
+  padding: 8px 14px;
+  font-size: 11px;
+}
+
+/* 购买窗的内联消息是块状信息，不套胶囊，但沿用同一套表面。 */
+.pc-message {
+  border: 1px solid var(--toast-border);
+  border-radius: var(--radius-xl);
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  box-shadow: var(--toast-shadow), var(--toast-inset);
+  -webkit-backdrop-filter: var(--toast-blur);
+  backdrop-filter: var(--toast-blur);
+}

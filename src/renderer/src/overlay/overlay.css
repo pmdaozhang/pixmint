@@ -575,6 +575,7 @@
 }
 
 .tb {
+  position: relative;
   width: 30px;
   height: 30px;
   border-radius: var(--radius-md);
@@ -594,8 +595,22 @@
 }
 
 .tb.on {
-  background: var(--selected-bg);
-  color: var(--selected-text);
+  background: rgb(43, 43, 43);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* 选中工具用底部强调条标出来，深色工具栏上也一眼能看到。 */
+.tb.on::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%);
 }
 
 .tb:disabled {
@@ -608,13 +623,20 @@
 }
 
 .tb svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* GIF 徽标里的文字需要更清楚，整体比普通工具图标略大一点。 */
+.tb-gif svg {
   width: 18px;
   height: 18px;
 }
 
-.tb-gif svg {
-  width: 20px;
-  height: 20px;
+/* 视频图标横向较窄，单独放大一点，和 GIF 的视觉重量接近。 */
+.tb-video svg {
+  width: 17px;
+  height: 17px;
 }
 
 .act {
@@ -629,8 +651,8 @@
 }
 
 .act svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .act:hover {
@@ -680,6 +702,32 @@
 .ss-cell.on {
   background: var(--selected-bg);
   color: var(--selected-text);
+}
+
+/* B / I / U 共用同一个字形盒子，保证字号、基线和垂直居中一致。 */
+.text-style-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* 斜体标记用衬线斜体 I，和参考图一致。 */
+.text-italic {
+  font-family: "Times New Roman", Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+/* 下划线略微上移并减细，避免 U 看起来比 B/I 低一截。 */
+.text-underline {
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  transform: translateY(-1px);
 }
 
 .seg .ss-cell.on {

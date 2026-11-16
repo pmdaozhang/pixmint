@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { app, Menu, Tray, nativeImage, nativeTheme } from 'electron'
 import type { UpdateState } from '../shared/types'
 import { trayIconDataUrl, type TrayDownloadFrame } from './tray-icon'
@@ -82,9 +83,48 @@ export function buildTrayMenu(
 
 const TRAY_SIZE = { width: 16, height: 16 }
 
+/**
+ * 托盘图标跟随 Windows 任务栏主题，而不是应用主题。
+ * nativeTheme.themeSource 会被应用设置改成 light/dark，直接读 shouldUseDarkColors
+ * 会在“应用深色 + 系统浅色任务栏”时选中白色图标，落在浅色托盘上几乎看不见。
+ */
+function readSystemTrayIsDark(): boolean {
+  if (process.platform === 'win32') {
+    try {
+      const output = execFileSync(
+        'reg',
+        [
+          'query',
+          'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize',
+          '/v',
+          'SystemUsesLightTheme'
+        ],
+        { encoding: 'utf8', windowsHide: true }
+      )
+      const match = /SystemUsesLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(output)
+      if (match) return Number.parseInt(match[1], 16) === 0
+    } catch {
+      // 读不到注册表时退回 nativeTheme，至少不会比原来更差
+    }
+  }
+  return nativeTheme.shouldUseDarkColors
+}
+
+// 下载动画每 600ms 会重建一次图标，不能每次都 spawn 一个 reg 进程。
+let systemTrayDarkCache: boolean | null = null
+
+function systemTrayIsDark(): boolean {
+  if (systemTrayDarkCache === null) systemTrayDarkCache = readSystemTrayIsDark()
+  return systemTrayDarkCache
+}
+
+function refreshSystemTrayTheme(): void {
+  systemTrayDarkCache = readSystemTrayIsDark()
+}
+
 function trayImage(downloadFrame?: TrayDownloadFrame): Electron.NativeImage {
   return nativeImage
-    .createFromDataURL(trayIconDataUrl(nativeTheme.shouldUseDarkColors, downloadFrame))
+    .createFromDataURL(trayIconDataUrl(systemTrayIsDark(), downloadFrame))
     .resize(TRAY_SIZE)
 }
 
@@ -116,11 +156,22 @@ export function setTrayDownloading(target: Tray, active: boolean): void {
 }
 
 export function createTray(actions: TrayActions, language: Language): Tray {
+  refreshSystemTrayTheme()
   const tray = new Tray(trayImage())
   const updateIcon = (): void => {
+    if (tray.isDestroyed()) return
+    refreshSystemTrayTheme()
     tray.setImage(downloading ? trayImage(downloadFrame) : trayImage())
   }
   nativeTheme.on('updated', updateIcon)
+  // 应用主题固定时 nativeTheme 不一定会在系统任务栏换色时发事件，低频兜底检查。
+  setInterval(() => {
+    if (tray.isDestroyed()) return
+    const next = readSystemTrayIsDark()
+    if (next === systemTrayDarkCache) return
+    systemTrayDarkCache = next
+    tray.setImage(downloading ? trayImage(downloadFrame) : trayImage())
+  }, 60_000).unref()
   tray.setToolTip(`Pixmint ${app.getVersion()}`)
   tray.setContextMenu(buildTrayMenu(actions, language))
   tray.on('click', () => tray.popUpContextMenu())

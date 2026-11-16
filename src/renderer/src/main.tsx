@@ -3,6 +3,8 @@ import App from './App'
 import './styles/tokens.css'
 import './styles/global.css'
 import './styles/win11.css'
+import './styles/light-popups.css'
+import './styles/toast.css'
 
 async function bootstrap(): Promise<void> {
   // 首帧先跟随系统主题；各窗口读取到用户设置后再用 applyTheme 覆盖。

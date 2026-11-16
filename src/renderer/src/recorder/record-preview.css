@@ -145,24 +145,6 @@
   cursor: default;
 }
 
-.preview-toast {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  max-width: 90%;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-sm);
-  color: var(--text);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* 0.3.2 紧凑结果卡：对齐初始 Demo 的右下角通知 */
 .preview-root {
   padding: 4px;

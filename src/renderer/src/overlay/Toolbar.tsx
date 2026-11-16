@@ -442,7 +442,7 @@ export function Toolbar({
             <button className="tb tb-gif" title={tr('录制 GIF')} onClick={() => onAction('gif')}>
               <Icon name="gif" />
             </button>
-            <button className="tb" title={tr('录制视频')} onClick={() => onAction('video')}>
+            <button className="tb tb-video" title={tr('录制视频')} onClick={() => onAction('video')}>
               <Icon name="video" />
             </button>
             <span className="div" />
@@ -630,7 +630,7 @@ export function Toolbar({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textB: !options.textB })}
               >
-                <strong>B</strong>
+                <strong className="text-style-glyph">B</strong>
               </button>
               <button
                 className={`ss-cell${options.textI ? ' on' : ''}`}
@@ -638,7 +638,7 @@ export function Toolbar({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textI: !options.textI })}
               >
-                <em>I</em>
+                <span className="text-style-glyph text-italic">I</span>
               </button>
               <button
                 className={`ss-cell${options.textU ? ' on' : ''}`}
@@ -646,7 +646,7 @@ export function Toolbar({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setOptions({ textU: !options.textU })}
               >
-                <u>U</u>
+                <u className="text-style-glyph text-underline">U</u>
               </button>
             </div>
             <select

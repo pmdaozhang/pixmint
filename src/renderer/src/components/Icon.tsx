@@ -43,18 +43,22 @@ const paths: Record<IconName, JSX.Element> = {
   arrow: <path d="M5 19 18 6M18 6h-6M18 6v6" />,
   mosaic: (
     <>
-      <rect x="4" y="4" width="4.2" height="4.2" rx="1" />
-      <rect x="10" y="4" width="4.2" height="4.2" rx="1" />
-      <rect x="16" y="4" width="4.2" height="4.2" rx="1" />
-      <rect x="4" y="10" width="4.2" height="4.2" rx="1" />
-      <rect x="10" y="10" width="4.2" height="4.2" rx="1" />
-      <rect x="16" y="10" width="4.2" height="4.2" rx="1" />
-      <rect x="4" y="16" width="4.2" height="4.2" rx="1" />
-      <rect x="10" y="16" width="4.2" height="4.2" rx="1" />
-      <rect x="16" y="16" width="4.2" height="4.2" rx="1" />
+      <rect x="1.4" y="1.4" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="10.2" y="1.4" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="19" y="1.4" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="5.8" y="5.8" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="14.6" y="5.8" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="1.4" y="10.2" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="10.2" y="10.2" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="19" y="10.2" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="5.8" y="14.6" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="14.6" y="14.6" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="1.4" y="19" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="10.2" y="19" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
+      <rect x="19" y="19" width="3.6" height="3.6" rx="0.9" fill="currentColor" stroke="none" />
     </>
   ),
-  text: <path d="M5 6h14M12 6v13M9 19h6" />,
+  text: <path d="M5 6h14M6.3 6v2.2M17.7 6v2.2M12 6v13M9 19h6" />,
   seq: (
     <>
       <circle cx="12" cy="12" r="8" />
@@ -77,7 +81,7 @@ const paths: Record<IconName, JSX.Element> = {
   ),
   gif: (
     <>
-      <rect x="2.5" y="5" width="19" height="14" rx="3" />
+      <rect x="1.5" y="5" width="21" height="14" rx="3" />
       <text
         x="12"
         y="12.4"
@@ -86,9 +90,9 @@ const paths: Record<IconName, JSX.Element> = {
         fill="currentColor"
         stroke="none"
         fontFamily="Arial, Helvetica, sans-serif"
-        fontSize="8"
+        fontSize="9"
         fontWeight="800"
-        letterSpacing="0.2"
+        letterSpacing="0.1"
       >
         GIF
       </text>
@@ -98,15 +102,22 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <rect x="3" y="6" width="13" height="12" rx="2.5" />
       <path d="M16 10.5 21 8v8l-5-2.5z" />
+      <circle cx="7.3" cy="12" r="1.8" fill="#FF3B30" stroke="none" />
     </>
   ),
   copy: (
     <>
-      <rect x="9" y="9" width="11" height="11" rx="2" />
-      <path d="M5 15H4V4h11v1" />
+      <rect x="5" y="8" width="11" height="11" rx="2" />
+      <path d="M8 8V5h11v11h-3" />
+      <path d="M8 11.5h5M8 14h5M8 16.5h5" />
     </>
   ),
-  pin: <path d="M9 4h6l-1 7 3 3H7l3-3-1-7zM12 14v6" />,
+  pin: (
+    <g transform="rotate(45 12 12)">
+      <path d="M9 4h6l-1 7 3 3H7l3-3-1-7z" />
+      <path d="M12 14v6" />
+    </g>
+  ),
   save: (
     <>
       <path d="M5 4h11l3 3v13H5z" />
@@ -164,17 +175,61 @@ const paths: Record<IconName, JSX.Element> = {
   ),
 }
 
+interface IconBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+  /** 单个图标的光学留白；越小图形越大。 */
+  padding?: number
+}
+
+/**
+ * 工具栏图标在 24 网格里的实际几何包围盒。
+ * 图标外框统一后，用它把每个图形都撑到同样的光学尺寸；未列出的图标保持原 viewBox。
+ */
+const bounds: Partial<Record<IconName, IconBounds>> = {
+  shape: { x: 3.5, y: 5.5, width: 17, height: 13.3 },
+  arrow: { x: 5, y: 6, width: 13, height: 13, padding: 2.4 },
+  mosaic: { x: 1.4, y: 1.4, width: 21.2, height: 21.2 },
+  text: { x: 5, y: 6, width: 14, height: 13, padding: 2.4 },
+  seq: { x: 4, y: 4, width: 16, height: 16 },
+  undo: { x: 4, y: 7, width: 15, height: 11 },
+  redo: { x: 5, y: 7, width: 15, height: 11 },
+  ocr: { x: 4, y: 4, width: 16, height: 16 },
+  translate: { x: 3, y: 3, width: 18, height: 18 },
+  gif: { x: 1.5, y: 4.3, width: 21, height: 14.7 },
+  video: { x: 3, y: 6, width: 18, height: 12 },
+  close: { x: 6, y: 6, width: 12, height: 12, padding: 2.4 },
+  pin: { x: 2.8, y: 2.8, width: 18.4, height: 18.4, padding: -0.6 },
+  save: { x: 5, y: 4, width: 14, height: 16 },
+  copy: { x: 5, y: 5, width: 14, height: 14 }
+}
+
+const OPTICAL_PADDING = 1.2
+
 export function Icon({ name, size = 17 }: { name: IconName; size?: number }): JSX.Element {
+  const box = bounds[name]
+  const padding = box?.padding ?? OPTICAL_PADDING
+  const viewBox = box
+    ? `${box.x - padding} ${box.y - padding} ${box.width + padding * 2} ${box.height + padding * 2}`
+    : '0 0 24 24'
+  // 缩放 viewBox 会连带缩放描边；反算 strokeWidth，让屏幕上的线宽保持原来的 1.8/24。
+  const strokeWidth = box
+    ? (1.8 * Math.max(box.width + padding * 2, box.height + padding * 2)) / 24
+    : 1.8
+
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={viewBox}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
+      overflow="visible"
       aria-hidden="true"
     >
       {paths[name]}

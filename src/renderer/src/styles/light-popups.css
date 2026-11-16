@@ -1,0 +1,33 @@
+/*
+ * 05 纸边：浅色模式的浮层视觉。
+ *
+ * 背景：浅色模式下浮层表面是纯白，描边只有 8–10%，落在白色截图上
+ * 几乎看不见。这里统一把窗口/工具条改成更实的纸边；深色模式保持原样，
+ * 不动。toast 的表面统一放在 toast.css，浅色深色共用一套胶囊。
+ */
+
+/* ---------- 纸边：窗口、工具条、菜单、录制设置 ---------- */
+
+[data-theme='light'] .ocr-root,
+[data-theme='light'] .tooldock,
+[data-theme='light'] .gif-setup,
+[data-theme='light'] .direction-menu {
+  border-color: rgba(20, 20, 24, .13);
+  box-shadow:
+    0 0 0 1px rgba(20, 20, 24, .04),
+    0 2px 6px rgba(20, 20, 24, .06),
+    0 18px 36px -16px rgba(20, 20, 24, .28);
+}
+
+[data-theme='light'] .ocr-root,
+[data-theme='light'] .tooldock {
+  background: #ffffff;
+}
+
+/* ---------- 错误提示 ---------- */
+
+[data-theme='light'] .ocr-error {
+  border: 1px solid rgba(190, 50, 40, .28);
+  background: rgba(255, 240, 238, .92);
+  color: #b3261e;
+}
