@@ -28,7 +28,7 @@ describe('LicenseService 开发版会员预览', () => {
     expect(status.expiresAt).toBeNull()
     expect(status.code).toBe('PM261112-DEV1')
     expect(status.devicesUsed).toBe(1)
-    expect(status.devicesMax).toBe(5)
+    expect(status.devicesMax).toBe(3)
   })
 
   it('devPro 开启时 isPro 为 true', () => {

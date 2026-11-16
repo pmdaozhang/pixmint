@@ -117,7 +117,7 @@ export class LicenseService {
         updateUntil: null,
         code: record.code || null,
         devicesUsed: record.devicesUsed ?? 0,
-        devicesMax: record.devicesMax ?? 5,
+        devicesMax: record.devicesMax ?? 3,
         needsRefresh: false,
         offline: false
       }
@@ -135,7 +135,7 @@ export class LicenseService {
         updateUntil: null,
         code: record.code || null,
         devicesUsed: record.devicesUsed ?? 0,
-        devicesMax: record.devicesMax ?? 5,
+        devicesMax: record.devicesMax ?? 3,
         needsRefresh: false,
         offline: false,
         reason: verified.reason
@@ -148,7 +148,7 @@ export class LicenseService {
       updateUntil: verified.payload.upd,
       code: record.code || null,
       devicesUsed: record.devicesUsed ?? 0,
-      devicesMax: record.devicesMax ?? 5,
+      devicesMax: record.devicesMax ?? 3,
       needsRefresh: verified.needsRefresh,
       offline: verified.needsRefresh
     }
@@ -163,7 +163,7 @@ export class LicenseService {
       updateUntil: null,
       code: 'PM261112-DEV1',
       devicesUsed: 1,
-      devicesMax: 5,
+      devicesMax: 3,
       needsRefresh: false,
       offline: false
     }

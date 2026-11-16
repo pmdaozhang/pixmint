@@ -497,8 +497,8 @@ const EN: Record<string, string> = {
   '立即购买': 'Buy now',
   '已有激活码 / 换电脑恢复': 'I have a code / restore on a new PC',
   '已有激活码': 'I have a code',
-  '换电脑恢复只需输入激活码，一个激活码最多绑定 5 台设备。':
-    'To restore on a new PC, just enter your activation code; one code binds up to 5 devices.',
+  '换电脑恢复只需输入激活码，一个激活码最多绑定 3 台设备。':
+    'To restore on a new PC, just enter your activation code; one code binds up to 3 devices.',
   '扫码支付': 'Scan to pay',
   '用手机扫码完成支付': 'Scan the code with your phone',
   '支付成功后会自动激活，本窗口无需其他操作。':
@@ -515,8 +515,8 @@ const EN: Record<string, string> = {
   '有效期至 {date}': 'Valid until {date}',
   '已解锁全部 Pro 功能': 'All Pro features unlocked',
   '激活码': 'Activation code',
-  '换电脑时输入这个激活码即可，一个激活码最多绑定 5 台设备。':
-    'Enter this code on a new PC. One code can bind up to 5 devices.',
+  '换电脑时输入这个激活码即可，一个激活码最多绑定 3 台设备。':
+    'Enter this code on a new PC. One code can bind up to 3 devices.',
   '恢复购买': 'Restore purchase',
   '输入激活码': 'Enter activation code',
   '换电脑或重装后，在这里输入购买时收到的激活码。':
@@ -546,8 +546,8 @@ const EN: Record<string, string> = {
   '管理设备': 'Manage devices',
   '授权设备': 'Licensed devices',
   '当前已绑定 {used}/{max} 台设备': '{used}/{max} devices bound',
-  '一个激活码最多绑定 5 台设备；解绑后该设备下次使用需要重新激活。':
-    'One code binds up to 5 devices. After unbinding, that device must activate again.',
+  '一个激活码最多绑定 3 台设备；解绑后该设备下次使用需要重新激活。':
+    'One code binds up to 3 devices. After unbinding, that device must activate again.',
   '正在加载设备…': 'Loading devices…',
   '还没有绑定设备，或当前没有可管理的授权。':
     'No devices bound, or no license to manage.',
@@ -558,8 +558,8 @@ const EN: Record<string, string> = {
   '解绑': 'Unbind',
   '已解绑该设备': 'Device unbound',
   '升级 Pro': 'Upgrade to Pro',
-  '换电脑时输入此码，最多绑定 5 台设备':
-    'Enter this code on a new PC; up to 5 devices',
+  '换电脑时输入此码，最多绑定 3 台设备':
+    'Enter this code on a new PC; up to 3 devices',
   '生成订单并付款': 'Create order and pay',
   '支付 {amount}': 'Pay {amount}',
   '{plan} · 付款后人工确认，通常 10 分钟内完成':

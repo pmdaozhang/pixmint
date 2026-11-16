@@ -108,8 +108,8 @@ class LicenseApiTest(unittest.TestCase):
 
     def test_device_limit_and_unbind(self):
         base_device = "3" * 64
-        extra = ["4" * 64, "5" * 64, "6" * 64, "7" * 64]
-        sixth = "8" * 64
+        extra = ["4" * 64, "5" * 64]
+        fourth = "8" * 64
         data = self.create_paid_license(base_device)
         code = data["code"]
         for device in extra:
@@ -118,7 +118,7 @@ class LicenseApiTest(unittest.TestCase):
             )
             self.assertEqual(response.status_code, 200, response.data)
         blocked = self.client.post(
-            "/v1/license/activate", json={"code": code, "deviceId": sixth}
+            "/v1/license/activate", json={"code": code, "deviceId": fourth}
         )
         self.assertEqual(blocked.status_code, 409)
         self.assertEqual(blocked.get_json()["code"], "device_limit")
@@ -126,12 +126,12 @@ class LicenseApiTest(unittest.TestCase):
         listed = self.client.post(
             "/v1/license/devices", json={"code": code, "deviceId": base_device}
         ).get_json()
-        self.assertEqual(len(listed["devices"]), 5)
+        self.assertEqual(len(listed["devices"]), 3)
         self.client.post(
             "/v1/license/unbind", json={"code": code, "targetDevice": extra[0]}
         )
         retried = self.client.post(
-            "/v1/license/activate", json={"code": code, "deviceId": sixth}
+            "/v1/license/activate", json={"code": code, "deviceId": fourth}
         )
         self.assertEqual(retried.status_code, 200, retried.data)
 
@@ -246,7 +246,7 @@ class LicenseApiTest(unittest.TestCase):
         restored = self.client.post("/v1/license/by-device", json={"deviceId": device})
         self.assertEqual(restored.status_code, 200, restored.data)
         self.assertEqual(restored.get_json()["code"], code)
-        self.assertEqual(restored.get_json()["devicesMax"], 5)
+        self.assertEqual(restored.get_json()["devicesMax"], 3)
 
         again = self.client.post(
             f"/v1/admin/manual/orders/{order_id}/confirm",

@@ -106,7 +106,7 @@ const server = http.createServer((req, res) => {
         plan: 'pro',
         expiresAt: null,
         devicesUsed: 1,
-        devicesMax: 5
+        devicesMax: 3
       })
     }
     if (req.method === 'POST' && url.pathname === '/license/trial') {
