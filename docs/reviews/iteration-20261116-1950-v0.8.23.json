@@ -1,0 +1,74 @@
+{
+  "version": "0.8.23",
+  "date": "2026-11-16",
+  "commit": "554675e",
+  "level": "full",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119616071,
+    "sourceFiles": 201,
+    "sourceLines": 33654,
+    "testFiles": 39,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "37 files / 217 tests"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "e2e-overlay, e2e-pin, e2e-settings, e2e-feedback, e2e-pin-text, e2e-overlay-ocr",
+        "result": "all passed with isolated profiles"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "package",
+        "status": "pass",
+        "command": "pnpm exec electron-builder",
+        "result": "Pixmint-Setup-0.8.23.exe 119616071 bytes; latest.yml and blockmap generated"
+      },
+      {
+        "name": "website-release",
+        "status": "pass",
+        "command": "curl /release.json + live page",
+        "result": "version 0.8.23; download URL points to Setup 0.8.23; two UTF-8 release notes present"
+      },
+      {
+        "name": "download-sha256",
+        "status": "pass",
+        "command": "curl /download + Get-FileHash",
+        "result": "119616071 bytes; sha256 16bd7a4058e6a5962c5a423ae5213b2ef9c8b338b85b92746c4f363cc3122d4c matches release.json"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.8.23 unifies toolbar icon optical sizes and selected-state treatment, aligns B/I/U text controls, refines GIF/video icons, unifies light/dark toast surfaces, and makes the tray icon follow the Windows taskbar theme. Unit tests and the affected Electron E2E paths pass. Installer is unsigned; SmartScreen reputation remains a known distribution debt."
+}
