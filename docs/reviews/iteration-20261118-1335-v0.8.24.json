@@ -1,0 +1,80 @@
+{
+  "version": "0.8.24",
+  "date": "2026-11-18",
+  "commit": "4775818",
+  "level": "full",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 157226940,
+    "sourceFiles": 266,
+    "sourceLines": 53413,
+    "testFiles": 41,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "39 files / 235 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "verify",
+        "status": "pass",
+        "command": "../scripts/verify.ps1 -Path .",
+        "result": "FAIL=0 WARN=0"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "e2e-overlay, e2e-text-features, e2e-text-drag-multi, e2e-editor-drag, e2e-font-picker, e2e-font-size, e2e-pin-text",
+        "result": "all *_OK; pin-text 30 iterations growth -89MB"
+      },
+      {
+        "name": "package",
+        "status": "pass",
+        "command": "pnpm exec electron-builder --win",
+        "result": "Pixmint-Setup-0.8.24.exe 157226940 bytes; latest.yml + blockmap + sha256"
+      },
+      {
+        "name": "website-release",
+        "status": "pass",
+        "command": "curl /release.json + /downloads/latest.yml + /download",
+        "result": "version 0.8.24; three release notes; Content-Length 157226940; /download 302 -> latest.exe; range 206"
+      },
+      {
+        "name": "download-sha256",
+        "status": "pass",
+        "command": "sha256sum local installer",
+        "result": "307200e1b4c33a276c140b928debe6f37673e6b625b798d31ecf0cc7344659a0 matches release.json"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "Pixmint 0.8.24: multi-line auto-sizing text input constrained to the selection, 10 bundled member fonts with a live font preview list, wheel-based font size (14-60), unified move cursor and drag (including editing state), and pin OCR text-layer padding to reduce missed selection. Released to the website; installer grew ~37.6MB due to bundled fonts."
+}
