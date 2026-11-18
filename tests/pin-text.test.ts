@@ -9,11 +9,12 @@ describe('pin text layer layout', () => {
       { width: 960, height: 540 }
     )
     expect(line.text).toBe('你好世界')
-    expect(line.left).toBe(480)
-    expect(line.top).toBe(270)
-    expect(line.width).toBe(100)
-    expect(line.height).toBe(50)
-    expect(line.fontSize).toBe(45)
+    // 行框外扩：左右 6px、上下 4px，保证覆盖检测框边缘文字。
+    expect(line.left).toBe(474)
+    expect(line.top).toBe(266)
+    expect(line.width).toBe(112)
+    expect(line.height).toBe(58)
+    expect(line.fontSize).toBeCloseTo(52.2)
   })
 
   it('sorts lines in reading order and drops empty text', () => {
@@ -35,8 +36,8 @@ describe('pin text layer layout', () => {
       { width: 1920, height: 1080 },
       { width: 960, height: 540 }
     )
-    expect(line.left).toBe(950)
-    expect(line.width).toBe(10)
+    expect(line.left).toBe(944)
+    expect(line.width).toBe(16)
   })
 
   it('returns no lines for empty images or invalid viewports', () => {

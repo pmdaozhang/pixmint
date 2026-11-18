@@ -65,6 +65,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 
 export function OverlayApp(): JSX.Element {
   const [toast, setToast] = useState('')
+  const [isPro, setIsPro] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    window.snapglass
+      .license.status()
+      .then((status) => {
+        if (alive) setIsPro(status.pro)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
   const [error, setError] = useState('')
   // 首次框选前就按接近实际宽度定位，避免量宽前把工具条推到屏幕外造成“延迟出现”。
   const [toolbarWidth, setToolbarWidth] = useState(740)
@@ -861,6 +875,10 @@ export function OverlayApp(): JSX.Element {
                 onEmptyDoubleClick={() => onAction('copy')}
                 onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
+                onTextOverflow={() =>
+                  showToast(t(language ?? 'zh-CN', '超出截图区域~'))
+                }
+                onFontSizeChange={(size) => setOptions({ fontSize: size })}
               />
             </>
           )}
@@ -964,6 +982,8 @@ export function OverlayApp(): JSX.Element {
             onRedo={() => annotationRef.current?.redo()}
             canUndo={canUndo}
             canRedo={canRedo}
+            isPro={isPro}
+            onOpenPurchase={() => window.snapglass.purchase.open()}
           />
         </div>
       )}

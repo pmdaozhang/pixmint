@@ -1,5 +1,7 @@
 # Pixmint 项目规则
 
+> 流程规则以工作区根 `../AGENTS.md` 为准；本文件只写 Pixmint 的项目差异。
+
 ## 技术栈
 
 - 壳：Electron 40
@@ -40,6 +42,13 @@ pnpm soak:real-overlay
 pnpm soak:memory
 ```
 
+## 运行开发版（自测）
+
+- 启动：`pnpm dev`（驻留托盘，不弹主窗口）。
+- 进程名是 **`electron.exe`**，不是安装版的 `Pixmint.exe`；自检：`node scripts/pixmint-dev-status.mjs`。
+- 呼出截图覆盖层：按 `F1`；关闭：托盘「退出」。
+- 已有实例时先退出再启动，避免单例唤醒。
+
 ## 开发纪律
 
 - 先复述确认，再路由，再进入实现。
@@ -50,6 +59,7 @@ pnpm soak:memory
 - 每个功能必须配单测或 E2E；提交前至少运行 `pnpm typecheck`、`pnpm test`、`pnpm build`。
 - 文档更新（CHANGELOG + ROADMAP）在验证通过后、Code Review 前完成。
 - 迭代回顾与发布门禁以工作区根 AGENTS.md 为准；项目基线见 `docs/reviews/baseline.json`，回归映射见 `docs/regression-map.md`。红色项未清零不得发版。
+- 交付前运行 `..\scripts\verify.ps1 -Path .`；发布前运行 `node ..\scripts\review\release-gate.mjs --project .`。
 
 ## 资源与长跑验证
 

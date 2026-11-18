@@ -43,15 +43,66 @@ export function annotationBounds(annotation: Annotation): Rect {
       text.width && text.width > 0
         ? text.width
         : Math.max(24, text.text.length * text.fontSize * 1.05)
+    // 多行文字按行数计算高度，和绘制（fontSize * 1.2 行高）保持一致。
+    const lineCount = Math.max(1, text.text.split('\n').length)
     return {
       x: text.x,
       y: text.y,
       width,
-      height: text.fontSize * 1.45
+      height: lineCount * text.fontSize * 1.2
     }
   }
   const seq = annotation as SeqAnno
   return { x: seq.x - 14, y: seq.y - 14, width: 28, height: 28 }
+}
+
+/**
+ * 背景：文字标注需要区分「框内点击编辑」和「边框拖动」。
+ * 设计意图：命中矩形外沿一定容差即视为边框，供光标切换为十字。
+ * 关键约束：四角同时满足横竖条件，避免角点漏判。
+ */
+export function isNearRectBorder(point: Point, rect: Rect, tolerance = 6): boolean {
+  const nearLeft = Math.abs(point.x - rect.x) <= tolerance
+  const nearRight = Math.abs(point.x - (rect.x + rect.width)) <= tolerance
+  const nearTop = Math.abs(point.y - rect.y) <= tolerance
+  const nearBottom = Math.abs(point.y - (rect.y + rect.height)) <= tolerance
+  const withinVertical =
+    point.y >= rect.y - tolerance && point.y <= rect.y + rect.height + tolerance
+  const withinHorizontal =
+    point.x >= rect.x - tolerance && point.x <= rect.x + rect.width + tolerance
+  return (
+    ((nearLeft || nearRight) && withinVertical) ||
+    ((nearTop || nearBottom) && withinHorizontal)
+  )
+}
+
+/**
+ * 背景：矩形/箭头工具 hover 边线用 move 光标，文字工具也应统一为 move。
+ * 设计意图：文字没有“线”，用外扩一圈模拟边框：外扩 outer 与内缩 inner 之间
+ *          的环带视为可移动边框，环带所围的内部保留为编辑区（text 光标）。
+ * 关键约束：内缩量取 min(inner, 宽高的一半)，避免小文字框内部被吃光。
+ */
+export function isInBorderBand(
+  point: Point,
+  rect: Rect,
+  outer = 12,
+  inner = 6
+): boolean {
+  const expanded: Rect = {
+    x: rect.x - outer,
+    y: rect.y - outer,
+    width: rect.width + outer * 2,
+    height: rect.height + outer * 2
+  }
+  const shrinkX = Math.min(inner, rect.width / 2)
+  const shrinkY = Math.min(inner, rect.height / 2)
+  const innerRect: Rect = {
+    x: rect.x + shrinkX,
+    y: rect.y + shrinkY,
+    width: Math.max(0, rect.width - shrinkX * 2),
+    height: Math.max(0, rect.height - shrinkY * 2)
+  }
+  return pointInRect(point, expanded) && !pointInRect(point, innerRect)
 }
 
 export function hitTestAnnotation(annotation: Annotation, point: Point): boolean {

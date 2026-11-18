@@ -20,6 +20,20 @@ export function PinApp(): JSX.Element {
   const [imageUrl, setImageUrl] = useState('')
   const [editing, setEditing] = useState(false)
   const [options, setOptions] = useState<OverlayOptions>(DEFAULT_OPTIONS)
+  const [isPro, setIsPro] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    window.snapglass
+      .license.status()
+      .then((status) => {
+        if (alive) setIsPro(status.pro)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
   const [submenuOpen, setSubmenuOpen] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
@@ -422,6 +436,10 @@ export function PinApp(): JSX.Element {
                 options={options}
                 onTextInputStart={onTextInputStart}
                 onHistoryChange={onHistoryChange}
+                onTextOverflow={() => flash(t(language, '超出截图区域~'))}
+                onFontSizeChange={(size) =>
+                  setOptions((previous) => ({ ...previous, fontSize: size }))
+                }
               />
             )}
           </div>
@@ -438,6 +456,8 @@ export function PinApp(): JSX.Element {
               canRedo={canRedo}
               variant="pin"
               language={language}
+              isPro={isPro}
+              onOpenPurchase={() => window.snapglass.purchase.open()}
               onConfirm={() => {
                 void confirmEdit()
               }}

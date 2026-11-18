@@ -21,14 +21,20 @@ import type {
   TextAnno
 } from '@shared/types'
 import {
+  annotationBounds,
   appendMosaicBrushCells,
   canMoveAnnotationWithTool,
   cloneAnnotations,
   hitTestAnnotation,
+  isInBorderBand,
   moveAnnotation
 } from '@shared/annotation-utils'
+import { layoutText } from '@shared/text-layout'
 import { drawAnnotation } from './annotation/draw'
 import type { OverlayOptions } from './options'
+
+const FONT_SIZE_MIN = 14
+const FONT_SIZE_MAX = 60
 
 export interface AnnotationCanvasHandle {
   undo(): void
@@ -50,6 +56,10 @@ interface Props {
   moveCursor?: 'grab' | 'crosshair'
   onTextInputStart(annotation?: TextAnno): void
   onHistoryChange(canUndo: boolean, canRedo: boolean): void
+  /** 文字超出截图选区时触发，由覆盖层弹 toast 提示 */
+  onTextOverflow?(): void
+  /** 滚轮调节文字字号（14–60） */
+  onFontSizeChange?(size: number): void
   /** 双击空白区域（未命中任何标注）时触发，用于快速结束截图 */
   onEmptyDoubleClick?(): void
 }
@@ -75,6 +85,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       moveCursor = 'crosshair',
       onTextInputStart,
       onHistoryChange,
+      onTextOverflow,
+      onFontSizeChange,
       onEmptyDoubleClick
     },
     ref
@@ -93,10 +105,17 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       original: Annotation
       moved: boolean
     } | null>(null)
+    // 编辑态：textarea 边框环带按下可整体移动输入框。
+    const editorDragRef = useRef<{
+      startX: number
+      startY: number
+      origX: number
+      origY: number
+    } | null>(null)
     const gestureRef = useRef<{ start: Point; points: Point[]; moved: boolean } | null>(null)
     const pendingLineRef = useRef<{ x1: number; y1: number } | null>(null)
     const textPendingRef = useRef<Point | null>(null)
-    const textInputRef = useRef<HTMLInputElement | null>(null)
+    const textInputRef = useRef<HTMLTextAreaElement | null>(null)
     const editingTextIdRef = useRef<string | null>(null)
     const seqRef = useRef(0)
     const sizeRef = useRef({ width: selection.width, height: selection.height })
@@ -350,7 +369,16 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
     const cursorForPoint = (point: Point): string => {
       if (options.tool === 'move') return moveToolCursor
       if (options.tool === 'mosaic' && options.mosaicMode === 'brush') return 'none'
-      if (options.tool === 'text') return hitIndex(point, 'text') >= 0 ? 'move' : 'text'
+      if (options.tool === 'text') {
+        const index = hitIndex(point, 'text')
+        if (index >= 0) {
+          const annotation = annotationsRef.current[index]
+          return annotation && isInBorderBand(point, annotationBounds(annotation))
+            ? 'move'
+            : 'text'
+        }
+        return 'text'
+      }
       if (options.tool === 'seq') return 'text'
       if (options.tool === 'shape' || options.tool === 'arrow') {
         return hitIndex(point) >= 0 ? 'move' : 'crosshair'
@@ -681,6 +709,63 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       notifyHistory()
     }
 
+    /** 滚轮调节字号：仅文字工具，范围 14–60，步长 2。 */
+    const changeFontSize = (delta: number): void => {
+      if (options.tool !== 'text') return
+      const next = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, options.fontSize + delta))
+      if (next !== options.fontSize) onFontSizeChange?.(next)
+    }
+
+    // React 的 onWheel 是 passive，无法 preventDefault；改用原生 non-passive 监听。
+    useEffect(() => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const onWheel = (event: WheelEvent): void => {
+        if (options.tool !== 'text') return
+        event.preventDefault()
+        changeFontSize(event.deltaY < 0 ? 2 : -2)
+      }
+      canvas.addEventListener('wheel', onWheel, { passive: false })
+      return () => canvas.removeEventListener('wheel', onWheel)
+    }, [options.tool, options.fontSize])
+
+    useEffect(() => {
+      const element = textInputRef.current
+      if (!textDraft || !element) return
+      const onWheel = (event: WheelEvent): void => {
+        event.preventDefault()
+        changeFontSize(event.deltaY < 0 ? 2 : -2)
+      }
+      element.addEventListener('wheel', onWheel, { passive: false })
+      return () => element.removeEventListener('wheel', onWheel)
+    }, [textDraft, options.tool, options.fontSize])
+
+    const measureText = (text: string): number => {
+      const ctx = canvasRef.current?.getContext('2d')
+      if (!ctx) return text.length * options.fontSize
+      ctx.save()
+      ctx.font = `${options.textI ? 'italic ' : ''}${options.textB ? '700 ' : '400 '}${options.fontSize}px ${options.fontFamily}`
+      const width = ctx.measureText(text).width
+      ctx.restore()
+      return width
+    }
+
+    /**
+     * 输入框宽度随内容自适应，但最大不超过选区剩余宽度；高度随换行增长，
+     * 最大不超过选区剩余高度。超出任一限制就拒绝本次输入并弹 toast。
+     */
+    const handleTextChange = (value: string): void => {
+      if (!textDraft) return
+      const maxWidth = Math.max(0, selection.width - textDraft.x)
+      const maxHeight = Math.max(0, selection.height - textDraft.y)
+      const layout = layoutText(value, measureText, options.fontSize, maxWidth, maxHeight)
+      if (layout.overflow) {
+        onTextOverflow?.()
+        return
+      }
+      setTextDraft({ ...textDraft, value })
+    }
+
     const commitText = (): void => {
       if (!textDraft) return
       const value = textDraft.value.trim()
@@ -695,14 +780,14 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       const fontFamily = options.fontFamily
       const bold = options.textB
       const italic = options.textI
-      const measure = canvasRef.current?.getContext('2d')
-      let measuredWidth: number | undefined
-      if (measure) {
-        measure.save()
-        measure.font = `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${fontSize}px ${fontFamily}`
-        measuredWidth = measure.measureText(value).width
-        measure.restore()
-      }
+      const layout = layoutText(
+        value,
+        measureText,
+        fontSize,
+        Math.max(1, selection.width - textDraft.x),
+        Number.POSITIVE_INFINITY
+      )
+      const measuredWidth = layout.width
       if (editingId) {
         pushHistory()
         annotationsRef.current = annotationsRef.current.map((annotation) =>
@@ -768,20 +853,73 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
           style={{ cursor, width: selection.width, height: selection.height }}
         />
         {textDraft && (
-          <input
+          <textarea
             ref={textInputRef}
             className="text-draft"
             autoFocus
-            onPointerDown={(event) => event.stopPropagation()}
+            rows={1}
+            onPointerDown={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              const px = event.clientX - rect.left
+              const py = event.clientY - rect.top
+              const onBand = isInBorderBand(
+                { x: px, y: py },
+                { x: 0, y: 0, width: rect.width, height: rect.height }
+              )
+              if (!onBand) {
+                event.stopPropagation()
+                return
+              }
+              // 边框环带：按下后拖动整框，不进入文本选择。
+              event.preventDefault()
+              event.stopPropagation()
+              event.currentTarget.setPointerCapture(event.pointerId)
+              editorDragRef.current = {
+                startX: event.clientX,
+                startY: event.clientY,
+                origX: textDraft.x,
+                origY: textDraft.y
+              }
+            }}
+            onPointerMove={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              const px = event.clientX - rect.left
+              const py = event.clientY - rect.top
+              const drag = editorDragRef.current
+              if (drag) {
+                const nextX = Math.max(
+                  0,
+                  Math.min(selection.width - 8, drag.origX + event.clientX - drag.startX)
+                )
+                const nextY = Math.max(
+                  0,
+                  Math.min(selection.height - 8, drag.origY + event.clientY - drag.startY)
+                )
+                setTextDraft((draft) => (draft ? { ...draft, x: nextX, y: nextY } : draft))
+                return
+              }
+              const onBand = isInBorderBand(
+                { x: px, y: py },
+                { x: 0, y: 0, width: rect.width, height: rect.height }
+              )
+              event.currentTarget.style.cursor = onBand ? 'move' : 'text'
+            }}
+            onPointerUp={(event) => {
+              editorDragRef.current = null
+              event.currentTarget.style.cursor = 'text'
+            }}
+            onPointerLeave={(event) => {
+              if (!editorDragRef.current) event.currentTarget.style.cursor = 'text'
+            }}
             value={textDraft.value}
-            onChange={(event) => setTextDraft({ ...textDraft, value: event.target.value })}
+            onChange={(event) => handleTextChange(event.target.value)}
             onBlur={(event) => {
               const next = event.relatedTarget as HTMLElement | null
               if (next?.closest('.tooldock')) return
               commitText()
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
+              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault()
                 event.stopPropagation()
                 commitText()
@@ -796,6 +934,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
             style={{
               left: textDraft.x,
               top: textDraft.y,
+              maxWidth: Math.max(0, selection.width - textDraft.x),
+              maxHeight: Math.max(0, selection.height - textDraft.y),
               color: options.color,
               fontSize: options.fontSize,
               fontFamily: options.fontFamily,

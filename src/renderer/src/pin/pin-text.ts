@@ -14,6 +14,10 @@ function positive(value: number): boolean {
   return Number.isFinite(value) && value > 0
 }
 
+/** 行框外扩像素：检测框紧贴文字，留空隙会导致拖选/全选漏掉边缘字。 */
+const PAD_X = 6
+const PAD_Y = 4
+
 /**
  * 背景：OCR 坐标基于原图像素，钉图窗口会随图片尺寸和工作区缩放而变化。
  * 设计意图：按当前图片显示尺寸生成绝对定位行框，文字层无需缩放整个 DOM。
@@ -40,12 +44,15 @@ export function layoutPinTextLines(
     .slice()
     .sort((left, right) => left.y - right.y || left.x - right.x)
     .flatMap((block, index) => {
-      const left = Math.max(0, Math.min(viewport.width, block.x * scaleX))
-      const top = Math.max(0, Math.min(viewport.height, block.y * scaleY))
-      const right = Math.max(0, Math.min(viewport.width, (block.x + block.width) * scaleX))
+      const left = Math.max(0, Math.min(viewport.width, block.x * scaleX - PAD_X))
+      const top = Math.max(0, Math.min(viewport.height, block.y * scaleY - PAD_Y))
+      const right = Math.max(
+        0,
+        Math.min(viewport.width, (block.x + block.width) * scaleX + PAD_X)
+      )
       const bottom = Math.max(
         0,
-        Math.min(viewport.height, (block.y + block.height) * scaleY)
+        Math.min(viewport.height, (block.y + block.height) * scaleY + PAD_Y)
       )
       const width = right - left
       const height = bottom - top

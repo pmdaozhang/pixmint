@@ -515,16 +515,21 @@ function drawTextAnnotation(ctx: CanvasRenderingContext2D, annotation: Annotatio
   ctx.fillStyle = style.color
   ctx.font = font
   ctx.textBaseline = 'top'
-  ctx.fillText(annotation.text, annotation.x, annotation.y)
-  if (annotation.underline) {
-    const width = ctx.measureText(annotation.text).width
-    ctx.strokeStyle = style.color
-    ctx.lineWidth = Math.max(1, annotation.fontSize / 14)
-    ctx.beginPath()
-    ctx.moveTo(annotation.x, annotation.y + annotation.fontSize + 2)
-    ctx.lineTo(annotation.x + width, annotation.y + annotation.fontSize + 2)
-    ctx.stroke()
-  }
+  const lineHeight = annotation.fontSize * 1.2
+  const lines = annotation.text.split('\n')
+  lines.forEach((line, index) => {
+    const y = annotation.y + index * lineHeight
+    ctx.fillText(line, annotation.x, y)
+    if (annotation.underline) {
+      const width = ctx.measureText(line).width
+      ctx.strokeStyle = style.color
+      ctx.lineWidth = Math.max(1, annotation.fontSize / 14)
+      ctx.beginPath()
+      ctx.moveTo(annotation.x, y + annotation.fontSize + 2)
+      ctx.lineTo(annotation.x + width, y + annotation.fontSize + 2)
+      ctx.stroke()
+    }
+  })
 }
 
 export function drawAnnotation(

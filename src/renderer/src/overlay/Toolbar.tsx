@@ -5,12 +5,14 @@ import { t, type Language } from '@shared/i18n'
 import { Icon } from '../components/Icon'
 import { drawArrowHead, strokePathStyled } from './annotation/draw'
 import {
+  FONT_CHOICES,
   LINE_STYLES,
   MOSAIC_BRUSH_MAX,
   MOSAIC_BRUSH_MIN,
   MOSAIC_DENSITY_MAX,
   MOSAIC_DENSITY_MIN,
   PALETTE,
+  canUseFontChoice,
   mosaicDensityToSize,
   type OverlayOptions
 } from './options'
@@ -38,6 +40,10 @@ interface Props {
   variant?: 'overlay' | 'pin'
   language?: Language
   onConfirm?: () => void
+  /** 是否会员；免费用户只能使用默认字体 */
+  isPro?: boolean
+  /** 免费用户点击会员字体时打开购买窗 */
+  onOpenPurchase?: () => void
 }
 
 const ARROW_MODES: Array<{ value: ArrowMode; label: string }> = [
@@ -244,6 +250,84 @@ function ArrowModePicker({
   )
 }
 
+function FontPicker({
+  value,
+  isPro,
+  language,
+  onChange,
+  onOpenPurchase
+}: {
+  value: string
+  isPro: boolean
+  language: Language
+  onChange(family: string): void
+  onOpenPurchase(): void
+}): JSX.Element {
+  const tr = (zh: string): string => t(language, zh)
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (event: PointerEvent): void => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+  const current = FONT_CHOICES.find((choice) => choice.family === value) ?? FONT_CHOICES[0]
+  return (
+    <div className="font-picker" ref={rootRef}>
+      <button
+        className="mini-select font-select"
+        title={tr('选择字体')}
+        aria-label={tr('选择字体')}
+        onClick={() => setOpen((next) => !next)}
+      >
+        <span className="font-picker-label" style={{ fontFamily: current.family }}>
+          {current.label}
+        </span>
+        <svg className="caret" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M7 9.5l5 5 5-5"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (
+        <div className="font-pop" role="menu">
+          {FONT_CHOICES.map((choice) => {
+            const allowed = canUseFontChoice(choice, isPro)
+            return (
+              <button
+                key={choice.id}
+                role="menuitemradio"
+                aria-checked={choice.family === value}
+                className={`font-item${choice.family === value ? ' on' : ''}`}
+                style={{ fontFamily: choice.family }}
+                title={allowed ? choice.label : tr('该字体为会员专属，升级后可用')}
+                onClick={() => {
+                  if (!allowed) {
+                    onOpenPurchase()
+                    return
+                  }
+                  onChange(choice.family)
+                  setOpen(false)
+                }}
+              >
+                <span className="font-item-label">{choice.label}</span>
+                {!allowed && <span className="font-lock">👑</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WidthDot({
   value,
   color,
@@ -333,7 +417,9 @@ export function Toolbar({
   canRedo,
   variant = 'overlay',
   language = 'zh-CN',
-  onConfirm
+  onConfirm,
+  isPro = false,
+  onOpenPurchase
 }: Props): JSX.Element {
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
     t(language, zh, vars)
@@ -623,6 +709,13 @@ export function Toolbar({
 
         {options.tool === 'text' && (
           <>
+            <FontPicker
+              value={options.fontFamily}
+              isPro={isPro}
+              language={language}
+              onChange={(family) => setOptions({ fontFamily: family })}
+              onOpenPurchase={() => onOpenPurchase?.()}
+            />
             <div className="seg">
               <button
                 className={`ss-cell${options.textB ? ' on' : ''}`}
@@ -649,17 +742,6 @@ export function Toolbar({
                 <u className="text-style-glyph text-underline">U</u>
               </button>
             </div>
-            <select
-              className="mini-select"
-              value={options.fontSize}
-              onChange={(event) => setOptions({ fontSize: Number(event.target.value) })}
-            >
-              {[13, 15, 18, 24].map((size) => (
-                <option key={size} value={size}>
-                  {size}px
-                </option>
-              ))}
-            </select>
             <span className="div" />
             <ColorPalette color={options.color} onChange={(color) => setOptions({ color })} />
           </>

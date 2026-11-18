@@ -597,6 +597,9 @@ const EN: Record<string, string> = {
   '升级会员': 'Upgrade membership',
   '终身会员': 'Lifetime member',
   '意见反馈…': 'Send feedback…',
+  '超出截图区域~': 'Outside the capture area~',
+  '该字体为会员专属，升级后可用': 'This font is for members only. Upgrade to use it.',
+  '选择字体': 'Font',
   '退出': 'Quit'
 }
 

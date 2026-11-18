@@ -375,7 +375,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   await window.mouse.click(x1 + 90, y1 + 70)
   await window.waitForSelector('.text-draft', { timeout: 3000 })
   await window.locator('.text-draft').fill('你好世界')
-  await window.locator('.text-draft').press('Enter')
+  await window.locator('.text-draft').press('Control+Enter')
   await window.waitForTimeout(250)
   console.log('TEXT_INPUT_GONE', (await window.locator('.text-draft').count()) === 0)
   const textPainted = await window.evaluate(() => {
@@ -429,7 +429,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
     throw new Error('B/I/U did not apply to the editing text')
   }
   await window.locator('.text-draft').fill('编辑后的文字')
-  await window.locator('.text-draft').press('Enter')
+  await window.locator('.text-draft').press('Control+Enter')
   await window.waitForTimeout(200)
   await window.mouse.click(x1 + 150, y1 + 78)
   await window.waitForSelector('.text-draft', { timeout: 3000 })

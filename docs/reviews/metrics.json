@@ -1,45 +1,45 @@
 {
-  "generatedAt": "2026-11-16T11:50:17.453Z",
+  "generatedAt": "2026-11-18T05:25:38.293Z",
   "project": {
     "name": "snapglass",
-    "version": "0.8.23",
+    "version": "0.8.24",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "554675e",
-    "commitDate": "2026-11-16T19:48:10+08:00",
+    "commit": "b88ccc5",
+    "commitDate": "2026-11-16T19:53:47+08:00",
     "lastTag": "v0.8.23",
-    "changedFiles": null,
-    "insertions": null,
-    "deletions": null
+    "changedFiles": 3,
+    "insertions": 175,
+    "deletions": 29
   },
   "source": {
-    "files": 201,
-    "lines": 33654,
-    "testFiles": 39,
-    "todoCount": 0,
+    "files": 266,
+    "lines": 53413,
+    "testFiles": 41,
+    "todoCount": 11,
     "largest": [
+      {
+        "path": ".claude\\skills\\impeccable\\scripts\\live-browser.js",
+        "lines": 13903
+      },
       {
         "path": "server\\license\\app.py",
         "lines": 1695
       },
       {
-        "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
-        "lines": 996
+        "path": "docs\\marketing\\capture\\.chrome-profile\\Default\\Extensions\\fldmhceldgbpfpkbgopacenieobmligc\\2.0.22_0\\background.js",
+        "lines": 1598
       },
       {
-        "path": "src\\main\\windows\\overlay.ts",
-        "lines": 950
+        "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
+        "lines": 1016
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
-        "lines": 812
-      },
-      {
-        "path": "src\\renderer\\src\\purchase\\PurchaseApp.tsx",
-        "lines": 775
+        "lines": 952
       }
     ]
   },
@@ -50,18 +50,18 @@
   "artifacts": {
     "currentVersion": [
       {
-        "path": "release\\Pixmint-Setup-0.8.23.exe",
-        "bytes": 119616071,
-        "modifiedAt": "2026-11-16T11:49:33.156Z"
+        "path": "release\\Pixmint-Setup-0.8.24.exe",
+        "bytes": 157226940,
+        "modifiedAt": "2026-11-18T05:19:32.642Z"
       }
     ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.8.23.exe",
-      "bytes": 119616071,
-      "modifiedAt": "2026-11-16T11:49:33.156Z"
+      "path": "release\\Pixmint-Setup-0.8.24.exe",
+      "bytes": 157226940,
+      "modifiedAt": "2026-11-18T05:19:32.642Z"
     },
-    "allCount": 34,
-    "allTotalBytes": 4040829935
+    "allCount": 36,
+    "allTotalBytes": 4355282883
   },
   "python": {
     "requirementLines": 0

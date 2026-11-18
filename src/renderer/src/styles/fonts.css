@@ -1,0 +1,85 @@
+/**
+ * 打包字体：随应用分发，避免依赖用户系统字体。
+ * 族名与 overlay/options.ts 的 FONT_CHOICES、canvas font 保持一致。
+ * 免费用户只能使用系统默认字体，其余为会员专属（见 Toolbar 权限判断）。
+ */
+
+@font-face {
+  font-family: 'PixmintSourceHanSans';
+  src: url('../assets/fonts/pixmint-source-han-sans.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintFoxi';
+  src: url('../assets/fonts/pixmint-foxi.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintQiuhongkai';
+  src: url('../assets/fonts/pixmint-qiuhongkai.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintPangmen';
+  src: url('../assets/fonts/pixmint-pangmen-cushu.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintZhuokai';
+  src: url('../assets/fonts/pixmint-jiangxi-zhuokai.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintBaotu';
+  src: url('../assets/fonts/pixmint-baotu-xiaobai.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintMuyaoRuanbi';
+  src: url('../assets/fonts/pixmint-muyao-ruanbi.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintMuyaoSuixin';
+  src: url('../assets/fonts/pixmint-muyao-suixin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintXinye';
+  src: url('../assets/fonts/pixmint-xinye-nianti.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PixmintShetu';
+  src: url('../assets/fonts/pixmint-shetu-modeng.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

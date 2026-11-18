@@ -1,0 +1,81 @@
+{
+  "version": "0.8.23",
+  "date": "2026-11-18",
+  "commit": "b88ccc5",
+  "level": "full",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility",
+    "testing"
+  ],
+  "metrics": {
+    "installerBytes": 119616071,
+    "sourceFiles": 256,
+    "sourceLines": 52474,
+    "testFiles": 41,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "39 test files / 233 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build",
+        "result": "10 woff2 fonts emitted into out/renderer/assets"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "node e2e-overlay.cjs + node e2e-text-features.cjs (pro and free states)",
+        "result": "E2E_OK; E2E_TEXT_FEATURES_OK in both states"
+      },
+      {
+        "name": "e2e-overlay",
+        "status": "pass",
+        "command": "node e2e-overlay.cjs",
+        "result": "E2E_OK; text input/edit/B-I-U/crosshair/drag pass"
+      },
+      {
+        "name": "e2e-text-features-pro",
+        "status": "pass",
+        "command": "node e2e-text-features.cjs",
+        "result": "adaptive width 42->79; wrap 710x90; overflow toast; font applied"
+      },
+      {
+        "name": "e2e-text-features-free",
+        "status": "pass",
+        "command": "PIXMINT_USER_DATA_DIR=<temp> node e2e-text-features.cjs",
+        "result": "crown markers; member font click opened purchase window (1->2)"
+      },
+      {
+        "name": "package",
+        "status": "skipped",
+        "command": "electron-builder",
+        "result": "not packaged this iteration; ~34MB font growth deferred to 0.8.24"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "P16 text annotation enhancements: multi-line auto-sizing input constrained to the selection with wrap and overflow toast, crosshair drag on the text box border, and 10 bundled member fonts (free users limited to the default font). Unit tests plus overlay regression and new pro/free E2E paths pass. Not packaged or released; font volume growth (~34MB) to be rechecked at 0.8.24."
+}

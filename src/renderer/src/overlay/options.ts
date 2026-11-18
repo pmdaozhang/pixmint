@@ -18,6 +18,8 @@ export interface OverlayOptions {
   textU: boolean
 }
 
+export const DEFAULT_FONT_FAMILY = 'sans-serif'
+
 export const DEFAULT_OPTIONS: OverlayOptions = {
   tool: 'move',
   shapeKind: 'rect',
@@ -30,10 +32,47 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   mosaicSize: 12,
   mosaicBrushSize: 24,
   fontSize: 15,
-  fontFamily: 'sans-serif',
+  fontFamily: DEFAULT_FONT_FAMILY,
   textB: false,
   textI: false,
   textU: false
+}
+
+export interface FontChoice {
+  id: string
+  /** 显示名（字体名，中文） */
+  label: string
+  /** @font-face 与 canvas font 共用的族名 */
+  family: string
+  /** 是否会员专属；免费用户只能用默认字体 */
+  pro: boolean
+}
+
+/**
+ * 打包字体随应用分发（woff2）。默认字体走系统 sans-serif，免费可用；
+ * 其余字体为会员专属，免费用户点击会打开购买窗。
+ */
+export const FONT_CHOICES: FontChoice[] = [
+  { id: 'default', label: '默认', family: DEFAULT_FONT_FAMILY, pro: false },
+  { id: 'source-han-sans', label: '思源黑体', family: 'PixmintSourceHanSans', pro: true },
+  { id: 'foxi', label: '演示佛系体', family: 'PixmintFoxi', pro: true },
+  { id: 'qiuhongkai', label: '演示秋鸿楷', family: 'PixmintQiuhongkai', pro: true },
+  { id: 'pangmen', label: '庞门正道粗书体', family: 'PixmintPangmen', pro: true },
+  { id: 'zhuokai', label: '江西拙楷', family: 'PixmintZhuokai', pro: true },
+  { id: 'baotu', label: '包图小白体', family: 'PixmintBaotu', pro: true },
+  { id: 'muyao-ruanbi', label: '沐瑶软笔手写体', family: 'PixmintMuyaoRuanbi', pro: true },
+  { id: 'muyao-suixin', label: '沐瑶随心手写体', family: 'PixmintMuyaoSuixin', pro: true },
+  { id: 'xinye', label: '新叶念体', family: 'PixmintXinye', pro: true },
+  { id: 'shetu', label: '摄图摩登小方体', family: 'PixmintShetu', pro: true }
+]
+
+export function fontChoiceId(family: string): string {
+  return FONT_CHOICES.find((choice) => choice.family === family)?.id ?? 'default'
+}
+
+/** 免费用户只能使用默认字体；会员可用全部。 */
+export function canUseFontChoice(choice: FontChoice, isPro: boolean): boolean {
+  return !choice.pro || isPro
 }
 
 export const MOSAIC_MIN_BLOCK = 3
