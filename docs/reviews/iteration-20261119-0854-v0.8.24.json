@@ -1,0 +1,75 @@
+{
+  "version": "0.8.24",
+  "date": "2026-11-19",
+  "commit": "7a4ce2a",
+  "level": "simplified",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    "testing"
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 157226940,
+    "sourceFiles": 266,
+    "sourceLines": 53520,
+    "testFiles": 41,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "39 files / 235 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "verify",
+        "status": "pass",
+        "command": "../scripts/verify.ps1 -Path .",
+        "result": "FAIL=0 WARN=0"
+      },
+      {
+        "name": "manual-f1-fullscreen",
+        "status": "pass",
+        "command": "Stardew Valley exclusive fullscreen, press F1",
+        "result": "overlay shown in 62ms, game stays foreground, not minimized"
+      },
+      {
+        "name": "manual-f1-normal-window",
+        "status": "pass",
+        "command": "Terminal in foreground, press F1",
+        "result": "overlay opens normally; maximized windows no longer misdetected (99% threshold)"
+      },
+      {
+        "name": "manual-force-shortcut",
+        "status": "pass",
+        "command": "Control+Shift+F1",
+        "result": "force shortcut registered -> overlay show (Shift+F1 unavailable on this machine)"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "Post-0.8.24 patch (Unreleased): F1 no longer steals focus from fullscreen exclusive apps (WS_EX_NOACTIVATE), overlay still opens for region selection; foreground rect via window-snap sidecar with 99% threshold. Toasts unified (centered, 12px/8x16/999 radius, opaque background, stronger shadows). Removed dead durationMs/hideTimer from status-toast."
+}
