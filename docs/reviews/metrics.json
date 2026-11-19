@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T05:25:38.293Z",
+  "generatedAt": "2026-11-19T00:47:16.543Z",
   "project": {
     "name": "snapglass",
     "version": "0.8.24",
@@ -8,16 +8,16 @@
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "b88ccc5",
-    "commitDate": "2026-11-16T19:53:47+08:00",
-    "lastTag": "v0.8.23",
-    "changedFiles": 3,
-    "insertions": 175,
-    "deletions": 29
+    "commit": "5ca7249",
+    "commitDate": "2026-11-19T08:46:36+08:00",
+    "lastTag": "v0.8.24",
+    "changedFiles": 13,
+    "insertions": 224,
+    "deletions": 56
   },
   "source": {
     "files": 266,
-    "lines": 53413,
+    "lines": 53529,
     "testFiles": 41,
     "todoCount": 11,
     "largest": [
@@ -38,8 +38,8 @@
         "lines": 1016
       },
       {
-        "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
-        "lines": 952
+        "path": "src\\main\\windows\\overlay.ts",
+        "lines": 959
       }
     ]
   },
