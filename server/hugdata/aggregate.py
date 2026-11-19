@@ -15,7 +15,11 @@ import sys
 from datetime import datetime
 
 DB_PATH = os.environ.get("HUGDATA_DB", "/var/lib/hugdata/data.db")
-LOG_GLOB = "/var/log/nginx/pixmint.access.log*"
+# Pixmint 有独立日志；VidGrab 走默认 access.log。两者都按 /downloads/ + 文件名前缀归类。
+LOG_GLOBS = (
+    "/var/log/nginx/pixmint.access.log*",
+    "/var/log/nginx/access.log*",
+)
 
 LINE_RE = re.compile(
     r'^(?P<ip>\S+) \S+ \S+ \[(?P<ts>[^\]]+)\] "(?P<method>[A-Z]+) (?P<path>\S+)[^"]*" (?P<status>\d{3})'
@@ -31,9 +35,11 @@ def db():
 
 
 def slug_from_file(filename):
-    """Pixmint-Setup-0.6.1.exe -> pixmint；找不到前缀时退回整体小写。"""
+    """``Pixmint-Setup-0.6.1.exe`` -> ``pixmint``；非安装包返回 None，避免统计到更新元数据。"""
+    if "-Setup" not in filename:
+        return None
     base = filename.split("-Setup")[0]
-    return re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-") or "unknown"
+    return re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-") or None
 
 
 def get_offset(conn, inode):
@@ -100,6 +106,8 @@ def ingest_file(conn, path):
 
     for (day, filename), inc in counts.items():
         slug = slug_from_file(filename)
+        if not slug:
+            continue
         conn.execute(
             """INSERT INTO daily_downloads(slug, day, file, requests) VALUES (?,?,?,?)
                ON CONFLICT(slug, day, file) DO UPDATE SET requests = requests + excluded.requests""",
@@ -118,7 +126,12 @@ def main():
     conn = db()
     total = 0
     errors = 0
-    for path in sorted(glob.glob(LOG_GLOB)):
+    paths = []
+    for pattern in LOG_GLOBS:
+        paths.extend(sorted(glob.glob(pattern)))
+    for path in sorted(set(paths)):
+        if path.endswith(".gz"):
+            continue  # 轮转压缩包不在此处理，避免重复与乱码
         try:
             n = ingest_file(conn, path)
         except PermissionError:

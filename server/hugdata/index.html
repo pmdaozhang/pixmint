@@ -531,6 +531,7 @@
 
   async function loadOrders() {
     const q = new URLSearchParams();
+    q.set("tool", state.tool);
     if (state.orderFilter !== "all") q.set("status", state.orderFilter);
     if (state.orderQuery) q.set("q", state.orderQuery);
     try {
@@ -730,7 +731,7 @@
       try {
         const r = await api(`/api/admin/manual-orders/${encodeURIComponent(id)}/notify`, {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify({ tool: state.tool }),
         });
         toast(r.ok ? "已重发通知" : "通知发送失败，请检查企业微信配置", !r.ok);
         await loadOrders();
@@ -747,7 +748,7 @@
       try {
         await api(`/api/admin/manual-orders/${encodeURIComponent(id)}/reopen`, {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify({ tool: state.tool }),
         });
         toast("已恢复为待确认");
         await loadOrders();
@@ -764,7 +765,7 @@
       try {
         await api(`/api/admin/manual-orders/${encodeURIComponent(id)}/revoke`, {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify({ tool: state.tool }),
         });
         toast("已撤销确认，授权已吊销");
         await loadOrders();
@@ -782,7 +783,7 @@
       try {
         await api(`/api/admin/manual-orders/${encodeURIComponent(id)}/reject`, {
           method: "POST",
-          body: JSON.stringify({ reason }),
+          body: JSON.stringify({ reason, tool: state.tool }),
         });
         toast("已拒绝该订单");
         await loadOrders();
@@ -799,7 +800,7 @@
       try {
         const r = await api(`/api/admin/manual-orders/${encodeURIComponent(id)}/confirm`, {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify({ tool: state.tool }),
         });
         if (r.status === "paid" || r.code) {
           toast("已确认收款，激活码已生成");
