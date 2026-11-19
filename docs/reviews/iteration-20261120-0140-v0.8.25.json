@@ -1,0 +1,80 @@
+{
+  "version": "0.8.25",
+  "date": "2026-11-20",
+  "commit": "f70e7a2",
+  "level": "simplified",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "redo-not-verified",
+      "dimension": "manual-verification",
+      "detail": "聚光灯压力测试里，自动化点击重做按钮 / Ctrl+Shift+Z 均未改变画布；撤销正常。无法判断是自动化环境限制还是真实缺陷，需人工验证。",
+      "deadline": "2026-11-27"
+    },
+    {
+      "id": "free-quota-path-unverified",
+      "dimension": "quota-verification",
+      "detail": "主进程在本地无授权时调用 restoreByDevice() 从生产服务端拉回授权，本机始终为 Pro，免费用户“第 3 次截图默认关闭”路径无法在真机复现。",
+      "deadline": "2026-11-27"
+    }
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 157506353,
+    "sourceFiles": 271,
+    "sourceLines": 56566,
+    "testFiles": 45,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "npx tsc --noEmit"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "npx vitest run --pool=threads --exclude tests/windows-ocr.test.ts",
+        "result": "40 files / 262 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "npx electron-vite build"
+      },
+      {
+        "name": "server",
+        "status": "pass",
+        "command": "python -m unittest discover -s server/license/tests -t server/license",
+        "result": "15 tests OK"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "node e2e-spotlight.cjs",
+        "result": "14/14 PASS"
+      },
+      {
+        "name": "e2e-stress",
+        "status": "pass",
+        "command": "node e2e-spotlight-stress.cjs",
+        "result": "10 PASS, 1 SKIP (redo)"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.8.25：矩形/椭圆新增聚光灯（开关、多形状并集、导出带遮罩、按 F1 次数计额度、开关记忆）；箭头选纯线条时隐藏线条样式下拉。聚光灯合成顺序抽为纯函数，新增 28 条单测与两套 e2e。"
+}

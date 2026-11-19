@@ -1,24 +1,24 @@
 {
-  "generatedAt": "2026-11-19T04:28:01.481Z",
+  "generatedAt": "2026-11-19T17:40:44.986Z",
   "project": {
     "name": "snapglass",
-    "version": "0.8.24",
+    "version": "0.8.25",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "94df719",
-    "commitDate": "2026-11-19T12:27:41+08:00",
+    "commit": "f70e7a2",
+    "commitDate": "2026-11-20T01:33:00+08:00",
     "lastTag": "v0.8.24",
-    "changedFiles": 20,
-    "insertions": 2242,
-    "deletions": 62
+    "changedFiles": 51,
+    "insertions": 4388,
+    "deletions": 116
   },
   "source": {
-    "files": 267,
-    "lines": 55273,
-    "testFiles": 41,
+    "files": 271,
+    "lines": 56566,
+    "testFiles": 45,
     "todoCount": 11,
     "largest": [
       {
@@ -27,7 +27,7 @@
       },
       {
         "path": "server\\vidgrab-license\\app.py",
-        "lines": 1696
+        "lines": 1732
       },
       {
         "path": "server\\license\\app.py",
@@ -38,8 +38,8 @@
         "lines": 1598
       },
       {
-        "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
-        "lines": 1016
+        "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
+        "lines": 1069
       }
     ]
   },
@@ -48,13 +48,7 @@
     "dev": 12
   },
   "artifacts": {
-    "currentVersion": [
-      {
-        "path": "release\\Pixmint-Setup-0.8.24.exe",
-        "bytes": 157506353,
-        "modifiedAt": "2026-11-19T03:17:08.971Z"
-      }
-    ],
+    "currentVersion": [],
     "largest": {
       "path": "release\\Pixmint-Setup-0.8.24.exe",
       "bytes": 157506353,
