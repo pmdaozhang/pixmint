@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T00:53:33.746Z",
+  "generatedAt": "2026-11-19T04:28:01.481Z",
   "project": {
     "name": "snapglass",
     "version": "0.8.24",
@@ -8,22 +8,26 @@
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "7a4ce2a",
-    "commitDate": "2026-11-19T08:53:23+08:00",
+    "commit": "94df719",
+    "commitDate": "2026-11-19T12:27:41+08:00",
     "lastTag": "v0.8.24",
-    "changedFiles": 16,
-    "insertions": 354,
-    "deletions": 65
+    "changedFiles": 20,
+    "insertions": 2242,
+    "deletions": 62
   },
   "source": {
-    "files": 266,
-    "lines": 53520,
+    "files": 267,
+    "lines": 55273,
     "testFiles": 41,
     "todoCount": 11,
     "largest": [
       {
         "path": ".claude\\skills\\impeccable\\scripts\\live-browser.js",
         "lines": 13903
+      },
+      {
+        "path": "server\\vidgrab-license\\app.py",
+        "lines": 1696
       },
       {
         "path": "server\\license\\app.py",
@@ -36,10 +40,6 @@
       {
         "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
         "lines": 1016
-      },
-      {
-        "path": "src\\main\\windows\\overlay.ts",
-        "lines": 959
       }
     ]
   },
@@ -51,17 +51,17 @@
     "currentVersion": [
       {
         "path": "release\\Pixmint-Setup-0.8.24.exe",
-        "bytes": 157226940,
-        "modifiedAt": "2026-11-18T05:19:32.642Z"
+        "bytes": 157506353,
+        "modifiedAt": "2026-11-19T03:17:08.971Z"
       }
     ],
     "largest": {
       "path": "release\\Pixmint-Setup-0.8.24.exe",
-      "bytes": 157226940,
-      "modifiedAt": "2026-11-18T05:19:32.642Z"
+      "bytes": 157506353,
+      "modifiedAt": "2026-11-19T03:17:08.971Z"
     },
     "allCount": 36,
-    "allTotalBytes": 4355282883
+    "allTotalBytes": 4355562296
   },
   "python": {
     "requirementLines": 0

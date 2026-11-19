@@ -1,0 +1,75 @@
+{
+  "version": "0.8.24",
+  "date": "2026-11-19",
+  "commit": "94df719",
+  "level": "simplified",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    "testing"
+  ],
+  "green": [
+    "regression",
+    "stability",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 157226940,
+    "sourceFiles": 267,
+    "sourceLines": 55273,
+    "testFiles": 41,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "39 files / 235 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build"
+      },
+      {
+        "name": "verify",
+        "status": "pass",
+        "command": "../scripts/verify.ps1 -Path .",
+        "result": "FAIL=0 WARN=0"
+      },
+      {
+        "name": "e2e-overlay",
+        "status": "pass",
+        "command": "node e2e-overlay.cjs",
+        "result": "E2E_OK"
+      },
+      {
+        "name": "e2e-pin-text",
+        "status": "pass",
+        "command": "node e2e-pin-text.cjs",
+        "result": "PIN_TEXT_E2E_OK; 30 iterations growth -78MB"
+      },
+      {
+        "name": "manual-fullscreen-f1",
+        "status": "pass",
+        "command": "Stardew Valley exclusive fullscreen, press F1",
+        "result": "overlay show 120ms, no FAILSAFE, frozen frame not black"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "Fix F1 in exclusive fullscreen apps: WGC and Electron desktopCapturer both return black, so the overlay now steals focus first (game minimizes) and then captures, guaranteeing a usable image. Foreground detection excludes desktop/taskbar/shell and the app's own windows. Force shortcuts removed."
+}
