@@ -8,11 +8,17 @@ export interface ScreenCaptureProvider {
   dispose(): void
 }
 
+export interface ForegroundWindow {
+  rect: Rect
+  className: string
+  pid: number
+}
+
 export interface WindowQueryProvider {
   prewarm(): void
   query(x: number, y: number): Promise<Rect | null>
-  /** 前台窗口矩形（物理像素）；拿不到返回 null。 */
-  foreground(): Promise<Rect | null>
+  /** 前台窗口（矩形 + 类名 + 进程 ID，物理像素）；拿不到返回 null。 */
+  foreground(): Promise<ForegroundWindow | null>
   dispose(): void
 }
 

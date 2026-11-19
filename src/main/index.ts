@@ -183,24 +183,6 @@ function registerShortcut(settings: Settings): void {
         })
       )
     }
-    // Shift+快捷键：全屏独占程序里也能强制呼出覆盖层框选。
-    // 个别机器上 Shift+F1 会被系统/其他软件占用，注册失败就依次降级。
-    const forceCandidates = [
-      `Shift+${settings.shortcut}`,
-      `Control+Shift+${settings.shortcut}`,
-      `Control+Alt+${settings.shortcut}`
-    ]
-    for (const accelerator of forceCandidates) {
-      const okForce = globalShortcut.register(accelerator, () => {
-        logDiagnostic('main', `shortcut ${accelerator} fired ${Date.now()}`)
-        void startCapture(undefined, true)
-      })
-      if (okForce) {
-        logDiagnostic('main', `force shortcut ${accelerator} registered`)
-        break
-      }
-      logDiagnostic('main', `force shortcut ${accelerator} failed`, 'warn')
-    }
   } catch {
     notify(t(settings.language, '快捷键 {key} 无效', { key: settings.shortcut }))
   }

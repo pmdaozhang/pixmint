@@ -450,6 +450,16 @@ export class OverlayManager {
     this.send(entry, 'overlay:prepare', this.getSettings())
   }
 
+  /** 把某显示器的覆盖层窗口抢成前台（独占全屏程序先最小化，再截图，避免 WGC 黑屏）。 */
+  focusActive(displayId: number): void {
+    const id = this.byDisplay.get(displayId)
+    const entry = id === undefined ? undefined : this.entries.get(id)
+    if (!entry || entry.window.isDestroyed()) return
+    entry.window.setAlwaysOnTop(true, 'screen-saver')
+    entry.window.moveTop()
+    entry.window.focus()
+  }
+
   markPrepared(webContentsId: number): void {
     this.preparedAckAt.set(webContentsId, Date.now())
     if (this.active) this.sessionPrepared = true
@@ -513,11 +523,7 @@ export class OverlayManager {
     this.endSession()
   }
 
-  async start(
-    capture: DisplayCapture,
-    pendingRecorderMode?: RecorderMode,
-    options?: { noStealFocus?: boolean }
-  ): Promise<void> {
+  async start(capture: DisplayCapture, pendingRecorderMode?: RecorderMode): Promise<void> {
     const started = Date.now()
     this.warmupToken += 1
     this.active = true
@@ -591,14 +597,9 @@ export class OverlayManager {
     console.log('OVERLAY_PREPARED', Date.now() - started)
     // 先抢焦点再变可见：首帧以“前台窗口”身份交给 DWM 合成，
     // 避免可见后才切前台导致的额外呈现延迟。
-    // 全屏独占程序（游戏/视频）里不能抢焦点，否则它会最小化：
-    // setFocusable(false) 会给窗口加上 WS_EX_NOACTIVATE，
-    // 鼠标点击只作用在覆盖层上、不把前台切走（键盘输入此时不给覆盖层）。
     entry.window.setIgnoreMouseEvents(false)
     entry.window.moveTop()
-    const noStealFocus = options?.noStealFocus === true
-    entry.window.setFocusable(!noStealFocus)
-    if (!noStealFocus) entry.window.focus()
+    entry.window.focus()
     entry.window.setOpacity(1)
     const shownAt = Date.now()
     console.log('OVERLAY_SHOW_MS', Date.now() - started)

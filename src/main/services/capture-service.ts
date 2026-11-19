@@ -11,6 +11,7 @@ import { addBreadcrumb } from '../breadcrumbs'
 import { logDiagnostic } from '../diagnostics'
 import { copyImageBytes, imageFromBytes, notify, saveImageBytes } from '../image-utils'
 import type { PlatformServices } from '../platform'
+import type { ForegroundWindow } from '../platform/types'
 import type { RecorderManager } from '../recording'
 import type { SecretStore } from '../secret-store'
 import type { SettingsStore } from '../settings-store'
@@ -60,15 +61,20 @@ export async function startCapture(
   recorderManager?.previewClose()
   try {
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    // 前台是全屏独占程序（游戏/视频）时，覆盖层一抢焦点它就会最小化。
-    // 仍然弹出覆盖层让用户框选，只是这次不抢焦点（给窗口加 WS_EX_NOACTIVATE）。
-    const noStealFocus =
+    // 独占全屏程序（游戏）里 WGC 会抓到黑屏。先抢焦点让它最小化，再截图，
+    // 保证一定能截到画面（代价是游戏被最小化）。
+    const fullscreenExclusive =
       !force && mode === undefined && (await isFullscreenForeground(deps, display))
     await overlayManager.prepare({
       id: display.id,
       bounds: display.bounds,
       scaleFactor: display.scaleFactor
     })
+    if (fullscreenExclusive) {
+      // 先把覆盖层窗口抢成前台，独占全屏游戏随即最小化；等它最小化后再截图。
+      overlayManager.focusActive(display.id)
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
     const preparedAt = Date.now()
     const started = Date.now()
     const fast = await deps.platformServices.capture.captureFast(display)
@@ -90,7 +96,7 @@ export async function startCapture(
     deps.getTray()?.closeContextMenu()
     // 抓屏期间用户按了 Esc：会话已经取消，不要再把遮罩显示出来。
     if (!overlayManager.isActive()) return
-    await overlayManager.start(capture, mode, { noStealFocus })
+    await overlayManager.start(capture, mode)
     const total = Date.now() - triggered
     logDiagnostic(
       'capture',
@@ -113,35 +119,62 @@ export async function startCapture(
 }
 
 /**
+ * 桌面、任务栏、开始菜单/输入法，以及自动化与 overlay 工具层：
+ * 它们也能铺满整个显示器，但不是“全屏独占程序”，不能据此切到免扰模式。
+ */
+const SYSTEM_WINDOW_CLASSES = new Set([
+  'Progman', // 桌面
+  'WorkerW', // 桌面图标层
+  'Shell_TrayWnd', // 任务栏
+  'Shell_SecondaryTrayWnd',
+  'Windows.UI.Core.CoreWindow', // 开始菜单 / 通知中心 / 输入法
+  'ApplicationFrameWindow', // UWP 宿主
+  'Cua.AgentCursorOverlay',
+  'CEF-OSC-WIDGET' // NVIDIA GeForce Overlay
+])
+
+/**
  * 前台窗口是否真正铺满这台显示器（重叠面积 ≥ 99%）。
  * 阈值不能太低：最大化的普通窗口约 95%（任务栏占掉一截），
  * 放过去会让用户在浏览器/终端里按 F1 也误判成游戏。
  * window-snap 返回物理像素，显示器 bounds 是逻辑像素，先换算再比。
+ * 桌面、任务栏、开始菜单以及应用自身的窗口一律排除，否则第二次按 F1 时
+ * 前台回到桌面就会误判，导致覆盖层不可聚焦（Esc 失效、无法框选）。
  */
 async function isFullscreenForeground(deps: CaptureDeps, display: Display): Promise<boolean> {
-  let fg: Rect | null = null
+  let fg: ForegroundWindow | null = null
   try {
     fg = await deps.platformServices.windowQuery.foreground()
   } catch {
     return false
   }
+  if (!fg) return false
+  if (fg.pid === process.pid || SYSTEM_WINDOW_CLASSES.has(fg.className)) {
+    logDiagnostic(
+      'capture',
+      `foreground skipped class=${fg.className || '?'} pid=${fg.pid}`,
+      'info'
+    )
+    return false
+  }
+  const { x, y, width, height } = fg.rect
   logDiagnostic(
     'capture',
-    `foreground rect=${fg ? `${fg.x},${fg.y},${fg.width},${fg.height}` : 'null'} display=${display.bounds.x},${display.bounds.y},${display.bounds.width},${display.bounds.height} scale=${display.scaleFactor}`,
-    'debug'
+    `foreground rect=${x},${y},${width},${height} class=${fg.className} pid=${fg.pid} display=${display.bounds.x},${display.bounds.y},${display.bounds.width},${display.bounds.height} scale=${display.scaleFactor}`,
+    'info'
   )
-  if (!fg) return false
   const scale = display.scaleFactor || 1
   const b = display.bounds
-  const rw = fg.width / scale
-  const rh = fg.height / scale
-  const rx = fg.x / scale
-  const ry = fg.y / scale
+  const rw = width / scale
+  const rh = height / scale
+  const rx = x / scale
+  const ry = y / scale
   const overlapX = Math.min(rx + rw, b.x + b.width) - Math.max(rx, b.x)
   const overlapY = Math.min(ry + rh, b.y + b.height) - Math.max(ry, b.y)
   if (overlapX <= 0 || overlapY <= 0) return false
   return overlapX * overlapY >= b.width * b.height * 0.99
 }
+
 
 export async function handleOverlayComplete(
   deps: CaptureDeps,

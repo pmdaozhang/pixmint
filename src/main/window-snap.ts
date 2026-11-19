@@ -115,7 +115,7 @@ public class SnapGlassWindowFinder {
     return "{\"x\":" + result.Left + ",\"y\":" + result.Top + ",\"width\":" + (result.Right - result.Left) + ",\"height\":" + (result.Bottom - result.Top) + "}";
   }
 
-  /** 前台窗口矩形（物理像素）。用来判断是不是游戏/视频一类的独占全屏程序。 */
+  /** 前台窗口矩形 + 类名 + 进程 ID（物理像素）。用来判断是不是游戏/视频一类的独占全屏程序。 */
   public static string Foreground() {
     MakeDpiAware();
     IntPtr h = GetForegroundWindow();
@@ -124,7 +124,11 @@ public class SnapGlassWindowFinder {
     if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0 || r.Right <= r.Left || r.Bottom <= r.Top) {
       if (!GetWindowRect(h, out r)) return "null";
     }
-    return "{\"x\":" + r.Left + ",\"y\":" + r.Top + ",\"width\":" + (r.Right - r.Left) + ",\"height\":" + (r.Bottom - r.Top) + "}";
+    var cls = new StringBuilder(256);
+    GetClassName(h, cls, 256);
+    uint pid;
+    GetWindowThreadProcessId(h, out pid);
+    return "{\"x\":" + r.Left + ",\"y\":" + r.Top + ",\"width\":" + (r.Right - r.Left) + ",\"height\":" + (r.Bottom - r.Top) + ",\"class\":\"" + cls.ToString() + "\",\"pid\":" + pid + "}";
   }
 }
 "@
@@ -179,6 +183,37 @@ function removeWindowSnapScript(): void {
     // 临时脚本清理失败不应影响退出
   }
   scriptPath = ''
+}
+
+export interface ForegroundWindow {
+  rect: Rect
+  className: string
+  pid: number
+}
+
+function parseForeground(payload: string | null): ForegroundWindow | null {
+  if (!payload || payload === 'null') return null
+  try {
+    const start = payload.indexOf('{')
+    const end = payload.lastIndexOf('}')
+    if (start < 0 || end < start) return null
+    const raw = JSON.parse(payload.slice(start, end + 1)) as {
+      x?: number
+      y?: number
+      width?: number
+      height?: number
+      class?: string
+      pid?: number
+    }
+    if (![raw.x, raw.y, raw.width, raw.height].every((n) => Number.isFinite(n))) return null
+    return {
+      rect: { x: raw.x as number, y: raw.y as number, width: raw.width as number, height: raw.height as number },
+      className: typeof raw.class === 'string' ? raw.class : '',
+      pid: typeof raw.pid === 'number' ? raw.pid : 0
+    }
+  } catch {
+    return null
+  }
 }
 
 function parseRect(payload: string | null): Rect | null {
@@ -249,9 +284,9 @@ export class WindowSnapHelper {
     return parseRect(payload)
   }
 
-  /** 前台窗口矩形（物理像素）；拿不到返回 null。 */
-  async foreground(): Promise<Rect | null> {
-    return parseRect(await this.client.request('fg', 300))
+  /** 前台窗口（矩形 + 类名 + 进程 ID，物理像素）；拿不到返回 null。 */
+  async foreground(): Promise<ForegroundWindow | null> {
+    return parseForeground(await this.client.request('fg', 300))
   }
 
   dispose(): void {
