@@ -15,21 +15,21 @@ interface ToastPalette {
 }
 
 const DARK_PALETTE: ToastPalette = {
-  background: 'rgba(28, 28, 30, 0.86)',
-  border: 'rgba(255, 255, 255, 0.14)',
-  color: '#f5f5f7',
-  shadow: '0 1px 2px rgba(0, 0, 0, 0.38), 0 12px 28px -14px rgba(0, 0, 0, 0.62)',
-  inset: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-  blur: 'blur(16px) saturate(140%)'
+  background: '#2b2b2b',
+  border: '#4a4a4a',
+  color: '#ffffff',
+  shadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
+  inset: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+  blur: 'none'
 }
 
 const LIGHT_PALETTE: ToastPalette = {
-  background: 'rgba(255, 255, 255, 0.9)',
-  border: 'rgba(20, 20, 24, 0.13)',
-  color: '#34343a',
-  shadow: '0 1px 2px rgba(20, 20, 24, 0.05), 0 12px 26px -14px rgba(20, 20, 24, 0.3)',
-  inset: 'inset 0 1px 0 rgba(255, 255, 255, 0.75)',
-  blur: 'blur(16px) saturate(140%)'
+  background: '#ffffff',
+  border: '#e5e5e5',
+  color: '#1a1a1a',
+  shadow: '0 4px 16px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(0, 0, 0, 0.08)',
+  inset: 'inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+  blur: 'none'
 }
 
 function escapeHtml(value: string): string {
@@ -66,8 +66,10 @@ function toastHtml(message: string, palette: ToastPalette): string {
         align-items: center;
         gap: 7px;
         max-width: calc(100vw - 16px);
-        padding: 8px 15px;
+        padding: 8px 16px;
         border-radius: 999px;
+        font-size: 12px;
+        line-height: 1.25;
         border: 1px solid ${palette.border};
         background: ${palette.background};
         color: ${palette.color};
@@ -125,13 +127,16 @@ function toastHtml(message: string, palette: ToastPalette): string {
  */
 export class StatusToast {
   private window: BrowserWindow | null = null
+  private hideTimer: ReturnType<typeof setTimeout> | null = null
 
-  show(message: string, theme: ThemeSetting = 'system'): void {
+  /** durationMs 可选；给了就到点自动消失（免扰截图提示用）。 */
+  show(message: string, theme: ThemeSetting = 'system', durationMs?: number): void {
     this.hide()
     const dark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    const x = Math.round(display.workArea.x + (display.workArea.width - WIDTH) / 2)
-    const y = Math.round(display.workArea.y + Math.min(96, display.workArea.height * 0.12))
+    // 所有 toast 统一落在物理屏幕正中（用 bounds 而不是 workArea，排除任务栏偏移）。
+    const x = Math.round(display.bounds.x + (display.bounds.width - WIDTH) / 2)
+    const y = Math.round(display.bounds.y + (display.bounds.height - HEIGHT) / 2)
     const window = new BrowserWindow({
       x,
       y,
@@ -168,9 +173,16 @@ export class StatusToast {
       if (this.window === window) this.window = null
     })
     this.window = window
+    if (durationMs && durationMs > 0) {
+      this.hideTimer = setTimeout(() => this.hide(), durationMs)
+    }
   }
 
   hide(): void {
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer)
+      this.hideTimer = null
+    }
     const window = this.window
     this.window = null
     if (window && !window.isDestroyed()) window.destroy()

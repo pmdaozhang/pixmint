@@ -45,12 +45,12 @@
   --wall1: #3a5e8c;
   --wall2: #5b4e8c;
   --wall3: #8c4e6e;
-  --toast-bg: rgba(28, 28, 30, 0.86);
-  --toast-border: rgba(255, 255, 255, 0.14);
-  --toast-text: #f5f5f7;
-  --toast-shadow: 0 1px 2px rgba(0, 0, 0, 0.38), 0 12px 28px -14px rgba(0, 0, 0, 0.62);
-  --toast-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --toast-blur: blur(16px) saturate(140%);
+  --toast-bg: #2b2b2b;
+  --toast-border: #4a4a4a;
+  --toast-text: #ffffff;
+  --toast-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --toast-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --toast-blur: none;
 }
 
 [data-theme="light"] {
@@ -77,10 +77,10 @@
   --wall1: #a8c4e0;
   --wall2: #c2b4e0;
   --wall3: #e0b4c8;
-  --toast-bg: rgba(255, 255, 255, 0.9);
-  --toast-border: rgba(20, 20, 24, 0.13);
-  --toast-text: #34343a;
-  --toast-shadow: 0 1px 2px rgba(20, 20, 24, 0.05), 0 12px 26px -14px rgba(20, 20, 24, 0.3);
-  --toast-inset: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-  --toast-blur: blur(16px) saturate(140%);
+  --toast-bg: #ffffff;
+  --toast-border: #e5e5e5;
+  --toast-text: #1a1a1a;
+  --toast-shadow: 0 4px 16px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --toast-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --toast-blur: none;
 }

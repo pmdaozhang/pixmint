@@ -43,3 +43,50 @@
   -webkit-backdrop-filter: var(--toast-blur);
   backdrop-filter: var(--toast-blur);
 }
+
+/*
+ * 统一落点：所有 toast 都落在窗口正中。
+ * 覆盖层是全屏，设置/反馈/购买/会员窗本身居中，因此这里就是物理屏幕正中；
+ * 钉图窗位置不固定，落在钉图窗正中（图片正中）。
+ * 居中用 translate 属性而不是 transform，把 transform 留给进场位移动画。
+ */
+:is(
+  .overlay-toast,
+  .settings-toast,
+  .feedback-toast,
+  .pin-toast,
+  .mw-toast,
+  .recording-encoding,
+  .pin-text-status
+) {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  translate: -50% -50%;
+  transform: none;
+  /* 所有 toast 统一尺寸：同一字号、同一内边距、同一圆角。 */
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+/* 这两条原先用 transform: translate(-50%, …) 同时做居中和位移，改成只位移。 */
+.feedback-toast {
+  transform: translateY(6px);
+}
+
+.feedback-toast.show {
+  transform: translateY(0);
+}
+
+.mw-toast {
+  transform: translateY(12px);
+}
+
+.mw-toast.show {
+  transform: translateY(0);
+}

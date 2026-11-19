@@ -30,6 +30,7 @@ export function createWin32PlatformServices(windowSnap: WindowSnapHelper): Platf
     windowQuery: {
       prewarm: () => windowSnap.prewarm(),
       query: (x, y) => windowSnap.query(x, y),
+      foreground: () => windowSnap.foreground(),
       dispose: () => windowSnap.dispose()
     },
     ocr: {

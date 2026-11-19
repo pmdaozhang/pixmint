@@ -24,6 +24,7 @@ public class SnapGlassWindowFinder {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
   [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetClassName(IntPtr hWnd, StringBuilder sb, int max);
   [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT rect, int size);
   [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetWindowAttributeInt(IntPtr hwnd, int attr, out int value, int size);
@@ -113,6 +114,18 @@ public class SnapGlassWindowFinder {
     }
     return "{\"x\":" + result.Left + ",\"y\":" + result.Top + ",\"width\":" + (result.Right - result.Left) + ",\"height\":" + (result.Bottom - result.Top) + "}";
   }
+
+  /** 前台窗口矩形（物理像素）。用来判断是不是游戏/视频一类的独占全屏程序。 */
+  public static string Foreground() {
+    MakeDpiAware();
+    IntPtr h = GetForegroundWindow();
+    if (h == IntPtr.Zero) return "null";
+    RECT r;
+    if (DwmGetWindowAttribute(h, 9, out r, Marshal.SizeOf(typeof(RECT))) != 0 || r.Right <= r.Left || r.Bottom <= r.Top) {
+      if (!GetWindowRect(h, out r)) return "null";
+    }
+    return "{\"x\":" + r.Left + ",\"y\":" + r.Top + ",\"width\":" + (r.Right - r.Left) + ",\"height\":" + (r.Bottom - r.Top) + "}";
+  }
 }
 "@
 
@@ -122,6 +135,17 @@ while ($true) {
   $line = [Console]::In.ReadLine()
   if ($null -eq $line) { break }
   $parts = $line.Split(',')
+  if ($parts.Length -eq 2 -and $parts[1] -eq 'fg') {
+    $requestId = $parts[0]
+    try {
+      $result = [SnapGlassWindowFinder]::Foreground()
+      [Console]::Out.WriteLine("$requestId|$result")
+    } catch {
+      [Console]::Out.WriteLine("$requestId|null")
+    }
+    [Console]::Out.Flush()
+    continue
+  }
   if ($parts.Length -ne 3) {
     [Console]::Out.WriteLine('0|null')
     [Console]::Out.Flush()
@@ -155,6 +179,27 @@ function removeWindowSnapScript(): void {
     // 临时脚本清理失败不应影响退出
   }
   scriptPath = ''
+}
+
+function parseRect(payload: string | null): Rect | null {
+  if (!payload || payload === 'null') return null
+  try {
+    const start = payload.indexOf('{')
+    const end = payload.lastIndexOf('}')
+    if (start < 0 || end < start) return null
+    const rect = JSON.parse(payload.slice(start, end + 1)) as Rect
+    if (
+      !Number.isFinite(rect.x) ||
+      !Number.isFinite(rect.y) ||
+      !Number.isFinite(rect.width) ||
+      !Number.isFinite(rect.height)
+    ) {
+      return null
+    }
+    return rect
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -201,24 +246,12 @@ export class WindowSnapHelper {
       `${Math.round(x)},${Math.round(y)}`,
       300
     )
-    if (!payload || payload === 'null') return null
-    try {
-      const start = payload.indexOf('{')
-      const end = payload.lastIndexOf('}')
-      if (start < 0 || end < start) return null
-      const rect = JSON.parse(payload.slice(start, end + 1)) as Rect
-      if (
-        !Number.isFinite(rect.x) ||
-        !Number.isFinite(rect.y) ||
-        !Number.isFinite(rect.width) ||
-        !Number.isFinite(rect.height)
-      ) {
-        return null
-      }
-      return rect
-    } catch {
-      return null
-    }
+    return parseRect(payload)
+  }
+
+  /** 前台窗口矩形（物理像素）；拿不到返回 null。 */
+  async foreground(): Promise<Rect | null> {
+    return parseRect(await this.client.request('fg', 300))
   }
 
   dispose(): void {

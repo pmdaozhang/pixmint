@@ -32,6 +32,7 @@ function createUnavailablePlatformServices(platform: string): PlatformServices {
     windowQuery: {
       prewarm: () => {},
       query: async () => null,
+      foreground: async () => null,
       dispose: () => {}
     },
     ocr: {

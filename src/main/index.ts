@@ -183,6 +183,24 @@ function registerShortcut(settings: Settings): void {
         })
       )
     }
+    // Shift+快捷键：全屏独占程序里也能强制呼出覆盖层框选。
+    // 个别机器上 Shift+F1 会被系统/其他软件占用，注册失败就依次降级。
+    const forceCandidates = [
+      `Shift+${settings.shortcut}`,
+      `Control+Shift+${settings.shortcut}`,
+      `Control+Alt+${settings.shortcut}`
+    ]
+    for (const accelerator of forceCandidates) {
+      const okForce = globalShortcut.register(accelerator, () => {
+        logDiagnostic('main', `shortcut ${accelerator} fired ${Date.now()}`)
+        void startCapture(undefined, true)
+      })
+      if (okForce) {
+        logDiagnostic('main', `force shortcut ${accelerator} registered`)
+        break
+      }
+      logDiagnostic('main', `force shortcut ${accelerator} failed`, 'warn')
+    }
   } catch {
     notify(t(settings.language, '快捷键 {key} 无效', { key: settings.shortcut }))
   }
@@ -234,10 +252,10 @@ function smokeContext(): SmokeContext {
   }
 }
 
-async function startCapture(mode?: RecorderMode): Promise<void> {
+async function startCapture(mode?: RecorderMode, force = false): Promise<void> {
   // 截图流程期间连续按 F1 直接忽略，避免多个 prepare/start 互相清状态；
   // 覆盖层已经显示后 gate 已释放，再按 F1 仍然按原来的“关闭覆盖层”处理。
-  return captureGate.run(() => startCaptureFlow(captureDeps(), mode))
+  return captureGate.run(() => startCaptureFlow(captureDeps(), mode, force))
 }
 
 function initServices(): void {

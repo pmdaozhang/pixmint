@@ -1,8 +1,9 @@
-import { app, dialog, screen, type Tray } from 'electron'
+import { app, dialog, screen, type Display, type Tray } from 'electron'
 import { join } from 'node:path'
 import type {
   DisplayCapture,
   OverlayCompletePayload,
+  Rect,
   RecorderMode
 } from '../../shared/types'
 import { withTimeout } from '../../shared/async'
@@ -40,9 +41,13 @@ export interface CaptureDeps {
   isFastCaptureSmoke: boolean
 }
 
-export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Promise<void> {
+export async function startCapture(
+  deps: CaptureDeps,
+  mode?: RecorderMode,
+  force = false
+): Promise<void> {
   const triggered = Date.now()
-  addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot' })
+  addBreadcrumb('capture', 'start', { mode: mode ?? 'screenshot', force })
   const { overlayManager, recorderManager } = deps
   if (!overlayManager) return
   deps.ocrManager?.closeAll()
@@ -55,6 +60,10 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
   recorderManager?.previewClose()
   try {
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    // 前台是全屏独占程序（游戏/视频）时，覆盖层一抢焦点它就会最小化。
+    // 仍然弹出覆盖层让用户框选，只是这次不抢焦点（给窗口加 WS_EX_NOACTIVATE）。
+    const noStealFocus =
+      !force && mode === undefined && (await isFullscreenForeground(deps, display))
     await overlayManager.prepare({
       id: display.id,
       bounds: display.bounds,
@@ -81,7 +90,7 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
     deps.getTray()?.closeContextMenu()
     // 抓屏期间用户按了 Esc：会话已经取消，不要再把遮罩显示出来。
     if (!overlayManager.isActive()) return
-    await overlayManager.start(capture, mode)
+    await overlayManager.start(capture, mode, { noStealFocus })
     const total = Date.now() - triggered
     logDiagnostic(
       'capture',
@@ -101,6 +110,37 @@ export async function startCapture(deps: CaptureDeps, mode?: RecorderMode): Prom
       dialog.showErrorBox(t(deps.settingsStore.get().language, '截图失败'), message)
     }
   }
+}
+
+/**
+ * 前台窗口是否真正铺满这台显示器（重叠面积 ≥ 99%）。
+ * 阈值不能太低：最大化的普通窗口约 95%（任务栏占掉一截），
+ * 放过去会让用户在浏览器/终端里按 F1 也误判成游戏。
+ * window-snap 返回物理像素，显示器 bounds 是逻辑像素，先换算再比。
+ */
+async function isFullscreenForeground(deps: CaptureDeps, display: Display): Promise<boolean> {
+  let fg: Rect | null = null
+  try {
+    fg = await deps.platformServices.windowQuery.foreground()
+  } catch {
+    return false
+  }
+  logDiagnostic(
+    'capture',
+    `foreground rect=${fg ? `${fg.x},${fg.y},${fg.width},${fg.height}` : 'null'} display=${display.bounds.x},${display.bounds.y},${display.bounds.width},${display.bounds.height} scale=${display.scaleFactor}`,
+    'debug'
+  )
+  if (!fg) return false
+  const scale = display.scaleFactor || 1
+  const b = display.bounds
+  const rw = fg.width / scale
+  const rh = fg.height / scale
+  const rx = fg.x / scale
+  const ry = fg.y / scale
+  const overlapX = Math.min(rx + rw, b.x + b.width) - Math.max(rx, b.x)
+  const overlapY = Math.min(ry + rh, b.y + b.height) - Math.max(ry, b.y)
+  if (overlapX <= 0 || overlapY <= 0) return false
+  return overlapX * overlapY >= b.width * b.height * 0.99
 }
 
 export async function handleOverlayComplete(

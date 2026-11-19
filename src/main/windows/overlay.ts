@@ -513,7 +513,11 @@ export class OverlayManager {
     this.endSession()
   }
 
-  async start(capture: DisplayCapture, pendingRecorderMode?: RecorderMode): Promise<void> {
+  async start(
+    capture: DisplayCapture,
+    pendingRecorderMode?: RecorderMode,
+    options?: { noStealFocus?: boolean }
+  ): Promise<void> {
     const started = Date.now()
     this.warmupToken += 1
     this.active = true
@@ -587,9 +591,14 @@ export class OverlayManager {
     console.log('OVERLAY_PREPARED', Date.now() - started)
     // 先抢焦点再变可见：首帧以“前台窗口”身份交给 DWM 合成，
     // 避免可见后才切前台导致的额外呈现延迟。
+    // 全屏独占程序（游戏/视频）里不能抢焦点，否则它会最小化：
+    // setFocusable(false) 会给窗口加上 WS_EX_NOACTIVATE，
+    // 鼠标点击只作用在覆盖层上、不把前台切走（键盘输入此时不给覆盖层）。
     entry.window.setIgnoreMouseEvents(false)
     entry.window.moveTop()
-    entry.window.focus()
+    const noStealFocus = options?.noStealFocus === true
+    entry.window.setFocusable(!noStealFocus)
+    if (!noStealFocus) entry.window.focus()
     entry.window.setOpacity(1)
     const shownAt = Date.now()
     console.log('OVERLAY_SHOW_MS', Date.now() - started)
