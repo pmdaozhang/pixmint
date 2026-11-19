@@ -44,6 +44,8 @@ interface Props {
   isPro?: boolean
   /** 免费用户点击会员字体时打开购买窗 */
   onOpenPurchase?: () => void
+  /** 聚光灯开关；次数用完的免费用户点击时由外层打开购买窗 */
+  onToggleSpotlight?: () => void
 }
 
 const ARROW_MODES: Array<{ value: ArrowMode; label: string }> = [
@@ -79,6 +81,28 @@ function ArrowModeIcon({ mode }: { mode: ArrowMode }): JSX.Element {
           strokeLinejoin="round"
         />
       )}
+    </svg>
+  )
+}
+
+/**
+ * 聚光灯图标（B 方案 · 参考图还原）：灯头 + 半透明光柱 + 完整椭圆光圈。
+ * 线条按 21px 实尺寸调细：光圈笔画 1.3，光柱不加描边、只用半透明填充，
+ * 避免缩小时糊成一团灰块。
+ */
+function SpotlightIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="9" y="2.6" width="6" height="3" rx="1" fill="currentColor" />
+      <path d="M8.4 6.2h7.2l4.2 9.4H4.2z" fill="currentColor" fillOpacity="0.48" />
+      <ellipse
+        cx="12"
+        cy="16.6"
+        rx="7.2"
+        ry="2.8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   )
 }
@@ -419,7 +443,8 @@ export function Toolbar({
   language = 'zh-CN',
   onConfirm,
   isPro = false,
-  onOpenPurchase
+  onOpenPurchase,
+  onToggleSpotlight
 }: Props): JSX.Element {
   const tr = (zh: string, vars?: Record<string, string | number>): string =>
     t(language, zh, vars)
@@ -574,6 +599,17 @@ export function Toolbar({
 
       {submenuOpen && <div className="submenu-divider" />}
       {submenuOpen && <div className="row2">
+        {options.tool === 'shape' && (
+          <button
+            className={`ss-cell spotlight-toggle${options.spotlight ? ' on' : ''}`}
+            title={tr('聚光灯')}
+            aria-label={tr('聚光灯')}
+            aria-pressed={options.spotlight}
+            onClick={() => onToggleSpotlight?.()}
+          >
+            <SpotlightIcon />
+          </button>
+        )}
         {(options.tool === 'shape' || options.tool === 'arrow') && (
           <WidthDot
             value={options.widths[widthKey]}
@@ -634,12 +670,14 @@ export function Toolbar({
               language={language}
               onChange={(arrowMode) => setOptions({ arrowMode })}
             />
-            <LineStylePicker
-              value={options.lineStyle}
-              color={options.color}
-              language={language}
-              onChange={(lineStyle) => setOptions({ lineStyle })}
-            />
+            {options.arrowMode !== 'none' && (
+              <LineStylePicker
+                value={options.lineStyle}
+                color={options.color}
+                language={language}
+                onChange={(lineStyle) => setOptions({ lineStyle })}
+              />
+            )}
             <span className="div" />
             <ColorPalette color={options.color} onChange={(color) => setOptions({ color })} />
           </>
