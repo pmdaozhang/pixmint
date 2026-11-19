@@ -127,10 +127,8 @@ function toastHtml(message: string, palette: ToastPalette): string {
  */
 export class StatusToast {
   private window: BrowserWindow | null = null
-  private hideTimer: ReturnType<typeof setTimeout> | null = null
 
-  /** durationMs 可选；给了就到点自动消失（免扰截图提示用）。 */
-  show(message: string, theme: ThemeSetting = 'system', durationMs?: number): void {
+  show(message: string, theme: ThemeSetting = 'system'): void {
     this.hide()
     const dark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -173,16 +171,9 @@ export class StatusToast {
       if (this.window === window) this.window = null
     })
     this.window = window
-    if (durationMs && durationMs > 0) {
-      this.hideTimer = setTimeout(() => this.hide(), durationMs)
-    }
   }
 
   hide(): void {
-    if (this.hideTimer) {
-      clearTimeout(this.hideTimer)
-      this.hideTimer = null
-    }
     const window = this.window
     this.window = null
     if (window && !window.isDestroyed()) window.destroy()
