@@ -10,6 +10,7 @@ import uuid
 import sqlite3
 import time
 import hashlib
+import hmac
 import json
 import re
 import urllib.error
@@ -22,6 +23,8 @@ from flask import Flask, request, jsonify, session, g, send_file
 from werkzeug.security import check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+import wecom
+
 DB_PATH = os.environ.get("HUGDATA_DB", "/var/lib/hugdata/data.db")
 SECRET = os.environ.get("HUGDATA_SECRET", "")
 ADMIN_USER = os.environ.get("HUGDATA_ADMIN_USER", "admin")
@@ -32,7 +35,12 @@ LICENSE_ORDERS_API = os.environ.get(
     "PIXMINT_ORDERS_API", "http://127.0.0.1:8101/v1/admin/manual/orders"
 )
 LICENSE_ORDERS_TOKEN = os.environ.get("PIXMINT_ORDERS_TOKEN", "")
+# 企业微信应用消息：数据台是唯一出口，避免多个授权服务各自刷新 token 互相顶掉。
+WECOM_CORP_ID = os.environ.get("HUGDATA_WECOM_CORP_ID", "")
+WECOM_AGENT_ID = os.environ.get("HUGDATA_WECOM_AGENT_ID", "")
+WECOM_SECRET = os.environ.get("HUGDATA_WECOM_SECRET", "")
 ORDER_ID_RE = re.compile(r"^[A-Za-z0-9-]{4,40}$")
+VIDGRAB_ORDER_ID_RE = re.compile(r"^VG[0-9]{6}-[A-Z0-9]{4,8}$")
 MAX_ATTACH = 5 * 1024 * 1024
 MAX_ATTACH_COUNT = 10
 ALLOWED_MIME = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
@@ -485,6 +493,66 @@ def notify_manual_order(order_id):
     if err:
         return jsonify(error=err), 502
     return jsonify(data or {})
+
+
+# ---------------- 内部接口：VidGrab 订单通知中转 ----------------
+def _vidgrab_order_lookup(order_id):
+    """向 VidGrab 授权服务（8102）按订单号查订单；返回 (order, error)。"""
+    base = os.environ.get(
+        "VIDGRAB_ORDERS_API", "http://127.0.0.1:8102/v1/admin/manual/orders"
+    )
+    token = os.environ.get("VIDGRAB_ORDERS_TOKEN", "")
+    if not token:
+        return None, "orders_token_missing"
+    query = urllib.parse.urlencode({"q": order_id, "status": "all"})
+    req = urllib.request.Request(
+        base + "?" + query, headers={"Authorization": f"Bearer {token}"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as exc:
+        return None, f"license_http_{exc.code}"
+    except Exception as exc:  # noqa: BLE001
+        return None, f"license_unreachable: {exc}"
+    return next(
+        (o for o in data.get("orders", []) if o.get("orderId") == order_id), None
+    ), None
+
+
+@app.post("/api/internal/vidgrab/notify/<order_id>")
+def internal_vidgrab_notify(order_id):
+    """VidGrab 新订单 → 企业微信。
+
+    只有 VidGrab 授权服务（跑在本机）能用订单口令调用；
+    正文由这里按订单真实数据重新生成，不信任调用方传的内容。
+    """
+    if (request.remote_addr or "") not in ("127.0.0.1", "::1"):
+        return jsonify(error="forbidden"), 403
+    if not VIDGRAB_ORDER_ID_RE.match(order_id):
+        return jsonify(error="invalid_order_id"), 400
+    supplied = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    expected = os.environ.get("VIDGRAB_ORDERS_TOKEN", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        return jsonify(error="unauthorized"), 401
+
+    order, err = _vidgrab_order_lookup(order_id)
+    if err:
+        return jsonify(ok=False, error=err), 502
+    if not order or order.get("status") not in ("pending_payment", "reviewing"):
+        return jsonify(ok=False, error="order_not_pending"), 409
+
+    amount = (order.get("amountCents") or 0) / 100
+    content = (
+        f"## VidGrab 新订单待确认\n\n"
+        f"订单号：{order_id}\n\n"
+        f"金额：¥{amount:.2f}\n\n"
+        f"[点击打开数据台](https://data.hugproducthub.top)"
+    )
+    ok = wecom.send_markdown(
+        content, WECOM_CORP_ID, WECOM_SECRET, WECOM_AGENT_ID, app.logger
+    )
+    return jsonify(ok=ok, error=None if ok else "wecom_failed"), (200 if ok else 502)
 
 
 @app.patch("/api/admin/feedback/<raw_fid>")

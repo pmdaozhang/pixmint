@@ -16,6 +16,8 @@ import secrets
 import sqlite3
 import threading
 import time
+import urllib.parse
+import urllib.request
 from functools import wraps
 from typing import Any
 
@@ -384,6 +386,11 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         mbd_app_id=os.environ.get("MBD_APP_ID", ""),
         mbd_app_key=os.environ.get("MBD_APP_KEY", ""),
         mbd_base=os.environ.get("MBD_API_BASE", "https://newapi.mbd.pub"),
+        notify_hub_url=os.environ.get(
+            "PIXMINT_NOTIFY_HUB_URL",
+            "http://127.0.0.1:8100/api/internal/vidgrab/notify",
+        ),
+        notify_hub_token=os.environ.get("PIXMINT_NOTIFY_HUB_TOKEN", ""),
         pay_mock=os.environ.get("PIXMINT_PAY_MOCK", "") == "1",
         pay_mock_auto=os.environ.get("PIXMINT_PAY_MOCK_AUTO", "") == "1",
     )
@@ -726,9 +733,38 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         except Exception as exc:
             app.logger.warning("record notification failed: %s", exc)
 
+    def notify_hub_send(order_id: str) -> bool:
+        """通过数据台统一发企业微信：token 只由数据台刷新，两个产品不会互踢。"""
+        url = str(app.config["notify_hub_url"] or "").strip()
+        token = str(app.config["notify_hub_token"] or "").strip()
+        if not url or not token:
+            return False
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/{urllib.parse.quote(order_id)}",
+                data=b"{}",
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8") or "{}")
+            if data.get("ok"):
+                return True
+            app.logger.warning("notify hub failed: %s", data)
+            return False
+        except Exception as exc:  # noqa: BLE001
+            app.logger.warning("notify hub error: %s", exc)
+            return False
+
     def deliver_order_notification(
         order: sqlite3.Row, actor: str = "system"
     ) -> bool:
+        if notify_hub_send(order["order_id"]):
+            record_notification(order["order_id"], actor)
+            return True
         content = build_order_message(order)
         if not content:
             app.logger.warning("action secret not configured; skip push")
