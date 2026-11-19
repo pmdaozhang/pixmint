@@ -65,6 +65,7 @@ const api: SnapglassApi = {
     warmEditDone: () => ipcRenderer.send('overlay:warm-edit-done'),
     rendererReady: () => ipcRenderer.send('overlay:renderer-ready'),
     heartbeat: () => ipcRenderer.send('overlay:heartbeat'),
+    setSpotlightPref: (value: boolean) => ipcRenderer.send('overlay:spotlight-pref', value),
     windowAt: (x: number, y: number) => ipcRenderer.invoke('overlay:window-at', x, y),
     complete: (payload: OverlayCompletePayload) => ipcRenderer.send('overlay:complete', payload),
     cancel: () => ipcRenderer.send('overlay:cancel')

@@ -16,7 +16,18 @@ export interface OverlayOptions {
   textB: boolean
   textI: boolean
   textU: boolean
+  /** 矩形/椭圆聚光灯开关；默认值由 OverlayApp 按会员与当日次数在每次截图开始时决定 */
+  spotlight: boolean
 }
+
+/** 叠在形状外的遮罩颜色：黑色半透明 */
+export const SPOTLIGHT_MASK_COLOR = 'rgba(0, 0, 0, 0.55)'
+
+/**
+ * 遮罩之上重描已有标注的不透明度：聚光灯打开后，先画的边框仍然看得见，
+ * 但又比亮区里的线条略淡一些，保留“被遮罩压住”的层次。
+ */
+export const SPOTLIGHT_MASK_BORDER_ALPHA = 0.55
 
 export const DEFAULT_FONT_FAMILY = 'sans-serif'
 
@@ -35,7 +46,8 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   fontFamily: DEFAULT_FONT_FAMILY,
   textB: false,
   textI: false,
-  textU: false
+  textU: false,
+  spotlight: false
 }
 
 export interface FontChoice {

@@ -52,7 +52,7 @@ export function registerLicenseIpc(ctx: IpcContext): void {
   )
   on(
     'purchase:open',
-    z.tuple([z.enum(['ocr', 'translate', 'gif', 'video']).optional()]),
+    z.tuple([z.enum(['ocr', 'translate', 'gif', 'video', 'spotlight']).optional()]),
     (_event, [feature]) => ctx.openPurchaseWindow(feature)
   )
 }

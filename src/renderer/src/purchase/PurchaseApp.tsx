@@ -28,7 +28,8 @@ const FEATURE_LABEL: Record<UsageFeature, string> = {
   ocr: 'OCR 识别',
   translate: '翻译',
   gif: 'GIF 录制',
-  video: '视频录制'
+  video: '视频录制',
+  spotlight: '聚光灯'
 }
 
 function readableError(error: unknown): string {
@@ -43,7 +44,11 @@ function parseFeature(): UsageFeature | null {
   const hash = window.location.hash
   const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : ''
   const value = new URLSearchParams(query).get('feature')
-  return value === 'ocr' || value === 'translate' || value === 'gif' || value === 'video'
+  return value === 'ocr' ||
+    value === 'translate' ||
+    value === 'gif' ||
+    value === 'video' ||
+    value === 'spotlight'
     ? value
     : null
 }

@@ -75,6 +75,16 @@ export interface OverlayInit extends DisplayCapture {
   pendingRecorderMode?: RecorderMode
   /** F1 时刻的光标位置（相对当前显示器，DIP），用于放大镜初始定位。 */
   cursor?: { x: number; y: number }
+  /**
+   * 本次会话免费用户是否还能用聚光灯：会员恒为 true；
+   * 免费用户只在当天前 2 次 F1 截图为 true。缺省按 false 处理。
+   */
+  spotlightAllowed?: boolean
+  /**
+   * 本次会话聚光灯开关的初始值：用户手动改过就沿用上次选择，
+   * 否则等于 spotlightAllowed。缺省时按 spotlightAllowed 处理。
+   */
+  spotlightOn?: boolean
 }
 
 export interface OverlayCompletePayload {
@@ -163,6 +173,8 @@ export interface RectAnno extends BaseAnno {
   x2: number
   y2: number
   fill: boolean
+  /** 聚光灯：形状内部保持原样高亮，形状外部压暗；只影响选区画布，不影响裁切尺寸 */
+  spotlight?: boolean
 }
 
 export interface LineAnno extends BaseAnno {

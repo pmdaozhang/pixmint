@@ -5,15 +5,20 @@
  * 关键约束：日期按本机时区划分，跨天自动归零；计数只增不减，退款单独处理。
  */
 
-export type UsageFeature = 'ocr' | 'translate' | 'gif' | 'video'
+export type UsageFeature = 'ocr' | 'translate' | 'gif' | 'video' | 'spotlight'
 
-export const USAGE_FEATURES: UsageFeature[] = ['ocr', 'translate', 'gif', 'video']
+export const USAGE_FEATURES: UsageFeature[] = ['ocr', 'translate', 'gif', 'video', 'spotlight']
 
+/**
+ * spotlight 的口径与其他功能不同：它是“免费用户每天前 2 次 F1 截图可用聚光灯”，
+ * 由主进程在每次真实截图会话开始时记一次，与具体画了几个形状无关。
+ */
 export const DEFAULT_DAILY_LIMITS: Record<UsageFeature, number> = {
   ocr: 20,
   translate: 10,
   gif: 3,
-  video: 1
+  video: 1,
+  spotlight: 2
 }
 
 export const USAGE_SCHEMA_VERSION = 1
@@ -68,7 +73,7 @@ export function emptyUsage(day: string): UsageState {
   return {
     version: USAGE_SCHEMA_VERSION,
     day,
-    counts: { ocr: 0, translate: 0, gif: 0, video: 0 }
+    counts: { ocr: 0, translate: 0, gif: 0, video: 0, spotlight: 0 }
   }
 }
 
@@ -97,7 +102,8 @@ export function normalizeUsage(input: unknown, nowMs: number): UsageState {
       ocr: countOr(counts?.ocr),
       translate: countOr(counts?.translate),
       gif: countOr(counts?.gif),
-      video: countOr(counts?.video)
+      video: countOr(counts?.video),
+      spotlight: countOr(counts?.spotlight)
     }
   }
 }
@@ -189,7 +195,8 @@ export function snapshotUsage(
       ocr: Math.max(0, limits.ocr - used.ocr),
       translate: Math.max(0, limits.translate - used.translate),
       gif: Math.max(0, limits.gif - used.gif),
-      video: Math.max(0, limits.video - used.video)
+      video: Math.max(0, limits.video - used.video),
+      spotlight: Math.max(0, limits.spotlight - used.spotlight)
     }
   }
 }

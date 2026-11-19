@@ -65,7 +65,9 @@ function createOverlayInit(): OverlayInit {
     imageDataUrl: canvas.toDataURL('image/png'),
     imageWidth: width,
     imageHeight: height,
-    settings: { ...settings }
+    settings: { ...settings },
+    spotlightAllowed: true,
+    spotlightOn: true
   }
 }
 
@@ -164,9 +166,9 @@ const api = {
     get: async () => ({
       pro: false,
       day: new Date().toISOString().slice(0, 10),
-      limits: { ocr: 20, translate: 10, gif: 3, video: 1 },
-      used: { ocr: 0, translate: 0, gif: 0, video: 0 },
-      remaining: { ocr: 20, translate: 10, gif: 3, video: 1 }
+      limits: { ocr: 20, translate: 10, gif: 3, video: 1, spotlight: 2 },
+      used: { ocr: 0, translate: 0, gif: 0, video: 0, spotlight: 0 },
+      remaining: { ocr: 20, translate: 10, gif: 3, video: 1, spotlight: 2 }
     })
   },
   license: {
@@ -228,6 +230,7 @@ const api = {
     prepared: () => {},
     rendererReady: () => {},
     heartbeat: () => {},
+    setSpotlightPref: () => {},
     windowAt: async () => null,
     complete: () => {},
     cancel: () => {}

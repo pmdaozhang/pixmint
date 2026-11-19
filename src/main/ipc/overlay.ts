@@ -38,6 +38,11 @@ export function registerOverlayIpc(ctx: IpcContext): void {
     ctx.overlayManager.noteHeartbeat(event.sender.id)
   })
 
+  // 聚光灯是独立开关：用户手动改过之后，下次 F1 要沿用这个选择。
+  on('overlay:spotlight-pref', z.tuple([z.boolean()]), (_event, [value]) => {
+    ctx.overlayManager.setSpotlightPreference(value)
+  })
+
   handle(
     'overlay:window-at',
     z.tuple([z.number().finite(), z.number().finite()]),

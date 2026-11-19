@@ -48,6 +48,8 @@ export interface SnapglassApi {
     warmEditDone(): void
     rendererReady(): void
     heartbeat(): void
+    /** 记住用户手动切换的聚光灯开关，下次 F1 沿用 */
+    setSpotlightPref(value: boolean): void
     windowAt(x: number, y: number): Promise<Rect | null>
     complete(payload: OverlayCompletePayload): void
     cancel(): void

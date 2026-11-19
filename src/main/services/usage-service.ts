@@ -54,10 +54,15 @@ export class UsageService {
     return this.options.store.evaluate(feature)
   }
 
-  consume(feature: UsageFeature): UsageEvaluation {
+  /**
+   * @param onExceeded 默认 true：超限时弹购买窗（OCR/翻译/录制用）。
+   *   聚光灯按 F1 次数静默记账，超限时不能把正在进行的截图会话藏起来再弹窗，
+   *   所以传 false，由覆盖层的开关点击单独触发购买窗。
+   */
+  consume(feature: UsageFeature, onExceeded = true): UsageEvaluation {
     if (this.isUnlimited()) return this.check(feature)
     const evaluation = this.options.store.consume(feature)
-    if (!evaluation.allowed) this.options.onExceeded?.(feature)
+    if (!evaluation.allowed && onExceeded) this.options.onExceeded?.(feature)
     return evaluation
   }
 

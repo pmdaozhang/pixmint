@@ -171,6 +171,8 @@ export function OverlayApp(): JSX.Element {
 
   const resetUiForInit = useCallback((data: OverlayInit) => {
     resetSelection()
+    // 聚光灯初始值：用户手动选过就沿用上次选择，否则按本会话额度（会员/前 2 次为开）。
+    setOptions({ spotlight: (data.spotlightOn ?? data.spotlightAllowed) === true })
     cancelSnap()
     resetRecorderState()
     pendingRecordModeRef.current = data.pendingRecorderMode ?? null
@@ -180,7 +182,7 @@ export function OverlayApp(): JSX.Element {
     const theme =
       data.settings.theme === 'system' ? (media ? 'dark' : 'light') : data.settings.theme
     document.documentElement.dataset.theme = theme
-  }, [cancelSnap, resetRecorderState, resetSelection])
+  }, [cancelSnap, resetRecorderState, resetSelection, setOptions])
 
   // 主进程在新会话里会紧接着发送 overlay:init；窗口显示时的可见性回调
   // 不能抢先再加载一次图片，否则同一次 F1 会解码两遍 PNG。
@@ -863,6 +865,7 @@ export function OverlayApp(): JSX.Element {
           {effectivePhase === 'editing' && !recorderModeActive && (
             <>
               <AnnotationCanvas
+                key="annotation"
                 ref={annotationRef}
                 imageWidth={init?.imageWidth ?? 1}
                 imageHeight={init?.imageHeight ?? 1}
@@ -984,6 +987,21 @@ export function OverlayApp(): JSX.Element {
             canRedo={canRedo}
             isPro={isPro}
             onOpenPurchase={() => window.snapglass.purchase.open()}
+            onToggleSpotlight={() => {
+              if (options.spotlight) {
+                setOptions({ spotlight: false })
+                // 记住“用户主动关掉”，下次 F1 不要再自动打开。
+                window.snapglass.overlay.setSpotlightPref(false)
+                return
+              }
+              // 没有额度：免费用户点开时弹购买窗，不在这里打开
+              if (init?.spotlightAllowed !== true) {
+                window.snapglass.purchase.open('spotlight')
+                return
+              }
+              setOptions({ spotlight: true })
+              window.snapglass.overlay.setSpotlightPref(true)
+            }}
           />
         </div>
       )}

@@ -55,7 +55,7 @@ describe('normalizeUsage', () => {
     expect(normalizeUsage({ day: '2026-11-04', counts: { ocr: 9 } }, now).counts.ocr).toBe(0)
     expect(
       normalizeUsage({ day: '2026-11-05', counts: { ocr: -3, gif: 'x' } }, now).counts
-    ).toEqual({ ocr: 0, translate: 0, gif: 0, video: 0 })
+    ).toEqual({ ocr: 0, translate: 0, gif: 0, video: 0, spotlight: 0 })
     expect(
       normalizeUsage({ day: '2026-11-05', counts: { ocr: 12.8 } }, now).counts.ocr
     ).toBe(12)
@@ -76,11 +76,39 @@ describe('refundUsage', () => {
 })
 
 describe('snapshotUsage', () => {
-  it('返回四项的已用与剩余', () => {
+  it('返回全部功能的已用与剩余', () => {
     const day = dayKey(AT('2026-11-05T10:00:00'))
     const state = consumeUsage(emptyUsage(day), 'video', 1, AT('2026-11-05T10:00:00')).state
     const snapshot = snapshotUsage(state, DEFAULT_DAILY_LIMITS, AT('2026-11-05T10:00:00'))
     expect(snapshot.remaining.video).toBe(0)
     expect(snapshot.remaining.ocr).toBe(DEFAULT_DAILY_LIMITS.ocr)
+    expect(snapshot.remaining.spotlight).toBe(DEFAULT_DAILY_LIMITS.spotlight)
+  })
+})
+
+describe('spotlight 聚光灯额度', () => {
+  it('免费用户每天前 2 次 F1 为 true，第 3 次起为 false', () => {
+    const now = AT('2026-11-05T10:00:00')
+    let state = emptyUsage(dayKey(now))
+    const results: boolean[] = []
+    for (let index = 0; index < 3; index += 1) {
+      // 与主进程 OverlayManager.noteCapture 相同的口径：扣一次，看是否在额度内。
+      const result = consumeUsage(state, 'spotlight', DEFAULT_DAILY_LIMITS.spotlight, now)
+      results.push(result.evaluation.allowed)
+      state = result.state
+    }
+    expect(results).toEqual([true, true, false])
+    expect(state.counts.spotlight).toBe(2)
+  })
+
+  it('第二天重新给 2 次', () => {
+    const now = AT('2026-11-05T10:00:00')
+    let state = emptyUsage(dayKey(now))
+    state = consumeUsage(state, 'spotlight', 2, now).state
+    state = consumeUsage(state, 'spotlight', 2, now).state
+    expect(consumeUsage(state, 'spotlight', 2, now).evaluation.allowed).toBe(false)
+    const nextDay = consumeUsage(state, 'spotlight', 2, AT('2026-11-06T09:00:00'))
+    expect(nextDay.evaluation.allowed).toBe(true)
+    expect(nextDay.evaluation.remaining).toBe(1)
   })
 })

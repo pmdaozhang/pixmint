@@ -18,6 +18,7 @@ import type {
   MosaicAnno,
   Point,
   Rect,
+  RectAnno,
   TextAnno
 } from '@shared/types'
 import {
@@ -31,7 +32,12 @@ import {
 } from '@shared/annotation-utils'
 import { layoutText } from '@shared/text-layout'
 import { drawAnnotation } from './annotation/draw'
-import type { OverlayOptions } from './options'
+import {
+  SPOTLIGHT_MASK_BORDER_ALPHA,
+  SPOTLIGHT_MASK_COLOR,
+  type OverlayOptions
+} from './options'
+import { planSpotlightDraw, spotlightHoles } from './annotation/spotlight'
 
 const FONT_SIZE_MIN = 14
 const FONT_SIZE_MAX = 60
@@ -93,6 +99,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
   ) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    // 聚光灯亮区遮罩图：复用同一张画布，避免每次重绘都分配新 GPU 纹理。
+    const spotlightMaskRef = useRef<HTMLCanvasElement | null>(null)
     const annotationsRef = useRef<Annotation[]>([])
     const tempRef = useRef<Annotation | null>(null)
     const historyRef = useRef<Annotation[][]>([])
@@ -176,13 +184,72 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       if (!canvas || !ctx) return
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, sizeRef.current.width, sizeRef.current.height)
-      for (const annotation of annotationsRef.current) {
-        if (annotation.type === 'text' && annotation.id === editingTextIdRef.current) continue
+      const plan = planSpotlightDraw(annotationsRef.current, tempRef.current, editingTextIdRef.current)
+      // 顺序：非聚光灯标注 → 压遮罩 → 聚光灯形状 → 半透明重描已有标注。
+      // 顺序错了会直接出现“边框被遮罩吞掉”或“聚光灯被压暗”，见 annotation/spotlight.ts。
+      for (const annotation of plan.base) {
         drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
       }
-      if (tempRef.current) {
-        drawAnnotation(ctx, tempRef.current, null, backgroundCanvasRef.current)
+      drawSpotlightMasks(ctx)
+      for (const annotation of plan.spotlit) {
+        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
       }
+      // 聚光灯是“打光”不是“抠掉”：遮罩之下已有的边框/线条必须仍能看见。
+      ctx.save()
+      ctx.globalAlpha = SPOTLIGHT_MASK_BORDER_ALPHA
+      for (const annotation of plan.overlay) {
+        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
+      }
+      ctx.restore()
+    }
+
+    /**
+     * 聚光灯是“全局压暗”效果：所有聚光灯形状的并集被挖空，其余区域盖一层半透明黑色。
+     * 关键约束：
+     * - 遮罩画在所有标注之上、只作用于选区画布，不改变选区尺寸和导出分辨率。
+     * - 亮区必须先合成成一张不透明的“遮罩图”，再用 destination-out 盖住画布。
+     *   不能把所有形状直接塞进同一个 evenodd 路径：两个形状重叠处会被判成“洞里
+     *   的洞”重新填黑，重叠区反而更暗（2026-11-20 用户实测发现）。
+     */
+    const drawSpotlightMasks = (ctx: CanvasRenderingContext2D): void => {
+      const holes = spotlightHoles(annotationsRef.current, tempRef.current)
+      if (!holes.length) return
+      const width = sizeRef.current.width
+      const height = sizeRef.current.height
+      const mask = spotlightMaskRef.current ?? document.createElement('canvas')
+      spotlightMaskRef.current = mask
+      mask.width = Math.max(1, Math.ceil(width))
+      mask.height = Math.max(1, Math.ceil(height))
+      const maskCtx = mask.getContext('2d')
+      if (!maskCtx) return
+      maskCtx.clearRect(0, 0, mask.width, mask.height)
+      maskCtx.fillStyle = '#000'
+      for (const hole of holes) {
+        maskCtx.beginPath()
+        if (hole.type === 'rect') {
+          maskCtx.rect(hole.x, hole.y, hole.width, hole.height)
+        } else {
+          // 外扩用同一个中心、半径同加 pad（统一外扩），而不是直接把椭圆放大。
+          maskCtx.ellipse(
+            hole.x + hole.width / 2,
+            hole.y + hole.height / 2,
+            hole.width / 2,
+            hole.height / 2,
+            0,
+            0,
+            Math.PI * 2
+          )
+        }
+        maskCtx.fill()
+      }
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(0, 0, width, height)
+      ctx.fillStyle = SPOTLIGHT_MASK_COLOR
+      ctx.fill()
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.drawImage(mask, 0, 0)
+      ctx.restore()
     }
 
     const notifyHistory = (): void => {
@@ -260,12 +327,61 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       redoRef.current = shiftSnapshots(redoRef.current)
     }
 
+    /**
+     * 导出用的标注合成：屏幕画布 + 聚光灯遮罩。
+     * 屏幕上的暗场由 OverlayApp 的选区层负责，标注画布本身是透明的；
+     * 但保存/复制/钉图必须带上聚光灯效果，所以导出时把遮罩画进来。
+     * 关键约束：导出画布必须是「图片之上的黑色半透明层」，由调用方先铺底图再叠加。
+     */
+    const exportCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    const getExportCanvas = (): HTMLCanvasElement | null => {
+      const source = canvasRef.current
+      if (!source) return null
+      const canvas = exportCanvasRef.current ?? document.createElement('canvas')
+      exportCanvasRef.current = canvas
+      // 关键：导出画布不能重设尺寸。同尺寸重新赋值 width 也会清空画布并重置合成状态，
+      // 之前遮罩生效后边框消失就是踩在这里；只在尺寸真的变了时才重建。
+      if (canvas.width !== source.width || canvas.height !== source.height) {
+        canvas.width = source.width
+        canvas.height = source.height
+      }
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      if (!spotlightHoles(annotationsRef.current, null).length) {
+        ctx.drawImage(source, 0, 0)
+        return canvas
+      }
+      // 显式重放绘制顺序，而不是直接叠源画布：
+      // 源画布上遮罩盖在聚光灯形状之上，整体拷贝过去会连聚光灯边框一起压暗。
+      // 导出里必须是「非聚光灯标注 → 遮罩 → 聚光灯形状 → 半透明重描旧标注」，
+      // 与屏幕上的顺序保持一致，边框才会完整显示。
+      const plan = planSpotlightDraw(annotationsRef.current, null, null)
+      ctx.save()
+      ctx.scale(dpr, dpr)
+      for (const annotation of plan.base) {
+        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
+      }
+      drawSpotlightMasks(ctx)
+      for (const annotation of plan.spotlit) {
+        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
+      }
+      ctx.globalAlpha = SPOTLIGHT_MASK_BORDER_ALPHA
+      for (const annotation of plan.overlay) {
+        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
+      }
+      ctx.restore()
+      return canvas
+    }
+
     useImperativeHandle(
       ref,
       () => ({
         undo,
         redo,
-        getCanvas: () => canvasRef.current,
+        getCanvas: getExportCanvas,
         shift,
         shiftHistory,
         cancelInteraction
@@ -495,6 +611,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
           x2: point.x,
           y2: point.y,
           fill: false,
+          spotlight: options.spotlight,
           style: styleNow()
         }
         redraw()

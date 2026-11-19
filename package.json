@@ -35,7 +35,9 @@
     "e2e:purchase": "node e2e-purchase.cjs",
     "e2e:quota": "node e2e-quota.cjs",
     "e2e:license": "node e2e-license-live.cjs",
-    "test:server": "python -m unittest discover -s server/license/tests -t server/license -v"
+    "test:server": "python -m unittest discover -s server/license/tests -t server/license -v",
+    "e2e:spotlight": "node e2e-spotlight.cjs",
+    "e2e:spotlight:stress": "node e2e-spotlight-stress.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.11",

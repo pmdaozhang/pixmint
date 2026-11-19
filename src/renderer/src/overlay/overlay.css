@@ -165,9 +165,14 @@
   white-space: nowrap;
 }
 
+/*
+ * 标注画布必须在选区外遮罩（.dim-panel，z-index: 3）之上：
+ * 聚光灯把“亮区以外压暗”画在标注画布自己的像素里，若画布在遮罩之下，
+ * 屏幕和导出都看不到这层压暗（2026-11-20 端到端测试发现）。
+ */
 .anno-wrap {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
 }
 
 .anno-canvas {
@@ -741,6 +746,48 @@
 .seg .ss-cell.on {
   background: var(--segmented-selected);
   color: var(--text);
+}
+
+/*
+ * 聚光灯是独立开关：选中时整格铺底色块，而不只是变图标颜色。
+ *
+ * 为什么不复用 --selected-bg / --selected-text：
+ * 这两组变量在 tokens.css 和 win11.css 里各定义一份，加载顺序决定最终值，
+ * 之前直接引用导致选中图标在某些主题下变成白色、糊在浅底上。
+ * 开关按钮是工具栏上的实体控件，不是文字，所以这里按主题写死：
+ * 浅色主题 = 浅灰底 + 近黑图标；深色主题 = 中灰底 + 白色图标，两种都有足够对比。
+ */
+.row2 .spotlight-toggle {
+  color: #5c5c5c;
+}
+
+.row2 .spotlight-toggle:hover {
+  color: #1a1a1a;
+}
+
+.row2 .spotlight-toggle.on {
+  background: #dcdcdc;
+  color: #1a1a1a;
+  box-shadow: inset 0 0 0 1px #c4c4c4;
+}
+
+:root[data-theme="dark"] .row2 .spotlight-toggle {
+  color: #b8b8b8;
+}
+
+:root[data-theme="dark"] .row2 .spotlight-toggle:hover {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .row2 .spotlight-toggle.on {
+  background: #454545;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px #5a5a5a;
+}
+
+/* 选中态的光柱填充再压一层，让图标在色块上更实。 */
+.row2 .spotlight-toggle.on svg path[fill-opacity] {
+  fill-opacity: 0.55;
 }
 
 .ss-cell svg {

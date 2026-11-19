@@ -71,7 +71,18 @@ function recycleDelayMs(): number {
  * 截屏完成后先在 opacity 0 状态下注入新画面，等渲染层确认图片已解码再显示，
  * 避免预热窗口残留的旧截图或实时桌面闪一下。
  */
+export interface OverlaySessionAccess {
+  /** 每次 F1 会话开始时记一次（会员/开发版由 UsageService 直接放行、不计数） */
+  noteCapture(): void
+  /** 本次会话里聚光灯开关是否默认打开 */
+  spotlightAllowed(): boolean
+}
+
 export class OverlayManager {
+  private readonly access: OverlaySessionAccess = {
+    noteCapture: () => {},
+    spotlightAllowed: () => false
+  }
   private readonly entries = new Map<number, OverlayEntry>()
   private readonly byDisplay = new Map<number, number>()
   private readonly captures = new Map<number, DisplayCapture>()
@@ -99,6 +110,11 @@ export class OverlayManager {
   private sessionsSinceBaseline = 0
   private memoryBaselineBytes: number | null = null
   private recycleTimer: NodeJS.Timeout | null = null
+  /**
+   * 用户手动切换聚光灯后记住的选择：null 表示“没手动改过，用额度默认值”。
+   * 进程级记忆，跨 F1 会话保留；开关永远是用户最后一次的手动选择。
+   */
+  private spotlightPreference: boolean | null = null
 
   constructor(
     private readonly preloadPath: string,
@@ -107,6 +123,21 @@ export class OverlayManager {
     private readonly onCancel: () => void,
     private readonly onAbort: (message: string) => void
   ) {}
+
+  /** 主进程在创建 UsageService 之后注入；必须先于任何截图会话设置。 */
+  setSessionAccess(access: OverlaySessionAccess): void {
+    Object.assign(this.access, access)
+  }
+
+  /** 渲染层手动切换聚光灯时调用：记住这次选择，下一次 F1 沿用。 */
+  setSpotlightPreference(value: boolean): void {
+    this.spotlightPreference = value
+  }
+
+  /** 本次会话聚光灯是否默认打开：用户手动选过就沿用，否则按额度默认。 */
+  private spotlightOnForSession(): boolean {
+    return this.spotlightPreference ?? this.access.spotlightAllowed()
+  }
 
   isActive(): boolean {
     return this.active
@@ -133,6 +164,7 @@ export class OverlayManager {
    * 关键约束：重复调用必须幂等；正常结束一定要走 endSession。
    */
   private activateSession(webContentsId: number): void {
+    this.access.noteCapture()
     this.active = true
     this.sessionPrepared = false
     this.lastHeartbeatAt = Date.now()
@@ -584,7 +616,9 @@ export class OverlayManager {
       ...capture,
       settings: this.getSettings(),
       pendingRecorderMode,
-      cursor
+      cursor,
+      spotlightAllowed: this.access.spotlightAllowed(),
+      spotlightOn: this.spotlightOnForSession()
     })
     const initAt = Date.now()
     console.log('OVERLAY_INIT_SENT', Date.now() - started)

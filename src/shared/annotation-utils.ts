@@ -110,7 +110,8 @@ export function hitTestAnnotation(annotation: Annotation, point: Point): boolean
   if (annotation.type === 'rect' || annotation.type === 'ellipse') {
     const rectAnno = annotation as RectAnno
     const rect = annotationBounds(annotation)
-    if (rectAnno.fill && pointInRect(point, rect)) return true
+    // 聚光灯形状只认描边，否则半透明遮罩下的整块区域都会被当成分片选中。
+    if (rectAnno.fill && !rectAnno.spotlight && pointInRect(point, rect)) return true
     if (rectAnno.type === 'rect') {
       const nearLeft = Math.abs(point.x - rect.x) <= tolerance && point.y >= rect.y - tolerance && point.y <= rect.y + rect.height + tolerance
       const nearRight = Math.abs(point.x - (rect.x + rect.width)) <= tolerance && point.y >= rect.y - tolerance && point.y <= rect.y + rect.height + tolerance

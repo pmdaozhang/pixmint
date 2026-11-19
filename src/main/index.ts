@@ -298,6 +298,16 @@ function initServices(): void {
       createPurchaseWindow(preloadPath, feature)
     }
   })
+  // 聚光灯按 F1 次数计：每次会话开始记一次；开 init 时读取本会话是否还有额度。
+  // 注意 activateSession 在发送 overlay:init 之前执行，所以这里读到的已含本次。
+  let spotlightAllowedForSession = true
+  overlayManager.setSessionAccess({
+    noteCapture: () => {
+      // 记录本次是否在额度内（在扣之前判断），供随后发送的 overlay:init 使用。
+      spotlightAllowedForSession = usageService.consume('spotlight', false).allowed
+    },
+    spotlightAllowed: () => spotlightAllowedForSession
+  })
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
     if (!isTrustedAppUrl(contents.getURL())) {
       callback(false)
