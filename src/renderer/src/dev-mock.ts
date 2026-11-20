@@ -214,6 +214,14 @@ const api = {
       devicesMax: 1
     })
   },
+  referral: {
+    progress: async () => ({ count: 7, active: true }),
+    context: async () => ({
+      shareUrl: 'https://pixmint.hugproducthub.top/download?ref=PM7K3QAZ',
+      friendLaunch: false,
+      count: 7
+    })
+  },
   purchase: {
     open: () => {},
     createOrder: async () => {

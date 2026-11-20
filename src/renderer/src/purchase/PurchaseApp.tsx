@@ -9,6 +9,7 @@ import {
 } from '@shared/license'
 import type { Settings } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
+import { REFERRAL, type ReferralProgress } from '@shared/referral'
 import { t } from '@shared/i18n'
 import { BrandMark } from '../components/BrandMark'
 import { applyTheme } from '../theme'
@@ -136,6 +137,7 @@ export function PurchaseApp(): JSX.Element {
   const [devices, setDevices] = useState<LicenseDevice[]>([])
   const [deviceBusy, setDeviceBusy] = useState(false)
   const [confirmUnbind, setConfirmUnbind] = useState('')
+  const [referral, setReferral] = useState<ReferralProgress | null>(null)
   const [booted, setBooted] = useState(false)
 
   const language = settings?.language ?? 'zh-CN'
@@ -160,9 +162,23 @@ export function PurchaseApp(): JSX.Element {
     void Promise.all([
       window.snapglass.usage.get().catch(() => null),
       window.snapglass.settings.get().catch(() => null),
-      window.snapglass.license.status().catch(() => null)
-    ]).then(([nextUsage, nextSettings, nextStatus]) => {
+      window.snapglass.license.status().catch(() => null),
+      window.snapglass.referral.progress().catch(() => null)
+    ]).then(([nextUsage, nextSettings, nextStatus, nextReferral]) => {
       if (nextUsage) setUsage(nextUsage)
+      if (nextReferral && nextReferral.active) {
+        setReferral(nextReferral)
+        // 首帧拿到的是本地缓存；主进程在后台同步，3 秒后补拉一次换成服务端次数
+        setTimeout(() => {
+          void window.snapglass.referral
+            .progress()
+            .then((fresh) => {
+              // 活动期间拿最新次数；服务端标记结束后收起分享卡
+              setReferral(fresh.active ? fresh : null)
+            })
+            .catch(() => {})
+        }, 3000)
+      }
       if (nextSettings) {
         setSettings(nextSettings)
         applyTheme(nextSettings.theme)
@@ -215,7 +231,7 @@ export function PurchaseApp(): JSX.Element {
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [step, message, usage, status])
+  }, [step, message, usage, status, referral])
 
   const finishPaid = useCallback(async (result: { code?: string }) => {
     if (result.code) setCode(result.code)
@@ -457,6 +473,11 @@ export function PurchaseApp(): JSX.Element {
                 {PURCHASE_PLANS.map((item) => {
                   const meta = PLAN_META[item.id]
                   const selected = plan === item.id
+                  // 价格以服务端订单为准：这里只显示分享进度与已减金额，不显示本地估算的折后价，
+                  // 避免界面写 ¥0 而实际仍按下单金额收款
+                  const sharedOff = referral
+                    ? Math.min(referral.count * REFERRAL.step, REFERRAL.price)
+                    : 0
                   return (
                     <button
                       key={item.id}
@@ -492,11 +513,88 @@ export function PurchaseApp(): JSX.Element {
                         {meta.price}
                         {meta.unit && <small>{tr(meta.unit)}</small>}
                       </span>
-                      <span className="pc-plan-desc">{tr(meta.note)}</span>
+                      <span className="pc-plan-desc">
+                        {tr(meta.note)}
+                        {referral && referral.count > 0 && (
+                          <>
+                            {' · '}
+                            <span className="pc-plan-referral">
+                              {sharedOff >= REFERRAL.price
+                                ? tr('已达到免费升级条件')
+                                : tr('已分享 {count} 次，已减 ¥{off}', {
+                                    count: referral.count,
+                                    off: sharedOff
+                                  })}
+                            </span>
+                          </>
+                        )}
+                      </span>
                     </button>
                   )
                 })}
               </div>
+
+              {referral && (
+                <div className="share-card" role="group" aria-label={tr('分享减会员费')}>
+                  <div className="share-card-head">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M3.5 9h17v4h-17zM5.5 13v7.5h13V13M12 9v11.5M12 9S11 4.5 8.2 5.4 8 9 12 9ZM12 9s1-4.5 3.8-3.6S16 9 12 9Z"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {tr('分享减会员费')}
+                    <span className="share-card-pill">
+                      {referral.count >= REFERRAL.target
+                        ? tr('已免费')
+                        : tr('离免费还差 {rest} 次', { rest: REFERRAL.target - referral.count })}
+                    </span>
+                  </div>
+                  <p className="share-card-rule">
+                    {tr(
+                      '分享 1 次减 {step} 元，累计 {target} 次免费升会员，活动截止时间以官方通知为准',
+                      { step: REFERRAL.step, target: REFERRAL.target }
+                    )}
+                  </p>
+                  <div className="share-card-row">
+                    <span>
+                      {tr('已分享 {count} / {target} 次', {
+                        count: referral.count,
+                        target: REFERRAL.target
+                      })}
+                    </span>
+                    <strong>
+                      {referral.count >= REFERRAL.target
+                        ? tr('已达免费升级条件')
+                        : tr('已减 ¥{off}', {
+                            off: Math.min(referral.count * REFERRAL.step, REFERRAL.price)
+                          })}
+                    </strong>
+                  </div>
+                  <div
+                    className={`share-card-bar${
+                      referral.count >= REFERRAL.target ? ' full' : ''
+                    }`}
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={REFERRAL.target}
+                    aria-valuenow={referral.count}
+                    aria-label={tr('已分享 {count} / {target} 次', {
+                      count: referral.count,
+                      target: REFERRAL.target
+                    })}
+                  >
+                    <i
+                      style={{
+                        width: `${Math.min(referral.count / REFERRAL.target, 1) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="pc-perks">
                 {['无限 OCR', '无限翻译', 'GIF / 视频无限录制', '未来 Pro 功能'].map((perk) => (

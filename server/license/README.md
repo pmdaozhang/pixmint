@@ -27,10 +27,22 @@
 | POST | `/v1/license/devices` / `/v1/license/unbind` | 设备列表 / 自助解绑 |
 | POST | `/v1/license/trial` | 邀请码领 7 天试用，邀请人 +90 天 |
 | POST | `/v1/license/email` | 发送激活码邮件 |
+| POST | `/v1/referral/sync` | 分享减会员费：上报并取回有效分享次数（未购按设备、已购按授权码） |
+| POST | `/v1/referral/friend` | 好友首次启动登记 `ref`，同一安装只计一次 |
 | POST | `/v1/admin/issue` | 手动签发授权（Bearer token） |
 | POST | `/v1/admin/refund` | 退款并撤销授权 |
 
 管理接口需要 `Authorization: Bearer $PIXMINT_ADMIN_TOKEN`。
+
+## 分享减会员费
+
+- 规则：每有效分享减 5 元，终身版 58 元，满 12 次免费（`REFERRAL_STEP` / `REFERRAL_TARGET`）。
+- 计次：好友用 `?ref=码` 安装后首次启动调用 `/v1/referral/friend`，按安装设备去重；自己的设备不算自己，单个分享码每天最多计 10 次。超过上限时返回 `retryLater: true`，客户端下次启动自动补记。
+- 归属：服务端按 `devices` 表判断「这台机器绑定了哪张授权」。已绑定 → 进度归授权名下，换机时在新设备重新激活即可继续；未绑定 → 按设备累积，之后激活时把激活前已发生的分享并到账号。客户端带来的激活码必须属于本机，别人的码不能把进度切走；带来本机查不到的码时响应 `clearLicense: true`。
+- 配置：
+  - `PIXMINT_REFERRAL_ENDED=1` 手动结束活动，`PIXMINT_REFERRAL_DEADLINE=<epoch秒>` 到期自动结束；结束后客户端隐藏分享入口。
+  - `PIXMINT_REFERRAL_FORCE_ANON=1` 仅本地联调用，强制按未购处理。
+- `/v1/referral/sync` 的响应：`{"code","count","ended"}`；`/v1/referral/friend` 返回 `{"count","ended"}`，老客户端只看 `count`，形状兼容。
 
 ## 部署
 

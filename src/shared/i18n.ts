@@ -597,6 +597,35 @@ const EN: Record<string, string> = {
   '升级会员': 'Upgrade membership',
   '终身会员': 'Lifetime member',
   '意见反馈…': 'Send feedback…',
+
+  // ===== 分享减会员费 =====
+  '分享': 'Share',
+  '分享 1 次减 {step} 元，累计 {target} 次免费升会员（{count}/{target}）':
+    'Save {step} for each valid share. {target} shares unlocks Pro free ({count}/{target}).',
+  '已分享 {target}/{target} · 可免费升级会员': 'All {target} shares done · Pro is free for you',
+  '新伙伴你好，Pixmint 已准备就绪': 'Welcome! Pixmint is ready',
+  '分享给朋友，会员费最高全免': 'Share with friends to get Pro for free',
+  '你通过朋友分享安装，这次分享已计入对方。想自己省会员费？把你的链接发给朋友同样有效。':
+    'You installed from a friend’s link, so this share counts for them. Share your own link to save too.',
+  '分享 1 次减 5 元，累计 12 次免费升会员，活动截止时间以官方通知为准。':
+    'Save ¥5 per valid share. 12 shares unlock Pro free, until the campaign ends.',
+  '已分享 {count} / {target} 次': 'Shared {count} / {target} times',
+  '再分享 {rest} 次免费升会员': '{rest} more to get Pro free',
+  '已达免费线': 'Free Pro unlocked',
+  '已复制，正在关闭': 'Copied, closing…',
+  '复制链接': 'Copy link',
+  '好友安装并首次启动后，本次分享才算有效。':
+    'A share counts after your friend installs Pixmint and opens it.',
+  '分享 1 次减 {step} 元，累计 {target} 次免费升会员，活动截止时间以官方通知为准':
+    'Save ¥{step} per valid share; {target} shares unlock Pro free until the campaign ends',
+  '离免费还差 {rest} 次': '{rest} shares to go',
+  '分享减会员费': 'Share & save',
+  '已分享 {count} 次，已减 ¥{off}': '{count} shares, ¥{off} off so far',
+  '已达免费升级条件': 'Free upgrade unlocked',
+  '已达到免费升级条件': 'Free upgrade unlocked',
+  '当前价 ¥{price}': 'Now ¥{price}',
+  '可免费开通': 'Free to unlock',
+  '已免费': 'Free',
   '超出截图区域~': 'Outside the capture area~',
   '该字体为会员专属，升级后可用': 'This font is for members only. Upgrade to use it.',
   '选择字体': 'Font',

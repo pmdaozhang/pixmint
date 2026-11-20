@@ -3,6 +3,7 @@ import { registerLicenseIpc } from './license'
 import { registerOcrIpc } from './ocr'
 import { registerOverlayIpc } from './overlay'
 import { registerPinIpc } from './pin'
+import { registerReferralIpc } from './referral'
 import { registerRecorderIpc } from './recorder'
 import { registerSettingsIpc } from './settings'
 import { registerSystemIpc } from './system'
@@ -26,4 +27,5 @@ export function registerIpc(ctx: IpcContext): void {
   registerSystemIpc(ctx)
   registerUsageIpc(ctx)
   registerLicenseIpc(ctx)
+  registerReferralIpc(ctx)
 }

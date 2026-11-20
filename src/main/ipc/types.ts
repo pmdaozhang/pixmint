@@ -2,6 +2,7 @@ import type { UsageFeature } from '../../shared/usage'
 import type { FeedbackService } from '../feedback'
 import type { LicenseService } from '../license/service'
 import type { PlatformServices } from '../platform'
+import type { ReferralService } from '../referral-service'
 import type { RecorderManager } from '../recording'
 import type { SecretStore } from '../secret-store'
 import type { SettingsStore } from '../settings-store'
@@ -27,6 +28,7 @@ export interface IpcContext {
   platformServices: PlatformServices
   usageService: UsageService
   licenseService: LicenseService
+  referralService: ReferralService
   applySystemSettings: () => void
   openSettingsWindow: () => void
   openPurchaseWindow: (feature?: UsageFeature) => void
