@@ -1,0 +1,85 @@
+{
+  "version": "0.8.28",
+  "date": "2026-11-20",
+  "commit": "199f382",
+  "level": "simplified",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "share-reward-real-device-unverified",
+      "dimension": "manual-verification",
+      "detail": "真实凑满 12 次分享走免费领取未验证：单码每日计次上限 10 次，需要跨天或多人配合；服务端单测已覆盖领取、重复领取与次数不足拦截。",
+      "deadline": "2026-11-27"
+    },
+    {
+      "id": "share-claim-concurrency-unverified",
+      "dimension": "stability",
+      "detail": "/v1/manual/claim 的并发防重复只靠部分唯一索引兜底，尚无并发压测。",
+      "deadline": "2026-11-27"
+    },
+    {
+      "id": "discount-ui-visual-unreviewed",
+      "dimension": "ui-verification",
+      "detail": "折后价 UI 仅通过 E2E 截图与文本断言确认，未做人工走查（深色模式、窄窗）。",
+      "deadline": "2026-11-27"
+    }
+  ],
+  "green": [
+    "regression",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "installerBytes": 159093791,
+    "sourceFiles": 280,
+    "sourceLines": 58653,
+    "testFiles": 49,
+    "runtimeDependencies": 8,
+    "devDependencies": 12
+  },
+  "evidence": {
+    "metrics": "docs/reviews/metrics.json",
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "npx tsc --noEmit"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "npx vitest run",
+        "result": "44 files / 302 tests"
+      },
+      {
+        "name": "server",
+        "status": "pass",
+        "command": "python -m unittest discover -s server/license/tests -t server/license",
+        "result": "43 tests OK"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "npx electron-vite build"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "pnpm e2e:share && pnpm e2e:purchase",
+        "result": "PURCHASE_SHARE_OK / PURCHASE_E2E_OK"
+      },
+      {
+        "name": "deploy",
+        "status": "pass",
+        "command": "scp app.py + systemctl restart pixmint-license",
+        "result": "active；quote/sync/claim 公网实测符合预期"
+      }
+    ]
+  },
+  "exception": null,
+  "notes": "0.8.28：分享抵扣打通到下单与免费领取。服务端按分享次数抵扣（每次 ¥5），满 12 次直接免付款签发终身授权，同一分享码只能领取一次；购买页展示划线原价与折后实付价，分享卡新增复制链接；托盘入口改为「分享得会员」单行显示。"
+}

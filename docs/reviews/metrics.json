@@ -1,24 +1,24 @@
 {
-  "generatedAt": "2026-11-19T17:40:44.986Z",
+  "generatedAt": "2026-11-20T14:14:34.850Z",
   "project": {
     "name": "snapglass",
-    "version": "0.8.25",
+    "version": "0.8.28",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "f70e7a2",
-    "commitDate": "2026-11-20T01:33:00+08:00",
-    "lastTag": "v0.8.24",
-    "changedFiles": 51,
-    "insertions": 4388,
-    "deletions": 116
+    "commit": "199f382",
+    "commitDate": "2026-11-20T22:07:35+08:00",
+    "lastTag": "v0.8.27",
+    "changedFiles": 23,
+    "insertions": 958,
+    "deletions": 99
   },
   "source": {
-    "files": 271,
-    "lines": 56566,
-    "testFiles": 45,
+    "files": 280,
+    "lines": 58653,
+    "testFiles": 49,
     "todoCount": 11,
     "largest": [
       {
@@ -26,12 +26,12 @@
         "lines": 13903
       },
       {
-        "path": "server\\vidgrab-license\\app.py",
-        "lines": 1732
+        "path": "server\\license\\app.py",
+        "lines": 2098
       },
       {
-        "path": "server\\license\\app.py",
-        "lines": 1695
+        "path": "server\\vidgrab-license\\app.py",
+        "lines": 1872
       },
       {
         "path": "docs\\marketing\\capture\\.chrome-profile\\Default\\Extensions\\fldmhceldgbpfpkbgopacenieobmligc\\2.0.22_0\\background.js",
@@ -48,14 +48,20 @@
     "dev": 12
   },
   "artifacts": {
-    "currentVersion": [],
+    "currentVersion": [
+      {
+        "path": "release\\Pixmint-Setup-0.8.28.exe",
+        "bytes": 159093791,
+        "modifiedAt": "2026-11-20T14:13:52.915Z"
+      }
+    ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.8.24.exe",
-      "bytes": 157506353,
-      "modifiedAt": "2026-11-19T03:17:08.971Z"
+      "path": "release\\Pixmint-Setup-0.8.28.exe",
+      "bytes": 159093791,
+      "modifiedAt": "2026-11-20T14:13:52.915Z"
     },
-    "allCount": 36,
-    "allTotalBytes": 4355562296
+    "allCount": 39,
+    "allTotalBytes": 4828884586
   },
   "python": {
     "requirementLines": 0
