@@ -18,6 +18,7 @@ import { buildTrayMenu, setTrayDownloading, type TrayActions } from '../src/main
 
 interface MenuItemShape {
   label?: string
+  sublabel?: string
   type?: string
   icon?: unknown
   click?: () => void
@@ -29,6 +30,7 @@ function actions(pro: boolean): TrayActions {
     onSettings: vi.fn(),
     onUpgrade: vi.fn(),
     onFeedback: vi.fn(),
+    onShare: vi.fn(),
     onQuit: vi.fn(),
     isPro: () => pro
   }
@@ -70,6 +72,34 @@ describe('托盘会员入口', () => {
     const template = items(buildTrayMenu(actions(true), 'en-US'))
     expect(template[3].label).toBe('Lifetime member')
     expect(template[7].label).toBe('Quit')
+  })
+})
+
+describe('托盘分享入口', () => {
+  function withShare(count: number): TrayActions {
+    return { ...actions(false), getShare: () => ({ count }) }
+  }
+
+  it('免费用户看到分享项，小字带次数，点开分享弹框', () => {
+    const handlers = withShare(7)
+    const template = items(buildTrayMenu(handlers, 'zh-CN'))
+    const share = template.find((item) => item.label === '分享')
+    expect(share?.sublabel).toBe('分享 1 次减 5 元，累计 12 次免费升会员（7/12）')
+    share?.click?.()
+    expect(handlers.onShare).toHaveBeenCalledTimes(1)
+  })
+
+  it('满 12 次后小字改为提示可免费升级', () => {
+    const share = items(buildTrayMenu(withShare(12), 'zh-CN')).find(
+      (item) => item.label === '分享'
+    )
+    expect(share?.sublabel).toBe('已分享 12/12 · 可免费升级会员')
+  })
+
+  it('已购用户或活动结束时菜单里不出现分享', () => {
+    expect(items(buildTrayMenu(actions(true), 'zh-CN')).some((i) => i.label === '分享')).toBe(false)
+    const ended: TrayActions = { ...actions(false), getShare: () => null }
+    expect(items(buildTrayMenu(ended, 'zh-CN')).some((i) => i.label === '分享')).toBe(false)
   })
 })
 

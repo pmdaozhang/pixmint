@@ -14,6 +14,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderResult
 } from '../shared/license'
+import type { ReferralProgress } from '../shared/referral'
 import type { UsageFeature, UsageView } from '../shared/usage'
 import type {
   GifDoneMeta,
@@ -191,6 +192,15 @@ const api: SnapglassApi = {
       ipcRenderer.invoke('license:unbind', deviceHash) as Promise<void>,
     trial: (inviteCode: string) =>
       ipcRenderer.invoke('license:trial', inviteCode) as Promise<LicenseActivation>
+  },
+  referral: {
+    progress: () => ipcRenderer.invoke('referral:progress') as Promise<ReferralProgress>,
+    context: () =>
+      ipcRenderer.invoke('referral:context') as Promise<{
+        shareUrl: string
+        friendLaunch: boolean
+        count: number
+      }>
   },
   purchase: {
     open: (feature?: UsageFeature) => ipcRenderer.send('purchase:open', feature),

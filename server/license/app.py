@@ -12,6 +12,7 @@ import hmac
 import html
 import json
 import os
+import re
 import secrets
 import sqlite3
 import threading
@@ -39,6 +40,14 @@ INVITE_REWARD_CAP = 12
 MAX_DEVICES = 3
 MANUAL_ORDER_TTL = DAY
 MANUAL_ORDER_LIMIT = 8
+
+# 分享减会员费：每有效分享减 5 元，终身版 58 元 → 满 12 次免费。
+# 活动按人计、跨设备继承：没会员时按设备累计，绑定激活码后并到本人账号，
+# 换机或重装只要重新绑定激活码就能接着算；同一次安装（设备）只计一次。
+REFERRAL_STEP = 5
+REFERRAL_TARGET = 12
+REFERRAL_FRIEND_DAILY_CAP = 10
+REFERRAL_CODE_RE = re.compile(r"^[A-Z0-9]{4,16}$")
 
 PLANS = {
     "monthly": {"price": 900, "days": 30, "title": "Pixmint Pro 月付"},
@@ -100,9 +109,14 @@ def clean_text(value: Any, limit: int = 200) -> str:
     return str(value or "").strip()[:limit]
 
 
+DEVICE_ID_LENGTH = 64
+
+
 def clean_device(value: Any) -> str:
-    text = clean_text(value, 80).lower()
-    if not text or any(char not in "0123456789abcdef" for char in text):
+    # 客户端设备标识恒为 64 位 hex；严格校验长度，不能先截断再校验
+    # （截断会让超长输入共用同一个“截断后的设备”，也让写库的 ref_owner 超长）。
+    text = str(value or "").strip().lower()
+    if len(text) != DEVICE_ID_LENGTH or any(char not in "0123456789abcdef" for char in text):
         raise ValueError("invalid device id")
     return text
 
@@ -212,6 +226,27 @@ CREATE TABLE IF NOT EXISTS order_actions (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_order_actions_order ON order_actions(order_id, id);
+CREATE TABLE IF NOT EXISTS share_codes (
+  code TEXT PRIMARY KEY,
+  code_type TEXT NOT NULL,
+  ref_owner TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_share_codes_owner ON share_codes(ref_owner);
+CREATE TABLE IF NOT EXISTS share_shares (
+  owner TEXT NOT NULL,
+  code TEXT NOT NULL,
+  friend_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (owner, friend_hash)
+);
+CREATE TABLE IF NOT EXISTS share_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  friend_hash TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_share_events_code ON share_events(code, created_at);
 """
 
 
@@ -386,6 +421,11 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         mbd_base=os.environ.get("MBD_API_BASE", "https://newapi.mbd.pub"),
         pay_mock=os.environ.get("PIXMINT_PAY_MOCK", "") == "1",
         pay_mock_auto=os.environ.get("PIXMINT_PAY_MOCK_AUTO", "") == "1",
+        # 分享活动开关与截止时间（epoch 秒）。ended=1 或过了截止时间，客户端会隐藏分享入口。
+        referral_ended=os.environ.get("PIXMINT_REFERRAL_ENDED", "") == "1",
+        referral_deadline=int(os.environ.get("PIXMINT_REFERRAL_DEADLINE", "0") or 0),
+        # 强制按未购处理（包一层代理/本地联调时用），正常部署不设置
+        referral_force_anonymous=os.environ.get("PIXMINT_REFERRAL_FORCE_ANON", "") == "1",
     )
     if config:
         app.config.update(config)
@@ -436,6 +476,209 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                 },
             }
         )
+
+    # -- 分享减会员费 ------------------------------------------------------
+
+    def share_ended() -> bool:
+        if app.config.get("referral_ended"):
+            return True
+        deadline = app.config.get("referral_deadline") or 0
+        return bool(deadline) and now_ts() >= deadline
+
+    def clean_share_code(value: Any) -> str:
+        code = clean_text(value, 16).upper()
+        return code if REFERRAL_CODE_RE.match(code) else ""
+
+    def ensure_share_code(code_type: str, ref_owner: str) -> str:
+        """给一次安装/一张授权码分配分享码；重复调用返回同一个，重启不变。"""
+        row = one(
+            "SELECT code FROM share_codes WHERE code_type = ? AND ref_owner = ?"
+            " ORDER BY created_at LIMIT 1",
+            (code_type, ref_owner),
+        )
+        if row:
+            return row["code"]
+        for _ in range(8):
+            candidate = "PM" + "".join(
+                secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6)
+            )
+            if one("SELECT 1 FROM share_codes WHERE code = ?", (candidate,)):
+                continue
+            db().execute(
+                "INSERT INTO share_codes (code, code_type, ref_owner, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                (candidate, code_type, ref_owner, now_ts()),
+            )
+            db().commit()
+            return candidate
+        raise RuntimeError("share code exhausted")
+
+    def owner_code(owner: str) -> str:
+        return ensure_share_code("license" if owner.startswith("lic:") else "device", owner)
+
+    def share_count(owner: str) -> int:
+        code = owner_code(owner)
+        return one(
+            "SELECT COUNT(*) AS total FROM share_shares WHERE owner = ? AND code = ?",
+            (owner, code),
+        )["total"]
+
+    def share_payload(owner: str) -> dict[str, Any]:
+        return {
+            "code": owner_code(owner),
+            "count": share_count(owner),
+            "active": not share_ended(),
+        }
+
+    def resolve_owner(license_code: str, device_id: str) -> str | None:
+        """
+        确定这次请求的进度属于谁：
+        - 带有效激活码 → 本人账号（lic:<id>），换机也认；
+        - 没有激活码 → 按设备累积（dev:<id>）未绑定期间分享给过的全部好友，
+          以后绑定激活码时整批并到账号，不会因为注册晚而清零。
+        """
+        if license_code and not app.config.get("referral_force_anonymous"):
+            found = one("SELECT * FROM licenses WHERE code = ?", (license_code,))
+            # 只有「这张授权属于这台设备」才认；随便拿别人的码不能把进度切走
+            if found and not found["revoked_at"] and device_belongs_to(device_id, found["id"]):
+                return f"lic:{found['id']}"
+        # device_id 由 clean_device 保证非空；这里不再给空串兜底，避免所有人共用同一个码
+        return f"dev:{device_id}"
+
+    def historical_shares(device_id: str, since: int) -> set[str]:
+        """
+        导入激活码时，把此前用本机分享码成交、但仍记在设备上的好友并进账号。
+        since 取账号创建时间：只并历史，不把绑定之后刚发展的新好友也带过来。
+        只用本机分享码：好友登记（friend）时记在别人码下的分享不能被顺手带走。
+        """
+        if not device_id:
+            return set()
+        rows = query(
+            "SELECT DISTINCT friend_hash FROM share_shares WHERE code = ? AND created_at <= ?",
+            (owner_code(f"dev:{device_id}"), since),
+        )
+        return {row["friend_hash"] for row in rows}
+
+    def device_belongs_to(device_id: str, license_id: str) -> bool:
+        return bool(
+            one(
+                "SELECT 1 FROM devices WHERE license_id = ? AND device_hash = ?",
+                (license_id, device_id),
+            )
+        )
+
+    def owner_for_share_code(code: str) -> str | None:
+        row = one(
+            "SELECT code_type, ref_owner FROM share_codes WHERE code = ?", (code,)
+        )
+        return row["ref_owner"] if row else None
+
+    @app.post("/v1/referral/sync")
+    def referral_sync() -> Any:
+        body = json_body()
+        try:
+            device_id = clean_device(body.get("deviceId"))
+        except ValueError:
+            return error("设备标识无效", "bad_device")
+        license_code = clean_text(body.get("licenseCode"), 4096)
+        owner = resolve_owner(license_code, device_id)
+        if not owner:
+            return error("缺少身份", "bad_identity")
+        stale_license = bool(license_code) and owner.startswith("dev:")
+        if owner.startswith("dev:"):
+            # 设备是这台机器的唯一可信身份：本机已绑定某张有效授权时，进度归到那张授权名下
+            bound = one(
+                "SELECT license_id FROM devices WHERE device_hash = ?"
+                " ORDER BY last_seen DESC LIMIT 1",
+                (device_id,),
+            )
+            if bound:
+                licensed = one("SELECT * FROM licenses WHERE id = ?", (bound["license_id"],))
+                if licensed and not licensed["revoked_at"]:
+                    owner = f"lic:{licensed['id']}"
+                    stale_license = False
+        if owner.startswith("lic:"):
+            # 首次拿到激活码时，把之前按设备积累的分享并到账号（重复执行不会重复计次）
+            license_id = owner.split(":", 1)[1]
+            issued = one("SELECT issued_at FROM licenses WHERE id = ?", (license_id,))
+            since = issued["issued_at"] if issued else now_ts()
+            for friend in historical_shares(device_id, since):
+                db().execute(
+                    "INSERT OR IGNORE INTO share_shares (owner, code, friend_hash, created_at)"
+                    " VALUES (?, ?, ?, ?)",
+                    (owner, owner_code(owner), friend, now_ts()),
+                )
+            db().commit()
+        payload = share_payload(owner)
+        # 老版本客户端只认 {count, ended}，多返回的字段不改变响应形状
+        response: dict[str, Any] = {
+            "code": payload["code"],
+            "count": payload["count"],
+            "ended": share_ended(),
+        }
+        if stale_license:
+            # 携带的激活码已退款/失效：客户端应清掉本地激活码，按设备继续用
+            response["clearLicense"] = True
+        return jsonify(response)
+
+    @app.post("/v1/referral/friend")
+    def referral_friend() -> Any:
+        body = json_body()
+        code = clean_share_code(body.get("code"))
+        if not code:
+            return error("分享码无效", "bad_code")
+        try:
+            device_id = clean_device(body.get("deviceId"))
+        except ValueError:
+            return error("设备标识无效", "bad_device")
+        if share_ended():
+            # 活动结束后不再新增计次；回传分享者已有次数，客户端据此隐藏入口即可
+            sharer = owner_for_share_code(code)
+            total = 0
+            if sharer:
+                total = one(
+                    "SELECT COUNT(*) AS total FROM share_events WHERE code = ?", (code,)
+                )["total"]
+            return jsonify({"count": total, "ended": True})
+        sharer = owner_for_share_code(code)
+        if not sharer:
+            return error("分享码无效", "bad_code", 404)
+        # 不算自己：设备就是分享者，或该设备已绑定这张授权
+        if f"dev:{device_id}" == sharer:
+            return jsonify({"count": 0, "ended": False})
+        if sharer.startswith("lic:") and device_belongs_to(device_id, sharer.split(":", 1)[1]):
+            return jsonify({"count": 0, "ended": False})
+        already = one(
+            "SELECT 1 FROM share_events WHERE friend_hash = ?", (device_id,)
+        )
+        if already:
+            # 重复启动只返回状态，不重复计次
+            total = one(
+                "SELECT COUNT(*) AS total FROM share_events WHERE code = ?", (code,)
+            )["total"]
+            return jsonify({"count": total, "ended": False})
+        recent = one(
+            "SELECT COUNT(*) AS total FROM share_events WHERE code = ? AND created_at > ?",
+            (code, now_ts() - DAY),
+        )["total"]
+        if recent >= REFERRAL_FRIEND_DAILY_CAP:
+            # 今天这个码已计满：告知客户端“稍后自动补记”，客户端下次启动会再登记一次。
+            # 好友设备不会被记下来，所以不会重复计次；明天额度恢复后自动补上。
+            return jsonify({"count": recent, "ended": False, "retryLater": True})
+        db().execute(
+            "INSERT INTO share_events (code, friend_hash, created_at) VALUES (?, ?, ?)",
+            (code, device_id, now_ts()),
+        )
+        db().execute(
+            "INSERT OR IGNORE INTO share_shares (owner, code, friend_hash, created_at)"
+            " VALUES (?, ?, ?, ?)",
+            (sharer, code, device_id, now_ts()),
+        )
+        db().commit()
+        total = one(
+            "SELECT COUNT(*) AS total FROM share_events WHERE code = ?", (code,)
+        )["total"]
+        return jsonify({"count": total, "ended": False})
 
     # -- 订单 --------------------------------------------------------------
 

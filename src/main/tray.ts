@@ -4,6 +4,7 @@ import type { UpdateState } from '../shared/types'
 import { trayIconDataUrl, type TrayDownloadFrame } from './tray-icon'
 import { proIconDataUrl } from './pro-icon'
 import { t, type Language } from '../shared/i18n'
+import { REFERRAL } from '../shared/referral'
 
 export interface TrayActions {
   onCapture: () => void
@@ -11,8 +12,37 @@ export interface TrayActions {
   onUpgrade: () => void
   onFeedback: () => void
   onShowUpdate?: () => void
+  /** 分享减会员费入口；返回 null 表示活动已结束，菜单里不出现这一项 */
+  getShare?: () => { count: number } | null
+  onShare: () => void
   onQuit: () => void
   isPro: () => boolean
+}
+
+/**
+ * 托盘里的分享入口：主标签 + 系统原生 sublabel 小字 + 进度。
+ * sublabel 由 Windows 菜单原生渲染，不用自绘，天然跟随系统主题与缩放。
+ */
+function shareMenuItems(actions: TrayActions, language: Language): Electron.MenuItemConstructorOptions[] {
+  const share = actions.getShare?.()
+  if (!share) return []
+  const count = Math.min(Math.max(Math.floor(share.count), 0), REFERRAL.target)
+  const vars = { step: REFERRAL.step, target: REFERRAL.target, count }
+  // 12 次只代表“可以免费升会员”，不是已买：已购用户的入口由 getShare 返回 null 隐藏
+  const reached = count >= REFERRAL.target
+  return [
+    {
+      label: t(language, '分享'),
+      sublabel: t(
+        language,
+        reached
+          ? '已分享 {target}/{target} · 可免费升级会员'
+          : '分享 1 次减 {step} 元，累计 {target} 次免费升会员（{count}/{target}）',
+        vars
+      ),
+      click: actions.onShare
+    }
+  ]
 }
 
 function proIcon(): Electron.NativeImage {
@@ -74,6 +104,7 @@ export function buildTrayMenu(
     pro
       ? { label: t(language, '终身会员'), icon: proIcon(), click: actions.onUpgrade }
       : { label: t(language, '升级会员'), click: actions.onUpgrade },
+    ...shareMenuItems(actions, language),
     { type: 'separator' },
     { label: t(language, '意见反馈…'), click: actions.onFeedback },
     { type: 'separator' },
@@ -174,6 +205,11 @@ export function createTray(actions: TrayActions, language: Language): Tray {
   }, 60_000).unref()
   tray.setToolTip(`Pixmint ${app.getVersion()}`)
   tray.setContextMenu(buildTrayMenu(actions, language))
-  tray.on('click', () => tray.popUpContextMenu())
+  // Windows 上 setContextMenu 后左键单击不会自动弹出，手动弹出；
+  // 分享进度可能在菜单收起期间变化，弹出前重建一次，保证小字里的次数是最新的。
+  tray.on('click', () => {
+    tray.setContextMenu(buildTrayMenu(actions, language))
+    tray.popUpContextMenu()
+  })
   return tray
 }

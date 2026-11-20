@@ -35,9 +35,12 @@ import { createOnboardingWindow } from './windows/onboarding-window'
 import { createFeedbackWindow, sendFeedbackStatus } from './windows/feedback-window'
 import { createWhatsNewWindow } from './windows/whats-new-window'
 import { createPurchaseWindow } from './windows/purchase-window'
+import { closeShareWindow, createShareWindow } from './windows/share-window'
 import { DeviceIdStore } from './license/device-id'
 import { LicenseStore, safeStorageCipher } from './license/store'
 import { LicenseService } from './license/service'
+import { ReferralStore } from './referral-store'
+import { ReferralService, licenseCodeGetter } from './referral-service'
 import { UsageStore } from './usage-store'
 import { UsageService } from './services/usage-service'
 import type { UsageFeature } from '../shared/usage'
@@ -134,6 +137,8 @@ let feedbackService: FeedbackService
 let deviceIdStore: DeviceIdStore
 let licenseStore: LicenseStore
 let licenseService: LicenseService
+let referralStore: ReferralStore
+let referralService: ReferralService
 let usageStore: UsageStore
 let usageService: UsageService
 let tray: Tray | null = null
@@ -286,6 +291,20 @@ function initServices(): void {
         json(): Promise<unknown>
       }>
   })
+  // 分享减会员费：进度存内存文件，未购用户也能看到；购买页通过 IPC 读写
+  referralStore = new ReferralStore(join(app.getPath('userData'), 'referral.json'))
+  referralService = new ReferralService({
+    store: referralStore,
+    deviceId: () => deviceIdStore.get(),
+    fetchImpl: (url, init) =>
+      net.fetch(url, init as RequestInit) as unknown as Promise<{
+        ok: boolean
+        status: number
+        json(): Promise<unknown>
+      }>,
+    licenseCode: () => licenseCodeGetter(licenseService)(),
+    onChange: () => refreshTrayMenu()
+  })
   usageStore = new UsageStore(join(app.getPath('userData'), 'usage.json'))
   usageService = new UsageService({
     store: usageStore,
@@ -351,6 +370,7 @@ function initServices(): void {
     platformServices,
     usageService,
     licenseService,
+    referralService,
     applySystemSettings,
     openSettingsWindow: () => createSettingsWindow(preloadPath),
     openPurchaseWindow: (feature) => {
@@ -368,6 +388,21 @@ function initServices(): void {
     void licenseService.restoreByDevice().catch((error: unknown) => {
       logDiagnostic('license', `restore failed: ${String(error)}`, 'debug')
     })
+  }
+  // 好友从分享链接安装：服务端按设备去重，重复启动/登录自启只会被忽略，不会重复计次。
+  // 参数带上 ref 说明这次是从分享链接启动的，弹框据此展示“已计入对方”的文案。
+  referralService.detectFriendLaunch(process.argv)
+  const friendCode = referralService.friendRefArg(process.argv)
+  if (friendCode) {
+    void referralService
+      .registerFriend(friendCode)
+      .then(() => referralService.sync(true))
+      .catch((error: unknown) => {
+        logDiagnostic('referral', `friend register failed: ${String(error)}`, 'warn')
+      })
+  } else {
+    // 之前因分享者额度已满被推迟的好友登记：每次启动排队补记
+    void referralService.flushPendingFriend().catch(() => {})
   }
   initUpdater({
     onAvailable: (version) => {
@@ -435,6 +470,7 @@ function registerLifecycle(): void {
     feedbackService?.dispose()
     platformServices.dispose()
     tray?.destroy()
+    closeShareWindow()
     tray = null
     stopMetricsSampling()
     flushDiagnosticsSync()
@@ -448,7 +484,13 @@ function registerLifecycle(): void {
 if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    // 浏览器重复打开 .exe 时带的 ref 交给单例进程处理，避免被直接丢弃
+    const code = referralService?.friendRefArg(argv)
+    if (code) {
+      void referralService.registerFriend(code).then(() => referralService.sync(true)).catch(() => {})
+      return
+    }
     if (!isAutomationRun() && preloadPath) openStartupWindow()
   })
 
@@ -472,6 +514,16 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
     }
     if (flags.feedbackE2e) {
       createFeedbackWindow(preloadPath)
+      return
+    }
+    if (flags.shareE2e) {
+      createShareWindow(preloadPath)
+      return
+    }
+    if (flags.purchaseShareE2e) {
+      // 购买页分享卡：等首帧读完缓存、后台同步落地后再打开购买窗，E2E 断言稳定
+      referralService.shareUrl()
+      void referralService.sync(true).finally(() => createPurchaseWindow(preloadPath))
       return
     }
     if (flags.whatsNewE2e) {
@@ -525,6 +577,17 @@ if (!isAutomationRun() && !app.requestSingleInstanceLock()) {
         createPurchaseWindow(preloadPath)
       },
       onFeedback: () => createFeedbackWindow(preloadPath),
+      getShare: () => {
+        // 已购用户不再展示活动；活动结束后菜单项整体消失
+        if (licenseService.isPro()) return null
+        const progress = referralService.progress()
+        return progress.active ? progress : null
+      },
+      onShare: () => {
+        // 弹框先渲染本地缓存，同步一次后 1.2 秒内自动刷新进度
+        void referralService.sync().catch(() => {})
+        createShareWindow(preloadPath)
+      },
       onShowUpdate: () => createWhatsNewWindow(preloadPath),
       onQuit: () => app.quit(),
       isPro: () => licenseService.isPro()

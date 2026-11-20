@@ -1,0 +1,209 @@
+/*
+ * 分享弹框。窗口 420px 宽，四周 28px 透明留白用来放阴影，
+ * 外壳沿用购买窗的 .pc-root 同一套玻璃卡片观感。
+ */
+
+.sh-root {
+  width: 100%;
+  height: 100%;
+  padding: 28px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.sh-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.sh-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sh-badge {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #8a5a00;
+  background: #fdf4dd;
+}
+
+:root[data-theme='dark'] .sh-badge {
+  color: #ffd98a;
+  background: #3a2f1b;
+}
+
+.sh-badge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sh-title-wrap {
+  flex: 1;
+  min-width: 0;
+  /* 标题与规则文案可能更长（英文/小字号系统缩放），允许折行、长 token 不撑破卡片 */
+  overflow-wrap: anywhere;
+}
+
+.sh-title-wrap h1 {
+  margin: 1px 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.sh-title-wrap p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sh-close {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 19px;
+  line-height: 1;
+}
+
+.sh-close:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.sh-progress {
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+.sh-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.sh-progress-row strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sh-bar {
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.sh-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e0a838, #b7791f);
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sh-bar.full i {
+  background: linear-gradient(90deg, #12a04a, #0e7a3c);
+}
+
+.sh-link-row code {
+  display: block;
+  height: 34px;
+  line-height: 32px;
+  padding: 0 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+
+.sh-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sh-copy {
+  flex: 1;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sh-copy:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.sh-copy:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.sh-copy.copied {
+  background: #0e7a3c;
+  color: #ffffff;
+}
+
+.sh-copy:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sh-cancel {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.sh-cancel:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.sh-foot {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-bar i {
+    transition: none;
+  }
+}

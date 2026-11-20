@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -523,6 +524,276 @@ class LicenseApiTest(unittest.TestCase):
             "/v1/license/activate", json={"code": "forged", "deviceId": DEVICE_A}
         )
         self.assertEqual(response.status_code, 400)
+
+
+class ReferralApiTest(unittest.TestCase):
+    """分享减会员费：好友首启计次、同一安装只计一次、绑定激活码后跨设备继承。"""
+
+    @classmethod
+    def setUpClass(cls):
+        db_path = os.path.join(tempfile.mkdtemp(prefix="pixmint-referral-test-"), "r.db")
+        cls.app = create_app({"TESTING": True, "pay_mock": True, "db": db_path})
+        cls.client = cls.app.test_client()
+        cls.db_path = db_path
+
+    def device(self, seed):
+        return hashlib.sha256(seed.encode()).hexdigest()
+
+    def sync(self, device, license_code=""):
+        response = self.client.post(
+            "/v1/referral/sync",
+            json={"code": "ignored", "deviceId": device, "count": 0, "licenseCode": license_code},
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.get_json()
+
+    def friend(self, code, device):
+        return self.client.post(
+            "/v1/referral/friend", json={"code": code, "deviceId": device}
+        )
+
+    def test_sync_returns_stable_code_and_zero_count(self):
+        owner = self.device("referral-owner-1")
+        first = self.sync(owner)
+        second = self.sync(owner)
+        self.assertRegex(first["code"], r"^PM[A-Z0-9]{6}$")
+        self.assertEqual(first["code"], second["code"])
+        self.assertEqual(first["count"], 0)
+        self.assertFalse(first["ended"])
+
+    def test_friend_install_counts_once(self):
+        owner = self.device("referral-owner-2")
+        code = self.sync(owner)["code"]
+        ok = self.friend(code, self.device("friend-2a"))
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertEqual(ok.get_json()["count"], 1)
+        # 好友重复启动不会重复计次
+        again = self.friend(code, self.device("friend-2a"))
+        self.assertEqual(again.get_json()["count"], 1)
+        self.assertEqual(self.sync(owner)["count"], 1)
+
+    def test_self_share_not_counted(self):
+        owner = self.device("referral-owner-3")
+        code = self.sync(owner)["code"]
+        self.friend(code, owner)
+        self.assertEqual(self.sync(owner)["count"], 0)
+
+    def test_unknown_or_bad_code_rejected(self):
+        self.assertEqual(self.friend("PMZZZZZZ", self.device("friend-4")).status_code, 404)
+        self.assertEqual(self.friend("bad code!", self.device("friend-4b")).status_code, 400)
+
+    def test_license_binding_inherits_early_shares(self):
+        # 未注册前先在设备上分享两次，激活码绑定到这台设备后，次数应完整并到账号
+        owner_device = self.device("referral-owner-5")
+        code = self.sync(owner_device)["code"]
+        self.friend(code, self.device("friend-5a"))
+        self.friend(code, self.device("friend-5b"))
+        issued = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        self.assertEqual(
+            self.client.post("/v1/license/activate", json={"code": issued["code"], "deviceId": owner_device}).status_code,
+            200,
+        )
+        merged = self.sync(owner_device, issued["code"])
+        self.assertEqual(merged["count"], 2)
+        self.assertNotEqual(merged["code"], code)
+        # 换一台设备但用同一个激活码：进度跟账号走
+        other_device = self.device("referral-owner-5-new")
+        self.assertEqual(
+            self.client.post("/v1/license/activate", json={"code": issued["code"], "deviceId": other_device}).status_code,
+            200,
+        )
+        other = self.sync(other_device, issued["code"])
+        self.assertEqual(other["count"], 2)
+        self.assertEqual(other["code"], merged["code"])
+
+    def test_revoked_license_falls_back_to_device(self):
+        owner_device = self.device("referral-owner-7")
+        issued = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        # 退款接口按订单撤销授权；这里直接标记授权已撤销，模拟退款后的状态
+        connection = sqlite3.connect(self.db_path)
+        connection.execute(
+            "UPDATE licenses SET revoked_at = ? WHERE invite_code = ?",
+            (int(time.time()), issued["inviteCode"]),
+        )
+        connection.commit()
+        connection.close()
+        response = self.sync(owner_device, issued["code"])
+        self.assertTrue(response["clearLicense"])
+        self.assertRegex(response["code"], r"^PM[A-Z0-9]{6}$")
+
+    def test_friend_daily_cap(self):
+        code = self.sync(self.device("referral-owner-8"))["code"]
+        responses = [self.friend(code, self.device(f"cap-friend-{i}")) for i in range(11)]
+        self.assertEqual([r.status_code for r in responses], [200] * 11)
+        self.assertEqual([r.get_json()["count"] for r in responses[:10]], list(range(1, 11)))
+        # 第 11 个超限：返回 retryLater，不丢也不重复
+        self.assertTrue(responses[10].get_json()["retryLater"])
+        self.assertEqual(self.sync(self.device("referral-owner-8"))["count"], 10)
+        # 同一好友过一会儿再登记（额度仍满）：依然 retryLater，不会被误计
+        self.assertTrue(self.friend(code, self.device("cap-friend-0")).get_json().get("count") is not None)
+
+    def test_ended_flag_when_deadline_passed(self):
+        db_path = os.path.join(tempfile.mkdtemp(prefix="pixmint-referral-end-"), "e.db")
+        app = create_app({"TESTING": True, "pay_mock": True, "db": db_path, "referral_deadline": 1})
+        client = app.test_client()
+        response = client.post(
+            "/v1/referral/sync", json={"deviceId": self.device("owner-6")}
+        )
+        self.assertTrue(response.get_json()["ended"])
+
+    # --- 边界与异常场景 -------------------------------------------------
+
+    def test_dialogs_progress_after_many_friends_caps_at_via_count_not_price(self):
+        owner = self.device("referral-owner-many")
+        code = self.sync(owner)["code"]
+        for i in range(3):
+            self.assertEqual(self.friend(code, self.device(f"many-{i}")).status_code, 200)
+        self.assertEqual(self.sync(owner)["count"], 3)
+
+    def test_friend_before_owner_first_sync(self):
+        # 分享者的码还没在服务端登记（理论上不会发生），好友先来也算无效码，不会写成 500
+        response = self.friend("PMZZZZZZ", self.device("early-friend"))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json()["code"], "bad_code")
+
+    def test_lowercase_code_and_device_are_normalized(self):
+        owner = self.device("referral-owner-case")
+        code = self.sync(owner)["code"]
+        mixed = self.friend(code.lower(), owner.upper())
+        self.assertEqual(mixed.status_code, 200, mixed.data)
+        # 大小写不同的“自己的设备”仍然算自己，不计次
+        self.assertEqual(self.sync(owner)["count"], 0)
+
+    def test_device_id_length_is_strict(self):
+        # 超长/过短的设备标识必须拒绝，不能截断后当成合法设备
+        for bad in ("a" * 65, "a" * 5000, "a" * 63, " " + "a" * 64 + " "):
+            value = bad.strip()
+            ok = len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+            response = self.client.post("/v1/referral/sync", json={"deviceId": bad})
+            if ok:
+                self.assertEqual(response.status_code, 200, bad[:10])
+            else:
+                self.assertEqual(response.status_code, 400, f"len={len(value)}")
+        self.assertEqual(
+            self.client.post("/v1/referral/sync", json={"deviceId": "A" * 64}).status_code, 200
+        )
+
+    def test_empty_and_malformed_payloads(self):
+        self.assertEqual(
+            self.client.post("/v1/referral/sync", json={}).status_code, 400
+        )
+        self.assertEqual(
+            self.client.post("/v1/referral/sync", json={"deviceId": "zz"}).status_code, 400
+        )
+        self.assertEqual(
+            self.client.post("/v1/referral/friend", json={}).status_code, 400
+        )
+        self.assertEqual(
+            self.client.post("/v1/referral/friend", json={"code": "PMAAA111", "deviceId": "x"}).status_code,
+            400,
+        )
+
+    def test_repeated_sync_does_not_change_count(self):
+        owner = self.device("referral-owner-idem")
+        code = self.sync(owner)["code"]
+        self.friend(code, self.device("idem-friend"))
+        counts = [self.sync(owner)["count"] for _ in range(5)]
+        self.assertEqual(counts, [1, 1, 1, 1, 1])
+
+    def test_friend_registration_does_not_leak_other_owners_shares(self):
+        # D 先用 A 的码登记，自己再发展好友 B；D 绑定激活码后只能拿到自己名下的 B，不能带走 A 的分享
+        a_device = self.device("leak-a")
+        a_code = self.sync(a_device)["code"]
+        d_device = self.device("leak-d")
+        self.friend(a_code, d_device)
+        d_code = self.sync(d_device)["code"]
+        b_device = self.device("leak-b")
+        self.friend(d_code, b_device)
+        issued = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        self.client.post("/v1/license/activate", json={"code": issued["code"], "deviceId": d_device})
+        d_after = self.sync(d_device, issued["code"])
+        self.assertEqual(d_after["count"], 1)
+        self.assertEqual(self.sync(a_device)["count"], 1)
+        self.assertNotEqual(d_after["code"], a_code)
+
+    def test_self_share_from_licensed_device_not_counted(self):
+        # 分享者自己的设备绑定了同一张授权码，再点自己的分享链接不应计次
+        device = self.device("self-licensed")
+        issued = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        # 真实流程里激活码会先绑定到这台设备
+        self.client.post("/v1/license/activate", json={"code": issued["code"], "deviceId": device})
+        code = self.sync(device, issued["code"])["code"]
+        self.friend(code, device)
+        self.assertEqual(self.sync(device, issued["code"])["count"], 0)
+
+    def test_code_from_other_license_does_not_switch_owner(self):
+        # 客户端手里拿到别人的（合法）激活码：不切到对方账号，按本机设备继续算
+        a_device = self.device("other-a")
+        a_license = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        self.client.post("/v1/license/activate", json={"code": a_license["code"], "deviceId": a_device})
+        self.sync(a_device, a_license["code"])
+
+        b_device = self.device("other-b")
+        b_view = self.sync(b_device, a_license["code"])
+        self.assertTrue(b_view.get("clearLicense"))
+        self.assertNotEqual(b_view["code"], self.sync(a_device, a_license["code"])["code"])
+        # 本机码分享出去的好友，只计入本机
+        self.friend(b_view["code"], self.device("other-c"))
+        self.assertEqual(self.sync(b_device)["count"], 1)
+        self.assertEqual(self.sync(a_device, a_license["code"])["count"], 0)
+
+    def test_friend_on_another_persons_license_is_neutral(self):
+        # 好友自己已经有别的授权码：不影响它这次向他人分享的计次
+        friend_device = self.device("licensed-friend")
+        friend_license = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        self.assertEqual(self.sync(friend_device, friend_license["code"])["count"], 0)
+        owner = self.device("referral-owner-neutral")
+        code = self.sync(owner)["code"]
+        response = self.friend(code, friend_device)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.sync(owner)["count"], 1)
+
+    def test_pre_binding_shares_merge_but_later_new_friends_stay_with_account(self):
+        # 绑定前 2 个、绑定后再通过同一账号分享 1 个，总数应为 3，且不会被重复导入
+        owner_device = self.device("referral-owner-seq")
+        early = self.sync(owner_device)["code"]
+        self.friend(early, self.device("seq-f1"))
+        self.friend(early, self.device("seq-f2"))
+        issued = self.client.post(
+            "/v1/admin/issue", json={"plan": "lifetime"}, headers={"Authorization": "Bearer test-admin-token"}
+        ).get_json()
+        self.client.post("/v1/license/activate", json={"code": issued["code"], "deviceId": owner_device})
+        first = self.sync(owner_device, issued["code"])
+        self.assertEqual(first["count"], 2)
+        self.friend(first["code"], self.device("seq-f3"))
+        for _ in range(3):
+            again = self.sync(owner_device, issued["code"])
+            self.assertEqual(again["count"], 3)
+
+    def test_ended_activity_stops_counting(self):
+        db_path = os.path.join(tempfile.mkdtemp(prefix="pixmint-referral-stop-"), "s.db")
+        app = create_app({"TESTING": True, "db": db_path, "referral_ended": False})
+        client = app.test_client()
+        owner = self.device("stop-owner")
+        code = client.post("/v1/referral/sync", json={"deviceId": owner}).get_json()["code"]
+        app.config["referral_ended"] = True
+        blocked = client.post("/v1/referral/friend", json={"code": code, "deviceId": self.device("stop-f")})
+        self.assertEqual(blocked.status_code, 200)
+        self.assertFalse(blocked.get_json()["ended"] is False and blocked.get_json()["count"] > 0)
+        self.assertTrue(client.post("/v1/referral/sync", json={"deviceId": owner}).get_json()["ended"])
+        self.assertEqual(client.post("/v1/referral/sync", json={"deviceId": owner}).get_json()["count"], 0)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@
     "e2e:quota": "node e2e-quota.cjs",
     "e2e:license": "node e2e-license-live.cjs",
     "test:server": "python -m unittest discover -s server/license/tests -t server/license -v",
+    "e2e:share": "node e2e-share.cjs && node e2e-purchase-share.cjs",
     "e2e:spotlight": "node e2e-spotlight.cjs",
     "e2e:spotlight:stress": "node e2e-spotlight-stress.cjs"
   },

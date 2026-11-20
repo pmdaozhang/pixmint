@@ -36,6 +36,7 @@ import type {
   PurchaseOrderResult
 } from './license'
 import type { UsageFeature, UsageView } from './usage'
+import type { ReferralProgress } from './referral'
 
 export interface SnapglassApi {
   overlay: {
@@ -155,6 +156,12 @@ export interface SnapglassApi {
     devices(): Promise<LicenseDevice[]>
     unbind(deviceHash: string): Promise<void>
     trial(inviteCode: string): Promise<LicenseActivation>
+  }
+  referral: {
+    /** 分享进度（已计有效次数 + 活动是否进行中），分享弹框与购买页共用 */
+    progress(): Promise<ReferralProgress>
+    /** 本次是否由好友分享链接安装启动；分享弹框据此决定文案 */
+    context(): Promise<{ shareUrl: string; friendLaunch: boolean; count: number }>
   }
   purchase: {
     open(feature?: UsageFeature): void

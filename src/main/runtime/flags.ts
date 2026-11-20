@@ -28,6 +28,8 @@ export const flags = {
   feedbackE2e: has('--e2e-feedback'),
   whatsNewE2e: has('--e2e-whats-new'),
   purchaseE2e: has('--e2e-purchase'),
+  shareE2e: has('--e2e-share'),
+  purchaseShareE2e: has('--e2e-purchase-share'),
   ocrTranslateSmoke: has('--smoke-ocr-translate'),
   prepareSmoke: has('--smoke-prepare'),
   fastCaptureSmoke: has('--smoke-fast-capture'),
@@ -61,6 +63,8 @@ export function isAutomationRun(): boolean {
     flags.onboardingE2e ||
     flags.feedbackE2e ||
     flags.whatsNewE2e ||
-    flags.purchaseE2e
+    flags.purchaseE2e ||
+    flags.shareE2e ||
+    flags.purchaseShareE2e
   )
 }

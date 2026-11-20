@@ -637,3 +637,143 @@
 .pc-device button:disabled {
   opacity: 0.5;
 }
+
+/* ===== 分享减会员费（与分享弹框共用暖金语义色） ===== */
+.pc-plan-price s {
+  margin-left: 6px;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pc-plan-price.free {
+  color: #0e7a3c;
+}
+
+:root[data-theme='dark'] .pc-plan-price.free {
+  color: #4ade80;
+}
+
+.pc-plan-desc .pc-plan-referral {
+  color: #8a5a00;
+  font-weight: 600;
+}
+
+:root[data-theme='dark'] .pc-plan-desc .pc-plan-referral {
+  color: #ffd98a;
+}
+
+/* ===== 分享卡：放在套餐与权益之间，高度约 120px ===== */
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(192, 138, 30, 0.28);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #fffaf0, #fff6e4);
+}
+
+:root[data-theme='dark'] .share-card {
+  border-color: rgba(240, 196, 102, 0.3);
+  background: linear-gradient(180deg, #2a2417, #241f14);
+}
+
+.share-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #8a5a00;
+}
+
+:root[data-theme='dark'] .share-card-head {
+  color: #ffd98a;
+}
+
+.share-card-head svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.share-card-head .share-card-pill {
+  margin-left: auto;
+  height: 20px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(192, 138, 30, 0.28);
+  background: var(--bg-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.share-card-rule {
+  margin: 0;
+  color: #6b5630;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+:root[data-theme='dark'] .share-card-rule {
+  color: #d8c6a0;
+}
+
+.share-card-rule b {
+  color: #8a5a00;
+  font-weight: 650;
+}
+
+:root[data-theme='dark'] .share-card-rule b {
+  color: #ffd98a;
+}
+
+.share-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #6b5630;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme='dark'] .share-card-row {
+  color: #d8c6a0;
+}
+
+.share-card-row strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.share-card-bar {
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: rgba(183, 121, 31, 0.16);
+  overflow: hidden;
+}
+
+.share-card-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e0a838, #b7791f);
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.share-card-bar.full > i {
+  background: linear-gradient(90deg, #12a04a, #0e7a3c);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-card-bar > i {
+    transition: none;
+  }
+}
