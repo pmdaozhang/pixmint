@@ -373,6 +373,11 @@ function initServices(): void {
     referralService,
     applySystemSettings,
     openSettingsWindow: () => createSettingsWindow(preloadPath),
+    openShareWindow: (parent) => {
+      // 和托盘入口一致：先同步一次进度，弹框先渲染本地缓存
+      void referralService.sync().catch(() => {})
+      createShareWindow(preloadPath, parent)
+    },
     openPurchaseWindow: (feature) => {
       overlayManager.hideAll()
       createPurchaseWindow(preloadPath, feature)
@@ -383,6 +388,8 @@ function initServices(): void {
     void licenseService.refresh().catch((error: unknown) => {
       logDiagnostic('license', `refresh failed: ${String(error)}`, 'warn')
     })
+  } else if (!app.isPackaged && process.env.PIXMINT_DEV_LICENSE === 'free') {
+    // 开发版强制免费：跳过按设备自动恢复授权，便于测试免费额度与付费墙。
   } else {
     // 支付后立刻关掉应用的用户，下次启动按设备自动恢复授权。
     void licenseService.restoreByDevice().catch((error: unknown) => {

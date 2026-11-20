@@ -650,6 +650,12 @@
   color: #0e7a3c;
 }
 
+.pc-plan-price strong {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
 :root[data-theme='dark'] .pc-plan-price.free {
   color: #4ade80;
 }
@@ -770,6 +776,88 @@
 
 .share-card-bar.full > i {
   background: linear-gradient(90deg, #12a04a, #0e7a3c);
+}
+
+/* 分享链接：与 .pc-order-no 同规格的单行链接框，放进分享卡时用金色描边呼应卡片 */
+.share-card-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid rgba(192, 138, 30, 0.24);
+  border-radius: var(--radius-md);
+  background: var(--bg-2);
+}
+
+:root[data-theme='dark'] .share-card-link {
+  border-color: rgba(240, 196, 102, 0.26);
+}
+
+.share-card-link code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #6b5630;
+  font: 500 11.5px var(--mono);
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme='dark'] .share-card-link code {
+  color: #d8c6a0;
+}
+
+.share-card-link button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #e8b84a, #d49a26);
+  color: #3d2a00;
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+.share-card-link button svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.share-card-link button:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.share-card-link button:active:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.share-card-link button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.share-card-link button.copied {
+  background: linear-gradient(180deg, #1fb15a, #12833f);
+  color: #ffffff;
+}
+
+.share-card-link button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-card-link button {
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

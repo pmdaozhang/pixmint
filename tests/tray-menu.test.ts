@@ -80,26 +80,28 @@ describe('托盘分享入口', () => {
     return { ...actions(false), getShare: () => ({ count }) }
   }
 
-  it('免费用户看到分享项，小字带次数，点开分享弹框', () => {
+  it('免费用户看到分享项，菜单只有一行，点开分享弹框', () => {
     const handlers = withShare(7)
     const template = items(buildTrayMenu(handlers, 'zh-CN'))
-    const share = template.find((item) => item.label === '分享')
-    expect(share?.sublabel).toBe('分享 1 次减 5 元，累计 12 次免费升会员（7/12）')
+    const share = template.find((item) => item.label === '分享得会员')
+    expect(share).toBeTruthy()
+    expect(share?.sublabel).toBeUndefined()
     share?.click?.()
     expect(handlers.onShare).toHaveBeenCalledTimes(1)
   })
 
-  it('满 12 次后小字改为提示可免费升级', () => {
+  it('分享次数不影响菜单文案', () => {
     const share = items(buildTrayMenu(withShare(12), 'zh-CN')).find(
-      (item) => item.label === '分享'
+      (item) => item.label === '分享得会员'
     )
-    expect(share?.sublabel).toBe('已分享 12/12 · 可免费升级会员')
+    expect(share?.label).toBe('分享得会员')
+    expect(share?.sublabel).toBeUndefined()
   })
 
   it('已购用户或活动结束时菜单里不出现分享', () => {
-    expect(items(buildTrayMenu(actions(true), 'zh-CN')).some((i) => i.label === '分享')).toBe(false)
+    expect(items(buildTrayMenu(actions(true), 'zh-CN')).some((i) => i.label === '分享得会员')).toBe(false)
     const ended: TrayActions = { ...actions(false), getShare: () => null }
-    expect(items(buildTrayMenu(ended, 'zh-CN')).some((i) => i.label === '分享')).toBe(false)
+    expect(items(buildTrayMenu(ended, 'zh-CN')).some((i) => i.label === '分享得会员')).toBe(false)
   })
 })
 

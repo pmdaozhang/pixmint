@@ -1,3 +1,4 @@
+import type { BrowserWindow } from 'electron'
 import type { UsageFeature } from '../../shared/usage'
 import type { FeedbackService } from '../feedback'
 import type { LicenseService } from '../license/service'
@@ -32,4 +33,6 @@ export interface IpcContext {
   applySystemSettings: () => void
   openSettingsWindow: () => void
   openPurchaseWindow: (feature?: UsageFeature) => void
+  /** 打开分享弹框；parent 为发起窗口（购买窗），用于关闭时一并收起 */
+  openShareWindow: (parent?: BrowserWindow) => void
 }

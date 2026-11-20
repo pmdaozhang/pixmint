@@ -220,7 +220,8 @@ const api = {
       shareUrl: 'https://pixmint.hugproducthub.top/download?ref=PM7K3QAZ',
       friendLaunch: false,
       count: 7
-    })
+    }),
+    openShare: async () => {}
   },
   purchase: {
     open: () => {},
@@ -228,6 +229,16 @@ const api = {
       throw new Error('浏览器预览不支持支付')
     },
     orderStatus: async () => ({ status: 'pending' as const }),
+    referralQuote: async () => ({
+      count: 7,
+      priceCents: 5800,
+      creditCents: 3500,
+      amountCents: 2300,
+      free: false
+    }),
+    claimShareReward: async () => {
+      throw new Error('浏览器预览不支持领取')
+    },
     resize: () => {}
   },
   overlay: {

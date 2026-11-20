@@ -8,20 +8,23 @@ let shareWindow: BrowserWindow | null = null
 /** 卡片 420 + 两侧阴影留白 28 */
 const WIDTH = 420 + 28 * 2
 const HEIGHT = 430 + 28 * 2
-/** 离托盘任务栏 / 屏幕右边的距离 */
-const EDGE_GAP = 12
 
 /**
  * 分享链接弹框。
  *
- * 背景：从托盘菜单打开，属于轻量工具窗口，不该占任务栏，也不该盖住用户正在做的事。
- * 设计意图：无边框透明单例窗口，贴任务栏右下角出现（托盘菜单位置），失焦自动收起。
+ * 背景：从托盘菜单打开，属于轻量工具窗口，不该占任务栏。
+ * 设计意图：无边框透明单例窗口，在光标所在屏幕正中弹出，失焦自动收起。
  * 关键约束：复制链接成功后在渲染层 0.6 秒内自行关闭；只保留一个实例。
  */
-export function createShareWindow(preloadPath: string): BrowserWindow {
+export function createShareWindow(preloadPath: string, parent?: BrowserWindow): BrowserWindow {
+  const parentWindow = parent && !parent.isDestroyed() ? parent : undefined
   if (shareWindow && !shareWindow.isDestroyed()) {
+    // 从托盘等无父窗口的入口再次打开时，解除旧的父子关系，否则会跟着购买窗一起被销毁
+    if (shareWindow.getParentWindow() !== (parentWindow ?? null)) {
+      shareWindow.setParentWindow(parentWindow ?? null)
+    }
     shareWindow.show()
-    placeNearTaskbar(shareWindow)
+    centerOnScreen(shareWindow)
     shareWindow.moveTop()
     shareWindow.focus()
     return shareWindow
@@ -30,6 +33,8 @@ export function createShareWindow(preloadPath: string): BrowserWindow {
   const window = new BrowserWindow({
     width: WIDTH,
     height: HEIGHT,
+    // 从购买窗打开时作为它的子窗口：父窗口收起时一起收起，但位置仍按屏幕居中计算
+    parent: parentWindow,
     frame: false,
     resizable: false,
     minimizable: false,
@@ -71,7 +76,7 @@ export function createShareWindow(preloadPath: string): BrowserWindow {
   })
   window.once('ready-to-show', () => {
     if (window.isDestroyed()) return
-    placeNearTaskbar(window)
+    centerOnScreen(window)
     window.show()
     window.focus()
   })
@@ -83,12 +88,12 @@ export function closeShareWindow(): void {
   if (shareWindow && !shareWindow.isDestroyed()) shareWindow.hide()
 }
 
-/** 贴当前光标所在屏幕的工作区右下角（任务栏上方），多显示器也成立 */
-function placeNearTaskbar(window: BrowserWindow): void {
+/** 在当前光标所在屏幕的工作区正中显示，多显示器也成立 */
+function centerOnScreen(window: BrowserWindow): void {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const { x, y, width, height } = display.workArea
   window.setPosition(
-    Math.round(x + width - WIDTH - EDGE_GAP),
-    Math.round(y + height - HEIGHT - EDGE_GAP)
+    Math.round(x + (width - WIDTH) / 2),
+    Math.round(y + (height - HEIGHT) / 2)
   )
 }

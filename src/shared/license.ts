@@ -109,6 +109,21 @@ export interface ManualOrder {
   expiresAt: number
   qrUrls: Record<PaymentProvider, string>
   rejectReason?: string | null
+  /** 原价（分）；金额一律以服务端下单结果为准 */
+  priceCents?: number
+  /** 下单时锁定的分享次数与抵扣金额（分） */
+  shareCount?: number
+  shareCreditCents?: number
+}
+
+/** 分享抵扣报价（服务端计算，客户端只负责展示） */
+export interface ReferralQuote {
+  count: number
+  priceCents: number
+  creditCents: number
+  amountCents: number
+  /** 分享次数已够，直接免费领取，不再生成付款订单 */
+  free: boolean
 }
 
 export interface ManualOrderResult {

@@ -796,5 +796,176 @@ class ReferralApiTest(unittest.TestCase):
         self.assertEqual(client.post("/v1/referral/sync", json={"deviceId": owner}).get_json()["count"], 0)
 
 
+class ShareDiscountOrderTest(unittest.TestCase):
+    """分享抵扣下单：下单金额由服务端按分享次数计算，满 12 次直接免费领取。"""
+
+    @classmethod
+    def setUpClass(cls):
+        db_path = os.path.join(tempfile.mkdtemp(prefix="pixmint-share-order-"), "d.db")
+        cls.app = create_app(
+            {
+                "TESTING": True,
+                "pay_mock": True,
+                "db": db_path,
+                "orders_token": "share-orders-token",
+                "action_secret": "share-action-secret",
+            }
+        )
+        cls.client = cls.app.test_client()
+        cls.db_path = db_path
+
+    def device(self, seed):
+        return hashlib.sha256(seed.encode()).hexdigest()
+
+    def shares(self, owner_device, n):
+        """
+        造 n 次有效分享。单个分享码每天最多计 10 次（防刷），
+        所以每满 10 次把已计记录的时间戳往前推一天，模拟跨天分享。
+        """
+        code = self.client.post(
+            "/v1/referral/sync", json={"deviceId": owner_device}
+        ).get_json()["code"]
+        connection = sqlite3.connect(self.db_path)
+        for i in range(n):
+            response = self.client.post(
+                "/v1/referral/friend",
+                json={"code": code, "deviceId": self.device(f"{owner_device}-friend-{i}")},
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            if (i + 1) % 10 == 0:
+                connection.execute(
+                    "UPDATE share_events SET created_at = created_at - ? WHERE code = ?",
+                    (86400, code),
+                )
+                connection.commit()
+        connection.close()
+        return code
+
+    def order(self, device_id, plan="lifetime"):
+        response = self.client.post(
+            "/v1/manual/orders",
+            json={"plan": plan, "provider": "alipay", "deviceId": device_id},
+        )
+        return response
+
+    def test_no_shares_pays_full_price(self):
+        device = self.device("discount-none")
+        response = self.order(device)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.get_json()
+        self.assertEqual(data["amountCents"], 5800)
+        self.assertEqual(data["shareCount"], 0)
+        self.assertEqual(data["shareCreditCents"], 0)
+
+    def test_quote_discounts_price_by_share_count(self):
+        device = self.device("discount-three")
+        self.shares(device, 3)
+        quote = self.client.post("/v1/referral/quote", json={"deviceId": device}).get_json()
+        self.assertEqual(quote["count"], 3)
+        self.assertEqual(quote["creditCents"], 1500)
+        self.assertEqual(quote["amountCents"], 4300)
+        self.assertFalse(quote["free"])
+
+        order = self.order(device).get_json()
+        self.assertEqual(order["amountCents"], 4300)
+        self.assertEqual(order["shareCount"], 3)
+        self.assertEqual(order["shareCreditCents"], 1500)
+
+    def test_full_shares_rejected_for_payment_and_claimed_free(self):
+        device = self.device("discount-free")
+        self.shares(device, 12)
+        quote = self.client.post("/v1/referral/quote", json={"deviceId": device}).get_json()
+        self.assertTrue(quote["free"])
+        self.assertEqual(quote["amountCents"], 0)
+
+        blocked = self.order(device)
+        self.assertEqual(blocked.status_code, 409)
+        self.assertEqual(blocked.get_json()["code"], "share_free")
+
+        claimed = self.client.post(
+            "/v1/manual/claim", json={"deviceId": device, "deviceName": "测试机"}
+        )
+        self.assertEqual(claimed.status_code, 200, claimed.data)
+        payload = claimed.get_json()
+        self.assertTrue(payload["code"])
+        self.assertTrue(payload["token"])
+
+        restored = self.client.post("/v1/license/by-device", json={"deviceId": device})
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertEqual(restored.get_json()["code"], payload["code"])
+
+        # 同一台机器不能靠同一批分享再领一次
+        again = self.client.post("/v1/manual/claim", json={"deviceId": device})
+        self.assertEqual(again.status_code, 409)
+
+    def test_share_code_claim_only_once(self):
+        first = self.device("discount-reuse-1")
+        self.shares(first, 12)
+        self.assertEqual(
+            self.client.post("/v1/manual/claim", json={"deviceId": first}).status_code, 200
+        )
+        # 分享码已被「用掉」后，换个设备也不能再白拿
+        second = self.device("discount-reuse-2")
+        code = self.client.post("/v1/referral/sync", json={"deviceId": first}).get_json()["code"]
+        sync_second = self.client.post(
+            "/v1/referral/sync", json={"deviceId": second, "count": 12}
+        ).get_json()
+        self.assertNotEqual(sync_second["code"], code)
+        # 第二台设备自己的次数是 0，不能领取
+        self.assertEqual(
+            self.client.post("/v1/manual/claim", json={"deviceId": second}).status_code, 409
+        )
+
+    def test_not_enough_shares_cannot_claim(self):
+        device = self.device("discount-short")
+        self.shares(device, 11)
+        response = self.client.post("/v1/manual/claim", json={"deviceId": device})
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.get_json()["code"], "share_not_enough")
+
+    def test_non_lifetime_plan_ignores_discount(self):
+        device = self.device("discount-monthly")
+        self.shares(device, 3)
+        order = self.order(device, plan="monthly").get_json()
+        self.assertEqual(order["amountCents"], 900)
+        self.assertEqual(order["shareCount"], 0)
+
+    def test_pending_order_replaced_when_discount_changes(self):
+        device = self.device("discount-reprice")
+        first = self.order(device).get_json()
+        self.assertEqual(first["amountCents"], 5800)
+        self.shares(device, 2)
+        # 有了新的分享次数，旧订单仍按 ¥58 下单就等于多收钱：必须作废并出 ¥48 的新单
+        second = self.order(device).get_json()
+        self.assertNotEqual(second["orderId"], first["orderId"])
+        self.assertEqual(second["amountCents"], 4800)
+        stale = self.client.get(
+            f"/v1/manual/orders/{first['orderId']}?token={first['orderToken']}"
+        ).get_json()
+        self.assertEqual(stale["status"], "expired")
+
+    def test_manual_order_confirms_at_discounted_amount(self):
+        device = self.device("discount-confirm")
+        self.shares(device, 4)
+        headers = {"Authorization": "Bearer share-orders-token"}
+        order = self.order(device).get_json()
+        self.assertEqual(order["amountCents"], 3800)
+        self.client.post(
+            f"/v1/manual/orders/{order['orderId']}/submit",
+            json={"token": order["orderToken"]},
+        )
+        listed = self.client.get("/v1/admin/manual/orders", headers=headers).get_json()["orders"]
+        row = next(item for item in listed if item["orderId"] == order["orderId"])
+        # 管理员按抵扣后的金额核对收款
+        self.assertEqual(row["amountCents"], 3800)
+        self.assertEqual(row["priceCents"], 5800)
+        self.assertEqual(row["shareCreditCents"], 2000)
+        confirmed = self.client.post(
+            f"/v1/admin/manual/orders/{order['orderId']}/confirm", headers=headers
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertTrue(confirmed.get_json()["code"])
+
+
 if __name__ == "__main__":
     unittest.main()

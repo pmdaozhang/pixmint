@@ -600,6 +600,9 @@ const EN: Record<string, string> = {
 
   // ===== 分享减会员费 =====
   '分享': 'Share',
+  '分享得会员': 'Share for Pro',
+  '已分享 {count}/{target} 次 · 分享 1 次减 {step} 元':
+    'Shared {count}/{target} · ¥{step} off per share',
   '分享 1 次减 {step} 元，累计 {target} 次免费升会员（{count}/{target}）':
     'Save {step} for each valid share. {target} shares unlocks Pro free ({count}/{target}).',
   '已分享 {target}/{target} · 可免费升级会员': 'All {target} shares done · Pro is free for you',

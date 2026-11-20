@@ -75,10 +75,22 @@ function listen() {
       if (message.type() === 'error') errors.push(message.text())
     })
     await win.waitForSelector('.sh-card', { timeout: 15000 })
-    await app.evaluate(({ BrowserWindow }) => {
+    // 弹框必须居中于光标所在屏幕的工作区
+    const layout = await app.evaluate(({ BrowserWindow, screen }) => {
       const [w] = BrowserWindow.getAllWindows()
-      w.setAlwaysOnTop(false)
-      w.setPosition(200, 200)
+      const [x, y] = w.getPosition()
+      const [width, height] = w.getSize()
+      const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
+      return {
+        offsetX: x - (area.x + (area.width - width) / 2),
+        offsetY: y - (area.y + (area.height - height) / 2)
+      }
+    })
+    console.log('SHARE_WINDOW_CENTER_OFFSET', JSON.stringify(layout))
+    assert(Math.abs(layout.offsetX) <= 1, `share window not centered horizontally: ${layout.offsetX}`)
+    assert(Math.abs(layout.offsetY) <= 1, `share window not centered vertically: ${layout.offsetY}`)
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].setAlwaysOnTop(false)
     })
     // 弹框先渲染本地缓存，1.2 秒后再拉一次服务端进度
     await win.waitForFunction(

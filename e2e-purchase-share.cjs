@@ -21,6 +21,13 @@ const server = http.createServer((request, response) => {
   request.on('end', () => {
     console.log('FAKE_SERVER', request.method, request.url, body)
     response.writeHead(200, { 'Content-Type': 'application/json' })
+    if (String(request.url).includes('/referral/quote')) {
+      // 与真实服务端同口径：7 次 → 减 ¥35，应付 ¥23
+      response.end(
+        JSON.stringify({ count: 7, priceCents: 5800, creditCents: 3500, amountCents: 2300, free: false })
+      )
+      return
+    }
     response.end(JSON.stringify(String(request.url).includes('/referral/') ? { count: 7, active: true } : {}))
   })
 })
@@ -62,13 +69,47 @@ server.listen(0, '127.0.0.1', async () => {
     })
     const text = await win.locator('.pc-card').innerText()
     console.log('PURCHASE_TEXT', JSON.stringify(text))
-    // 价格以服务端订单为准：页面保持 ¥58，只展示进度与已减金额，不能出现收不到的折后价
-    assert(/¥\s*58/.test(text), 'plan price should stay 58')
-    assert(!/¥\s*23/.test(text) && !/¥\s*0(\D|$)/.test(text), 'uncollectable discounted price shown')
+    // 折后价只用服务端报价：划线原价 ¥58、实付 ¥23，下单按钮也带实付金额
+    assert(/¥\s*58/.test(text), 'original price should stay visible')
+    assert(/¥\s*23/.test(text), 'discounted price from server quote missing')
+    assert(!text.includes('NaN'), 'NaN rendered in price area')
     assert(text.includes('已减 ¥35'), 'discount summary missing')
+    assert(text.includes('生成订单并付款 ¥23'), 'pay button should carry discounted amount')
     assert(text.includes('已分享 7 / 12 次'), 'share progress on purchase page missing')
     assert(text.includes('活动截止时间以官方通知为准'), 'rule copy on purchase page missing')
+    // 分享卡里要有分享链接 + 复制按钮，复制后剪贴板内容与显示的链接一致
+    const linkText = await win.locator('.share-card-link code').innerText()
+    console.log('PURCHASE_SHARE_LINK', linkText)
+    assert(/^pixmint\.hugproducthub\.top\/download\?ref=PM[A-Z0-9]{6}$/.test(linkText), 'share link missing')
+    await win.locator('.share-card-link button').click()
+    await win.waitForSelector('.share-card-link button.copied', { timeout: 3000 })
+    const shareClipboard = await app.evaluate(({ clipboard }) => clipboard.readText())
+    console.log('PURCHASE_SHARE_CLIPBOARD', shareClipboard)
+    assert(/\/download\?ref=PM[A-Z0-9]{6}$/.test(shareClipboard), 'share link copy wrong')
     await win.screenshot({ path: path.join(SHOTS, 'purchase-share-card.png') })
+
+    // 点「分享得会员」打开分享弹框：应以购买窗为父窗口，出现在屏幕中央
+    await win.evaluate(() => window.snapglass.referral.openShare())
+    await app.waitForEvent('window', { timeout: 8000 })
+    await new Promise((r) => setTimeout(r, 600))
+    const shareWindowInfo = await app.evaluate(({ BrowserWindow, screen }) => {
+      const windows = BrowserWindow.getAllWindows()
+      const share = windows.find(
+        (w) => w.getTitle().includes('分享') || w.webContents.getURL().includes('#share')
+      )
+      if (!share) return null
+      const [x, y] = share.getPosition()
+      const [width, height] = share.getSize()
+      const area = screen.getDisplayNearestPoint(share.getBounds()).workArea
+      return {
+        parented: Boolean(share.getParentWindow()),
+        offsetX: Math.round(x - (area.x + (area.width - width) / 2)),
+        offsetY: Math.round(y - (area.y + (area.height - height) / 2))
+      }
+    })
+    console.log('PURCHASE_OPEN_SHARE', JSON.stringify(shareWindowInfo))
+    assert(shareWindowInfo, 'share window not opened from purchase page')
+    assert(shareWindowInfo.parented, 'share window should be parented by purchase window')
     const layout = await win.evaluate(() => {
       const card = document.querySelector('.pc-card')
       const body = document.querySelector('.pc-body')

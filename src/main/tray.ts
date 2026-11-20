@@ -4,7 +4,6 @@ import type { UpdateState } from '../shared/types'
 import { trayIconDataUrl, type TrayDownloadFrame } from './tray-icon'
 import { proIconDataUrl } from './pro-icon'
 import { t, type Language } from '../shared/i18n'
-import { REFERRAL } from '../shared/referral'
 
 export interface TrayActions {
   onCapture: () => void
@@ -20,29 +19,14 @@ export interface TrayActions {
 }
 
 /**
- * 托盘里的分享入口：主标签 + 系统原生 sublabel 小字 + 进度。
- * sublabel 由 Windows 菜单原生渲染，不用自绘，天然跟随系统主题与缩放。
+ * 托盘里的分享入口：只保留一行主标签，分享进度在弹框里展示。
+ * Windows 原生菜单的小字容易被截断，菜单里不再放 sublabel。
  */
 function shareMenuItems(actions: TrayActions, language: Language): Electron.MenuItemConstructorOptions[] {
   const share = actions.getShare?.()
+  // 已购用户的入口由 getShare 返回 null 隐藏；进度只在弹框里展示，菜单保持单行不拥挤
   if (!share) return []
-  const count = Math.min(Math.max(Math.floor(share.count), 0), REFERRAL.target)
-  const vars = { step: REFERRAL.step, target: REFERRAL.target, count }
-  // 12 次只代表“可以免费升会员”，不是已买：已购用户的入口由 getShare 返回 null 隐藏
-  const reached = count >= REFERRAL.target
-  return [
-    {
-      label: t(language, '分享'),
-      sublabel: t(
-        language,
-        reached
-          ? '已分享 {target}/{target} · 可免费升级会员'
-          : '分享 1 次减 {step} 元，累计 {target} 次免费升会员（{count}/{target}）',
-        vars
-      ),
-      click: actions.onShare
-    }
-  ]
+  return [{ label: t(language, '分享得会员'), click: actions.onShare }]
 }
 
 function proIcon(): Electron.NativeImage {

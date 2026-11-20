@@ -5,7 +5,8 @@ import {
   type LicenseDevice,
   type LicenseStatus,
   type ManualOrder,
-  type PaymentProvider
+  type PaymentProvider,
+  type ReferralQuote
 } from '@shared/license'
 import type { Settings } from '@shared/types'
 import type { UsageFeature, UsageView } from '@shared/usage'
@@ -138,6 +139,10 @@ export function PurchaseApp(): JSX.Element {
   const [deviceBusy, setDeviceBusy] = useState(false)
   const [confirmUnbind, setConfirmUnbind] = useState('')
   const [referral, setReferral] = useState<ReferralProgress | null>(null)
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
+  /** 服务端算好的分享抵扣报价；null 表示拿不到，按原价展示 */
+  const [quote, setQuote] = useState<ReferralQuote | null>(null)
   const [booted, setBooted] = useState(false)
 
   const language = settings?.language ?? 'zh-CN'
@@ -163,9 +168,21 @@ export function PurchaseApp(): JSX.Element {
       window.snapglass.usage.get().catch(() => null),
       window.snapglass.settings.get().catch(() => null),
       window.snapglass.license.status().catch(() => null),
-      window.snapglass.referral.progress().catch(() => null)
-    ]).then(([nextUsage, nextSettings, nextStatus, nextReferral]) => {
+      window.snapglass.referral.progress().catch(() => null),
+      window.snapglass.referral.context().catch(() => null),
+      window.snapglass.purchase.referralQuote().catch(() => null)
+    ]).then(([nextUsage, nextSettings, nextStatus, nextReferral, nextContext, nextQuote]) => {
       if (nextUsage) setUsage(nextUsage)
+      // 报价字段缺失或不是数字时按原价展示，避免界面出现 NaN
+      if (
+        nextQuote &&
+        Number.isFinite(nextQuote.priceCents) &&
+        Number.isFinite(nextQuote.amountCents) &&
+        Number.isFinite(nextQuote.creditCents)
+      ) {
+        setQuote(nextQuote)
+      }
+      if (nextContext?.shareUrl) setShareUrl(nextContext.shareUrl)
       if (nextReferral && nextReferral.active) {
         setReferral(nextReferral)
         // 首帧拿到的是本地缓存；主进程在后台同步，3 秒后补拉一次换成服务端次数
@@ -309,6 +326,24 @@ export function PurchaseApp(): JSX.Element {
     }
   }, [plan, provider, tr])
 
+  // 分享满额：直接领取，不走付款；服务端会再核一次次数和「是否重复领取」
+  const claimReward = useCallback(async () => {
+    setBusy(true)
+    setMessage('')
+    try {
+      await window.snapglass.purchase.claimShareReward()
+      const nextStatus = await window.snapglass.license.status().catch(() => null)
+      if (nextStatus) setStatus(nextStatus)
+      const nextUsage = await window.snapglass.usage.get().catch(() => null)
+      if (nextUsage) setUsage(nextUsage)
+      setStep('done')
+    } catch (error) {
+      setMessage(readableError(error) || tr('领取失败，请稍后再试'))
+    } finally {
+      setBusy(false)
+    }
+  }, [tr])
+
   const submitManualPayment = useCallback(async () => {
     if (!order) return
     setBusy(true)
@@ -408,6 +443,13 @@ export function PurchaseApp(): JSX.Element {
     setMessage(tr('激活码已复制'))
   }
 
+  const copyShareLink = (): void => {
+    if (!shareUrl) return
+    void window.snapglass.clipboard.writeText(shareUrl)
+    setShareCopied(true)
+    window.setTimeout(() => setShareCopied(false), 1600)
+  }
+
   const copyOrderNumber = (): void => {
     if (!order) return
     void window.snapglass.clipboard.writeText(order.orderNumber)
@@ -473,11 +515,13 @@ export function PurchaseApp(): JSX.Element {
                 {PURCHASE_PLANS.map((item) => {
                   const meta = PLAN_META[item.id]
                   const selected = plan === item.id
-                  // 价格以服务端订单为准：这里只显示分享进度与已减金额，不显示本地估算的折后价，
-                  // 避免界面写 ¥0 而实际仍按下单金额收款
-                  const sharedOff = referral
-                    ? Math.min(referral.count * REFERRAL.step, REFERRAL.price)
-                    : 0
+                  // 折后价只展示服务端报价里算好的数，客户端不自己算金额
+                  const discounted = item.id === 'lifetime' ? quote : null
+                  const sharedOff = discounted
+                    ? Math.round(discounted.creditCents / 100)
+                    : referral
+                      ? Math.min(referral.count * REFERRAL.step, REFERRAL.price)
+                      : 0
                   return (
                     <button
                       key={item.id}
@@ -508,9 +552,20 @@ export function PurchaseApp(): JSX.Element {
                           </svg>
                         )}
                       </span>
-                      <span className="pc-plan-price">
-                        <em>¥</em>
-                        {meta.price}
+                      <span className={`pc-plan-price${discounted?.free ? ' free' : ''}`}>
+                        {discounted && discounted.amountCents < discounted.priceCents && (
+                          <s>¥{Math.round(discounted.priceCents / 100)}</s>
+                        )}
+                        {discounted?.free ? (
+                          <strong>{tr('免费')}</strong>
+                        ) : (
+                          <>
+                            <em>¥</em>
+                            {discounted
+                              ? String(Math.round(discounted.amountCents / 100))
+                              : meta.price}
+                          </>
+                        )}
                         {meta.unit && <small>{tr(meta.unit)}</small>}
                       </span>
                       <span className="pc-plan-desc">
@@ -519,10 +574,10 @@ export function PurchaseApp(): JSX.Element {
                           <>
                             {' · '}
                             <span className="pc-plan-referral">
-                              {sharedOff >= REFERRAL.price
+                              {discounted?.free
                                 ? tr('已达到免费升级条件')
                                 : tr('已分享 {count} 次，已减 ¥{off}', {
-                                    count: referral.count,
+                                    count: discounted?.count ?? referral.count,
                                     off: sharedOff
                                   })}
                             </span>
@@ -593,6 +648,40 @@ export function PurchaseApp(): JSX.Element {
                       }}
                     />
                   </div>
+                  <div className="share-card-link">
+                    <code title={shareUrl}>{shareUrl.replace(/^https?:\/\//, '')}</code>
+                    <button
+                      type="button"
+                      className={shareCopied ? 'copied' : ''}
+                      disabled={!shareUrl}
+                      onClick={copyShareLink}
+                    >
+                      {shareCopied ? (
+                        tr('已复制')
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <rect
+                              x="8.5"
+                              y="8.5"
+                              width="11"
+                              height="11"
+                              rx="2.5"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                            />
+                            <path
+                              d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          {tr('复制链接')}
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -613,36 +702,62 @@ export function PurchaseApp(): JSX.Element {
                 ))}
               </div>
 
-              <div className="pc-provider">
-                <span>{tr('支付方式')}</span>
-                <div className="pc-seg">
-                  <button
-                    type="button"
-                    className={provider === 'alipay' ? 'on' : ''}
-                    onClick={() => setProvider('alipay')}
-                  >
-                    {tr('支付宝')}
-                  </button>
-                  <button
-                    type="button"
-                    className={provider === 'wechat' ? 'on' : ''}
-                    onClick={() => setProvider('wechat')}
-                  >
-                    {tr('微信支付')}
-                  </button>
+              {!quote?.free && (
+                <div className="pc-provider">
+                  <span>{tr('支付方式')}</span>
+                  <div className="pc-seg">
+                    <button
+                      type="button"
+                      className={provider === 'alipay' ? 'on' : ''}
+                      onClick={() => setProvider('alipay')}
+                    >
+                      {tr('支付宝')}
+                    </button>
+                    <button
+                      type="button"
+                      className={provider === 'wechat' ? 'on' : ''}
+                      onClick={() => setProvider('wechat')}
+                    >
+                      {tr('微信支付')}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {message && <div className="pc-message">{message}</div>}
 
-              <button
-                className="pc-primary"
-                type="button"
-                disabled={busy}
-                onClick={() => void startManualOrder()}
-              >
-                {busy ? tr('正在创建订单…') : tr('生成订单并付款')}
-              </button>
+              {quote?.free ? (
+                <>
+                  <button
+                    className="pc-primary pro-gold"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void claimReward()}
+                  >
+                    {busy
+                      ? tr('正在领取…')
+                      : tr('免费领取终身会员（已分享 {count} 次）', { count: quote.count })}
+                  </button>
+                  <p className="pc-fineprint">
+                    {tr('分享次数已达标，无需付款，领取后立即生效。')}
+                  </p>
+                </>
+              ) : (
+                <button
+                  className="pc-primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void startManualOrder()}
+                >
+                  {busy
+                    ? tr('正在创建订单…')
+                    : quote && quote.creditCents > 0
+                      ? tr('生成订单并付款 {amount}', {
+                          amount: formatAmount(quote.amountCents)
+                        })
+                      : tr('生成订单并付款')}
+                </button>
+              )}
 
               <div className="pc-links">
                 <button type="button" onClick={() => { setCode(''); setMessage(''); setStep('activate') }}>

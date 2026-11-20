@@ -6,7 +6,8 @@ import type {
   ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
-  PurchaseOrderResult
+  PurchaseOrderResult,
+  ReferralQuote
 } from '../../shared/license'
 import type { LicenseRecord, LicenseStore } from './store'
 import { verifyToken } from './token'
@@ -340,12 +341,45 @@ export class LicenseService {
     plan: 'monthly' | 'yearly' | 'lifetime',
     provider: PaymentProvider
   ): Promise<ManualOrder> {
+    // 带上激活码：已购用户换机时，分享抵扣要跟着账号走；金额仍由服务端按次数计算
     return this.request<ManualOrder>('/manual/orders', {
       plan,
       provider,
       deviceId: this.options.deviceId(),
-      deviceName: process.platform
+      deviceName: process.platform,
+      licenseCode: this.options.store.get().code || null
     })
+  }
+
+  /** 下单前的分享抵扣报价；拿不到时返回 null，页面按原价展示 */
+  async referralQuote(): Promise<ReferralQuote | null> {
+    try {
+      return await this.request<ReferralQuote>('/referral/quote', {
+        deviceId: this.options.deviceId(),
+        licenseCode: this.options.store.get().code || null
+      })
+    } catch {
+      // 报价只是展示用：网络失败时退回原价，不阻塞下单
+      return null
+    }
+  }
+
+  /** 分享次数已够时直接免费领取终身版，成功后落盘授权 */
+  async claimShareReward(): Promise<LicenseActivation> {
+    const response = await this.request<ActivationResponse>('/manual/claim', {
+      deviceId: this.options.deviceId(),
+      deviceName: process.platform,
+      licenseCode: this.options.store.get().code || null
+    })
+    this.saveActivation(response)
+    return {
+      token: response.token,
+      code: response.code,
+      plan: 'pro',
+      expiresAt: response.expiresAt,
+      devicesUsed: response.devicesUsed,
+      devicesMax: response.devicesMax
+    }
   }
 
   async submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder> {

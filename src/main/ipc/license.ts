@@ -45,6 +45,8 @@ export function registerLicenseIpc(ctx: IpcContext): void {
     z.tuple([z.string().min(1).max(120), z.string().min(1).max(200)]),
     (_event, [orderId, orderToken]) => license.manualOrderStatus(orderId, orderToken)
   )
+  handle('purchase:referral-quote', z.tuple([]), () => license.referralQuote())
+  handle('purchase:claim-share-reward', z.tuple([]), () => license.claimShareReward())
   handle(
     'purchase:order-status',
     z.tuple([z.string().min(1).max(120), z.string().min(1).max(200)]),

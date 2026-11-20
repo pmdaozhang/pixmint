@@ -12,7 +12,8 @@ import type {
   ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
-  PurchaseOrderResult
+  PurchaseOrderResult,
+  ReferralQuote
 } from '../shared/license'
 import type { ReferralProgress } from '../shared/referral'
 import type { UsageFeature, UsageView } from '../shared/usage'
@@ -200,7 +201,8 @@ const api: SnapglassApi = {
         shareUrl: string
         friendLaunch: boolean
         count: number
-      }>
+      }>,
+    openShare: () => ipcRenderer.invoke('referral:open-share') as Promise<void>
   },
   purchase: {
     open: (feature?: UsageFeature) => ipcRenderer.send('purchase:open', feature),
@@ -229,6 +231,10 @@ const api: SnapglassApi = {
         orderId,
         orderToken
       ) as Promise<ManualOrderResult>,
+    referralQuote: () =>
+      ipcRenderer.invoke('purchase:referral-quote') as Promise<ReferralQuote | null>,
+    claimShareReward: () =>
+      ipcRenderer.invoke('purchase:claim-share-reward') as Promise<LicenseActivation>,
     resize: (height: number, width?: number) =>
       ipcRenderer.send('purchase:resize', height, width)
   },

@@ -27,5 +27,8 @@ export function registerIpc(ctx: IpcContext): void {
   registerSystemIpc(ctx)
   registerUsageIpc(ctx)
   registerLicenseIpc(ctx)
-  registerReferralIpc(ctx)
+  registerReferralIpc({
+    referralService: ctx.referralService,
+    openShare: (parent) => ctx.openShareWindow(parent)
+  })
 }

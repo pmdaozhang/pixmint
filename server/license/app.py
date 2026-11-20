@@ -47,6 +47,7 @@ MANUAL_ORDER_LIMIT = 8
 REFERRAL_STEP = 5
 REFERRAL_TARGET = 12
 REFERRAL_FRIEND_DAILY_CAP = 10
+REFERRAL_CONSUME_PLAN = "lifetime"
 REFERRAL_CODE_RE = re.compile(r"^[A-Z0-9]{4,16}$")
 
 PLANS = {
@@ -178,7 +179,11 @@ CREATE TABLE IF NOT EXISTS orders (
   confirmed_at INTEGER,
   reject_reason TEXT,
   expires_at INTEGER,
-  channel TEXT
+  channel TEXT,
+  share_count INTEGER,
+  share_credit_cents INTEGER,
+  share_consumed INTEGER NOT NULL DEFAULT 0,
+  referral_code TEXT
 );
 CREATE TABLE IF NOT EXISTS licenses (
   id TEXT PRIMARY KEY,
@@ -269,6 +274,11 @@ def open_db(path: str) -> sqlite3.Connection:
             "channel": "TEXT",
             "notified_at": "INTEGER",
             "notify_count": "INTEGER DEFAULT 0",
+            # 分享抵扣：下单时锁定的次数、抵扣金额，以及码是否已计入「用掉」
+            "share_count": "INTEGER",
+            "share_credit_cents": "INTEGER",
+            "share_consumed": "INTEGER NOT NULL DEFAULT 0",
+            "referral_code": "TEXT",
         },
     )
     # 一个订单最多签发一张授权；重复点击“确认收款”时由唯一索引兜底。
@@ -279,6 +289,11 @@ def open_db(path: str) -> sqlite3.Connection:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_orders_provider_status"
         " ON orders(provider, status, created_at DESC)"
+    )
+    # 分享抵扣：同一分享码只能用于一次免费领取，靠部分唯一索引兜底并发点击。
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_share_consumed_code"
+        " ON orders(referral_code) WHERE share_consumed = 1 AND referral_code IS NOT NULL"
     )
     conn.commit()
     return conn
@@ -573,6 +588,31 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         )
         return row["ref_owner"] if row else None
 
+    def share_owner_for_order(license_code: str, device_id: str) -> str:
+        """下单/领取时的分享归属：与 sync 同一口径，保证算出来的次数和界面显示一致。"""
+        return resolve_owner(license_code, device_id) or f"dev:{device_id}"
+
+    def referral_quote(license_code: str, device_id: str) -> dict[str, Any]:
+        """
+        下单前报价：分享次数、可抵金额、应付金额。
+        金额一律由服务端算，客户端传来的任何价格都不采信。
+        活动结束后入口隐藏，所以按 0 次抵扣处理。
+        """
+        price = PLANS[REFERRAL_CONSUME_PLAN]["price"]
+        count = 0
+        if not share_ended():
+            raw = share_count(share_owner_for_order(license_code, device_id))
+            # 计数异常时宁可按 0 次，也不能让订单金额算错
+            count = min(int(raw), REFERRAL_TARGET) if isinstance(raw, int) and raw > 0 else 0
+        credit = min(count * REFERRAL_STEP * 100, price)
+        return {
+            "count": count,
+            "creditCents": credit,
+            "priceCents": price,
+            "amountCents": max(price - credit, 0),
+            "free": count >= REFERRAL_TARGET,
+        }
+
     @app.post("/v1/referral/sync")
     def referral_sync() -> Any:
         body = json_body()
@@ -610,16 +650,43 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                 )
             db().commit()
         payload = share_payload(owner)
+        quote = referral_quote(license_code, device_id)
         # 老版本客户端只认 {count, ended}，多返回的字段不改变响应形状
         response: dict[str, Any] = {
             "code": payload["code"],
             "count": payload["count"],
             "ended": share_ended(),
+            "discount": {
+                "priceCents": quote["priceCents"],
+                "creditCents": quote["creditCents"],
+                "amountCents": quote["amountCents"],
+                "free": quote["free"],
+            },
         }
         if stale_license:
             # 携带的激活码已退款/失效：客户端应清掉本地激活码，按设备继续用
             response["clearLicense"] = True
         return jsonify(response)
+
+    @app.post("/v1/referral/quote")
+    def referral_quote_endpoint() -> Any:
+        """购买页展示折后价用：只读报价，不落库、不改任何状态。"""
+        body = json_body()
+        try:
+            device_id = clean_device(body.get("deviceId"))
+        except ValueError:
+            return error("设备标识无效", "bad_device")
+        quote = referral_quote(clean_text(body.get("licenseCode"), 4096), device_id)
+        if share_ended():
+            # 活动结束：按原价，不再接受抵扣
+            quote = {
+                "count": 0,
+                "creditCents": 0,
+                "priceCents": quote["priceCents"],
+                "amountCents": quote["priceCents"],
+                "free": False,
+            }
+        return jsonify(quote)
 
     @app.post("/v1/referral/friend")
     def referral_friend() -> Any:
@@ -813,6 +880,10 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "expiresAt": (order["expires_at"] or 0) * 1000,
             "qrUrls": manual_qr_urls(),
             "rejectReason": order["reject_reason"],
+            # 下单时锁定的分享抵扣（老订单没有这些列值时按 0 处理）
+            "priceCents": PLANS.get(order["sku"], {}).get("price"),
+            "shareCount": order["share_count"] or 0,
+            "shareCreditCents": order["share_credit_cents"] or 0,
         }
 
     # -- 手机确认：PushPlus 通知 + 签名链接 --------------------------------
@@ -1108,6 +1179,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         except ValueError:
             return error("设备标识无效", "bad_device")
         device_name = clean_text(body.get("deviceName"), 60)
+        license_code = clean_text(body.get("licenseCode"), 4096)
+        quote = referral_quote(license_code, device_id)
+        if quote["free"]:
+            # 分享次数已够：不再出收款码，改走 /v1/manual/claim 直接领取
+            return error("分享次数已够，可直接免费领取", "share_free", 409)
+        amount_cents = quote["amountCents"]
 
         existing = one(
             "SELECT * FROM orders WHERE provider = 'manual' AND device_id = ?"
@@ -1117,7 +1194,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         )
         existing = refresh_manual_order(existing)
         if existing and existing["status"] in ("pending_payment", "reviewing"):
-            if existing["sku"] == plan and existing["channel"] == channel:
+            # 价格以服务端实时报价为准：抵扣变了就让旧订单失效，避免按旧价收款
+            if (
+                existing["sku"] == plan
+                and existing["channel"] == channel
+                and (existing["amount_cents"] or 0) == amount_cents
+            ):
                 return jsonify(manual_order_payload(existing))
             if existing["status"] == "reviewing":
                 return error("已有待确认订单，请先联系客服", "order_reviewing", 409)
@@ -1138,25 +1220,100 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         order_id = new_manual_order_id()
         order_token = secrets.token_urlsafe(24)
         expires_at = now_ts() + MANUAL_ORDER_TTL
+        # 折扣是优惠，只有终身版才吃分享抵扣；月付/年付按原价
+        applied = quote if plan == REFERRAL_CONSUME_PLAN else {
+            "count": 0,
+            "creditCents": 0,
+            "amountCents": PLANS[plan]["price"],
+        }
         db().execute(
             "INSERT INTO orders (order_id, order_token, provider, channel, sku,"
-            " amount_cents, status, device_id, device_name, created_at, expires_at)"
-            " VALUES (?, ?, 'manual', ?, ?, ?, 'pending_payment', ?, ?, ?, ?)",
+            " amount_cents, status, device_id, device_name, created_at, expires_at,"
+            " share_count, share_credit_cents, referral_code)"
+            " VALUES (?, ?, 'manual', ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?)",
             (
                 order_id,
                 order_token,
                 channel,
                 plan,
-                PLANS[plan]["price"],
+                applied["amountCents"],
                 device_id,
                 device_name,
                 now_ts(),
                 expires_at,
+                applied["count"],
+                applied["creditCents"],
+                owner_code(share_owner_for_order(license_code, device_id))
+                if applied["count"] > 0
+                else None,
             ),
         )
         db().commit()
         order = one("SELECT * FROM orders WHERE order_id = ?", (order_id,))
         return jsonify(manual_order_payload(order))
+
+    @app.post("/v1/manual/claim")
+    def claim_share_discount() -> Any:
+        """
+        分享满 12 次直接免费领取终身版。
+        防护：同一分享码只能领一次（部分唯一索引兜底）；已经有终端授权的设备不能再领，
+        保证「一台机器只白拿一次」，次数本身不会因为再分享而凭空复活。
+        """
+        body = json_body()
+        try:
+            device_id = clean_device(body.get("deviceId"))
+        except ValueError:
+            return error("设备标识无效", "bad_device")
+        license_code = clean_text(body.get("licenseCode"), 4096)
+        existing = one(
+            "SELECT licenses.code FROM licenses JOIN devices"
+            " ON devices.license_id = licenses.id"
+            " WHERE devices.device_hash = ? AND licenses.revoked_at IS NULL"
+            " LIMIT 1",
+            (device_id,),
+        )
+        if existing:
+            return error("本机已有授权，无需重复领取", "already_licensed", 409)
+        owner = share_owner_for_order(license_code, device_id)
+        quote = referral_quote(license_code, device_id)
+        if not quote["free"]:
+            return error(
+                f"分享次数不足（{quote['count']}/{REFERRAL_TARGET}）", "share_not_enough", 409
+            )
+        code = owner_code(owner)
+        order_id = new_manual_order_id()
+        try:
+            db().execute(
+                "INSERT INTO orders (order_id, order_token, provider, channel, sku,"
+                " amount_cents, status, device_id, device_name, created_at, paid_at,"
+                " share_count, share_credit_cents, share_consumed, referral_code)"
+                " VALUES (?, '', 'manual', 'share', ?, 0, 'paid', ?, ?, ?, ?, ?, ?, 1, ?)",
+                (
+                    order_id,
+                    REFERRAL_CONSUME_PLAN,
+                    device_id,
+                    clean_text(body.get("deviceName"), 60),
+                    now_ts(),
+                    now_ts(),
+                    REFERRAL_TARGET,
+                    PLANS[REFERRAL_CONSUME_PLAN]["price"],
+                    code,
+                ),
+            )
+            license_row = create_license(
+                order_id=order_id,
+                plan=REFERRAL_CONSUME_PLAN,
+                device_id=device_id,
+                expires_at=None,
+                trial=False,
+            )
+        except sqlite3.IntegrityError:
+            db().rollback()
+            return error("本次分享已用于领取，不能重复领取", "share_used", 409)
+        db().commit()
+        log_order_action(order_id, "share_claim", "client", f"{code} {REFERRAL_TARGET}/{REFERRAL_TARGET}")
+        db().commit()
+        return jsonify(activation_payload(license_row, device_id))
 
     @app.post("/v1/manual/orders/<order_id>/submit")
     def submit_manual_order(order_id: str) -> Any:
@@ -1602,6 +1759,9 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             "rejectReason": row["reject_reason"],
             "expiresAt": row["expires_at"],
             "licenseCode": row["license_code"],
+            "priceCents": PLANS.get(row["sku"], {}).get("price"),
+            "shareCount": row["share_count"] or 0,
+            "shareCreditCents": row["share_credit_cents"] or 0,
         }
 
     @app.get("/v1/admin/manual/orders")

@@ -33,7 +33,8 @@ import type {
   ManualOrderResult,
   PaymentProvider,
   PurchaseOrder,
-  PurchaseOrderResult
+  PurchaseOrderResult,
+  ReferralQuote
 } from './license'
 import type { UsageFeature, UsageView } from './usage'
 import type { ReferralProgress } from './referral'
@@ -162,6 +163,8 @@ export interface SnapglassApi {
     progress(): Promise<ReferralProgress>
     /** 本次是否由好友分享链接安装启动；分享弹框据此决定文案 */
     context(): Promise<{ shareUrl: string; friendLaunch: boolean; count: number }>
+    /** 购买页「分享得会员」：打开与托盘同一个分享弹框，以购买窗为父窗口 */
+    openShare(): Promise<void>
   }
   purchase: {
     open(feature?: UsageFeature): void
@@ -174,6 +177,10 @@ export interface SnapglassApi {
       plan: 'monthly' | 'yearly' | 'lifetime',
       provider: PaymentProvider
     ): Promise<ManualOrder>
+    /** 分享抵扣报价（服务端按分享次数算好折后价）；失败返回 null 时按原价展示 */
+    referralQuote(): Promise<ReferralQuote | null>
+    /** 分享满 12 次：跳过付款直接领取终身版 */
+    claimShareReward(): Promise<LicenseActivation>
     submitManualOrder(orderId: string, orderToken: string): Promise<ManualOrder>
     manualOrderStatus(orderId: string, orderToken: string): Promise<ManualOrderResult>
     resize(height: number, width?: number): void
