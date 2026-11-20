@@ -10,7 +10,7 @@
   "yellow": [
     {
       "id": "share-reward-real-device-unverified",
-      "dimension": "manual-verification",
+      "dimension": "feature-integration",
       "detail": "真实凑满 12 次分享走免费领取未验证：单码每日计次上限 10 次，需要跨天或多人配合；服务端单测已覆盖领取、重复领取与次数不足拦截。",
       "deadline": "2026-11-27"
     },
@@ -22,7 +22,7 @@
     },
     {
       "id": "discount-ui-visual-unreviewed",
-      "dimension": "ui-verification",
+      "dimension": "visual-review",
       "detail": "折后价 UI 仅通过 E2E 截图与文本断言确认，未做人工走查（深色模式、窄窗）。",
       "deadline": "2026-11-27"
     }
