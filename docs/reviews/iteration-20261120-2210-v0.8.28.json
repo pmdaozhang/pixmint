@@ -11,7 +11,7 @@
     {
       "id": "share-reward-real-device-unverified",
       "dimension": "feature-integration",
-      "detail": "真实凑满 12 次分享走免费领取未验证：单码每日计次上限 10 次，需要跨天或多人配合；服务端单测已覆盖领取、重复领取与次数不足拦截。",
+      "detail": "已用 0.8.28 打包客户端在授权服务副本 + 本地数据库副本上端到端跑通：12 次分享→报价 ¥0→免费领取→状态 Pro→重复领取被拦；同一分享码换设备领取被拒绝。未在真实生产用户数据上验证（为避免污染生产库）。",
       "deadline": "2026-11-27"
     },
     {
@@ -77,6 +77,12 @@
         "status": "pass",
         "command": "scp app.py + systemctl restart pixmint-license",
         "result": "active；quote/sync/claim 公网实测符合预期"
+      },
+      {
+        "name": "e2e-share-claim",
+        "status": "pass",
+        "command": "打包版 0.8.28 + 授权服务副本(副本库) 端到端",
+        "result": "quote free=true / claim ok / 二次领取 blocked / 换设备领取 blocked"
       }
     ]
   },
