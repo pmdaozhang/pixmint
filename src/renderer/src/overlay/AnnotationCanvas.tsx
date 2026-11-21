@@ -33,7 +33,6 @@ import {
 import { layoutText } from '@shared/text-layout'
 import { drawAnnotation } from './annotation/draw'
 import {
-  SPOTLIGHT_MASK_BORDER_ALPHA,
   SPOTLIGHT_MASK_COLOR,
   type OverlayOptions
 } from './options'
@@ -185,8 +184,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, sizeRef.current.width, sizeRef.current.height)
       const plan = planSpotlightDraw(annotationsRef.current, tempRef.current, editingTextIdRef.current)
-      // 顺序：非聚光灯标注 → 压遮罩 → 聚光灯形状 → 半透明重描已有标注。
-      // 顺序错了会直接出现“边框被遮罩吞掉”或“聚光灯被压暗”，见 annotation/spotlight.ts。
+      // 顺序：非聚光灯标注 → 遮罩（洞外黑纱整张叠加）→ 聚光灯形状。
+      // 顺序错了会直接出现“聚光灯被压暗”，见 annotation/spotlight.ts。
       for (const annotation of plan.base) {
         drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
       }
@@ -194,22 +193,18 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       for (const annotation of plan.spotlit) {
         drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
       }
-      // 聚光灯是“打光”不是“抠掉”：遮罩之下已有的边框/线条必须仍能看见。
-      ctx.save()
-      ctx.globalAlpha = SPOTLIGHT_MASK_BORDER_ALPHA
-      for (const annotation of plan.overlay) {
-        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
-      }
-      ctx.restore()
+      // 遮罩改为「洞外黑纱」整张叠加（见 drawSpotlightMasks），亮区里的标注
+      // 从未被擦掉，不需要任何重描补救层。
     }
 
     /**
      * 聚光灯是“全局压暗”效果：所有聚光灯形状的并集被挖空，其余区域盖一层半透明黑色。
      * 关键约束：
-     * - 遮罩画在所有标注之上、只作用于选区画布，不改变选区尺寸和导出分辨率。
-     * - 亮区必须先合成成一张不透明的“遮罩图”，再用 destination-out 盖住画布。
-     *   不能把所有形状直接塞进同一个 evenodd 路径：两个形状重叠处会被判成“洞里
-     *   的洞”重新填黑，重叠区反而更暗（2026-11-20 用户实测发现）。
+     * - 遮罩只作用于选区画布，不改变选区尺寸和导出分辨率。
+     * - 黑纱和挖洞全部在遮罩画布上完成，再整张 source-over 叠到主画布：
+     *   亮区完全透明、标注原样保留（2026-11-21 之前在主画布上挖洞，会把亮区
+     *   内已画好的标注一起擦掉，只能靠半透明重描补救，用户看到“蒙白纱”）。
+     * - 洞重叠处不会变暗：destination-out 对同一像素多擦一次结果不变。
      */
     const drawSpotlightMasks = (ctx: CanvasRenderingContext2D): void => {
       const holes = spotlightHoles(annotationsRef.current, tempRef.current)
@@ -222,7 +217,18 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       mask.height = Math.max(1, Math.ceil(height))
       const maskCtx = mask.getContext('2d')
       if (!maskCtx) return
+      // 关键约束（2026-11-21 用户实测根因）：
+      // 不能「先在主画布上盖全屏黑、再用 destination-out 挖洞」——那会把亮区里
+      // 已画好的箭头/文字/序号一起擦掉，只能靠遮罩后的半透明重描补回来，
+      // 看起来就像蒙了一层白纱。正确做法：全部操作在遮罩画布上完成——
+      // 先铺满整屏黑纱，再用 destination-out 擦掉洞（擦的是遮罩画布自己的黑纱，
+      // 碰不到主画布上的标注），最后整张 source-over 叠到主画布：
+      // 洞内（亮区）完全透明、标注原样保留；洞外压暗 55%，这是聚光灯本意。
       maskCtx.clearRect(0, 0, mask.width, mask.height)
+      maskCtx.save()
+      maskCtx.fillStyle = SPOTLIGHT_MASK_COLOR
+      maskCtx.fillRect(0, 0, mask.width, mask.height)
+      maskCtx.globalCompositeOperation = 'destination-out'
       maskCtx.fillStyle = '#000'
       for (const hole of holes) {
         maskCtx.beginPath()
@@ -240,16 +246,11 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
             Math.PI * 2
           )
         }
+        // 洞重叠处不会重新变黑：destination-out 对同一像素多擦一次结果不变。
         maskCtx.fill()
       }
-      ctx.save()
-      ctx.beginPath()
-      ctx.rect(0, 0, width, height)
-      ctx.fillStyle = SPOTLIGHT_MASK_COLOR
-      ctx.fill()
-      ctx.globalCompositeOperation = 'destination-out'
+      maskCtx.restore()
       ctx.drawImage(mask, 0, 0)
-      ctx.restore()
     }
 
     const notifyHistory = (): void => {
@@ -356,8 +357,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       }
       // 显式重放绘制顺序，而不是直接叠源画布：
       // 源画布上遮罩盖在聚光灯形状之上，整体拷贝过去会连聚光灯边框一起压暗。
-      // 导出里必须是「非聚光灯标注 → 遮罩 → 聚光灯形状 → 半透明重描旧标注」，
-      // 与屏幕上的顺序保持一致，边框才会完整显示。
+      // 导出里必须是「非聚光灯标注 → 遮罩 → 聚光灯形状」，与屏幕顺序一致。
       const plan = planSpotlightDraw(annotationsRef.current, null, null)
       ctx.save()
       ctx.scale(dpr, dpr)
@@ -366,10 +366,6 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       }
       drawSpotlightMasks(ctx)
       for (const annotation of plan.spotlit) {
-        drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
-      }
-      ctx.globalAlpha = SPOTLIGHT_MASK_BORDER_ALPHA
-      for (const annotation of plan.overlay) {
         drawAnnotation(ctx, annotation, null, backgroundCanvasRef.current)
       }
       ctx.restore()
@@ -521,6 +517,12 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, Props>(
       event.currentTarget.setPointerCapture(event.pointerId)
       const point = pointFromEvent(event)
       const hit = hitIndex(point)
+      // 正在编辑的文字草稿必须先落盘再处理新的按下（2026-11-21 用户实测：
+      // 聚光灯下换位置输入第二段，第一段自动消失）。原本依赖 textarea 的
+      // blur 触发 commitText，聚光灯开启时每次重绘都重建遮罩，blur 与重绘
+      // 的先后被搅乱，草稿在切换瞬间被清空。这里在状态机入口直接提交，
+      // 不再依赖任何时序。
+      if (textDraft) commitText()
       if (options.tool === 'text') {
         if (hit >= 0) {
           textDragRef.current = {

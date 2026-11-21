@@ -1,0 +1,61 @@
+{
+  "version": "0.8.28",
+  "date": "2026-11-21",
+  "commit": "HEAD-uncommitted",
+  "level": "b",
+  "conclusion": "conditional",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [
+    {
+      "id": "p15-remaining-manual-cases-unexecuted",
+      "dimension": "test-coverage",
+      "detail": "P15 手工测试文档 33 项中仅执行 6 项（P0 全部 + 聚光灯重叠 + 明暗方向）；编辑已有标注、撤销/重做、150% 缩放、深色模式等 27 项未执行。",
+      "deadline": "2026-11-28"
+    },
+    {
+      "id": "pointer-statemachine-untestable",
+      "dimension": "test-coverage",
+      "detail": "AnnotationCanvas 指针状态机无自动化测试；本轮两处修复均由用户真机发现，模拟探针已被证明不可靠。",
+      "deadline": "2026-12-05"
+    }
+  ],
+  "green": [
+    "regression",
+    "performance",
+    "architecture",
+    "reversibility"
+  ],
+  "metrics": {
+    "sourceFiles": 280,
+    "sourceLines": 58653,
+    "testFiles": 49,
+    "typecheck": "pass",
+    "unitTests": "302 pass / 44 files",
+    "build": "pass"
+  },
+  "evidence": {
+    "userVerified": [
+      "P0-1 亮区标注饱满无白纱",
+      "P0-2 文字三段连续输入保留",
+      "P0-4 复制/保存导出与屏幕一致",
+      "P1-1 聚光灯矩形+椭圆交叠不变暗",
+      "聚光明暗方向（矩形内亮、外部暗）"
+    ],
+    "automated": [
+      "pnpm typecheck exit 0",
+      "vitest 44 files / 302 tests pass",
+      "electron-vite build pass"
+    ]
+  },
+  "changedFiles": [
+    "src/renderer/src/overlay/AnnotationCanvas.tsx",
+    "src/renderer/src/overlay/annotation/spotlight.ts",
+    "src/renderer/src/overlay/options.ts",
+    "tests/spotlight.test.ts",
+    "docs/CHANGELOG.md",
+    "docs/test-cases/P15-spotlight-mask-fix.md",
+    "docs/reviews/iteration-20261121-1620-v0.8.28.md"
+  ]
+}

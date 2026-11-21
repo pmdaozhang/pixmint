@@ -132,9 +132,12 @@ describe('planSpotlightDraw 绘制顺序', () => {
     expect(plan.spotlit.map((a) => a.id)).toEqual(['lit'])
   })
 
-  it('回归：先画的边框必须出现在遮罩之上的重描层，否则会被遮罩吞掉', () => {
+  it('回归：overlay 重描层已删除，计划里只有 base 和 spotlit 两层', () => {
+    // 2026-11-21：遮罩改为「洞外黑纱」整张叠加，亮区标注从未被擦掉，
+    // 重描补救层随之删除（曾导致用户看到“蒙白纱”）。
     const plan = planSpotlightDraw([rect('plain', false), rect('lit', true)], null)
-    expect(plan.overlay.map((a) => a.id)).toEqual(['plain'])
+    expect('overlay' in plan).toBe(false)
+    expect(Object.keys(plan).sort()).toEqual(['base', 'spotlit'])
   })
 
   it('回归：聚光灯形状不能被放进遮罩之前的层（否则会被压暗）', () => {
@@ -147,12 +150,11 @@ describe('planSpotlightDraw 绘制顺序', () => {
     expect(litPlan.spotlit.map((a) => a.id)).toEqual(['temp'])
     const plainPlan = planSpotlightDraw([], rect('temp', false))
     expect(plainPlan.base.map((a) => a.id)).toEqual(['temp'])
-    expect(plainPlan.overlay.map((a) => a.id)).toEqual(['temp'])
   })
 
   it('正在编辑的文字草稿不参与任何图层', () => {
     const plan = planSpotlightDraw([text, rect('lit', true)], null, 'text')
-    const ids = [...plan.base, ...plan.spotlit, ...plan.overlay].map((a) => a.id)
+    const ids = [...plan.base, ...plan.spotlit].map((a) => a.id)
     expect(ids).not.toContain('text')
   })
 })

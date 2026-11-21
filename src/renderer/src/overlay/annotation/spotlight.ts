@@ -46,21 +46,20 @@ export function spotlightHole(shape: RectAnno): SpotlightHole | null {
   }
 }
 
-export type SlackDrawLayer = 'base' | 'spotlit' | 'overlay'
-
 export interface SlackDrawPlan {
   /** 遮罩之前：非聚光灯标注 */
   base: Annotation[]
   /** 遮罩之后：聚光灯形状（填充 + 描边） */
   spotlit: Annotation[]
-  /** 遮罩之后、半透明重描：先画好的标注，保证边框不被遮罩吞掉 */
-  overlay: Annotation[]
 }
 
 /**
  * 绘制顺序计划。顺序不正确会直接导致用户可见的 bug：
- * - 聚光灯形状若画在遮罩之前，会被遮罩压暗；
- * - 先画的边框若不重描，打开聚光灯后就会像被删掉了一样消失。
+ * 聚光灯形状若画在遮罩之前，会被遮罩压暗。
+ *
+ * 2026-11-21 起 overlay 层（遮罩后半透明重描）已删除：遮罩改为
+ * 「在遮罩画布上铺黑纱并挖洞、整张叠加」，亮区里的标注从未被擦掉，
+ * 不再需要任何重描补救。见 AnnotationCanvas.drawSpotlightMasks。
  *
  * 文本编辑中的草稿要跳过，由调用方通过 skipId 传入。
  */
@@ -75,8 +74,7 @@ export function planSpotlightDraw(
   const all = temp ? [...visible, temp] : visible
   return {
     base: all.filter((annotation) => !isSpotlitShape(annotation)),
-    spotlit: all.filter((annotation) => isSpotlitShape(annotation)),
-    overlay: all.filter((annotation) => !isSpotlitShape(annotation))
+    spotlit: all.filter((annotation) => isSpotlitShape(annotation))
   }
 }
 
