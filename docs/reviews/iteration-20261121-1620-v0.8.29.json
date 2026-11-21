@@ -1,5 +1,5 @@
 {
-  "version": "0.8.28",
+  "version": "0.8.29",
   "date": "2026-11-21",
   "commit": "7f377d1",
   "level": "b",
@@ -52,16 +52,38 @@
       "electron-vite build pass"
     ],
     "checks": [
-      { "name": "typecheck", "status": "pass", "command": "pnpm typecheck", "result": "pass" },
-      { "name": "unit", "status": "pass", "command": "npx vitest run", "result": "pass", "detail": "44 files / 302 tests" },
-      { "name": "build", "status": "pass", "command": "pnpm build", "result": "pass" },
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck",
+        "result": "pass"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "npx vitest run",
+        "result": "pass",
+        "detail": "44 files / 302 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build",
+        "result": "pass"
+      },
       {
         "name": "e2e",
         "status": "skip",
         "reason": "覆盖层交互 E2E（e2e-overlay）依赖 --smoke-overlay 假画面，本轮已证明其无法复现聚光灯真实渲染问题；改用真实 F1 手工测试（manual-p0）作为端到端验证，由用户真机执行。",
         "command": "pnpm e2e:overlay（未运行，见 reason）"
       },
-      { "name": "manual-p0", "status": "pass", "command": "真实 F1 手工测试", "result": "pass", "detail": "用户验证 5 项核心场景，见 userVerified" }
+      {
+        "name": "manual-p0",
+        "status": "pass",
+        "command": "真实 F1 手工测试",
+        "result": "pass",
+        "detail": "用户验证 5 项核心场景，见 userVerified"
+      }
     ]
   },
   "changedFiles": [
