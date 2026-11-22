@@ -11,7 +11,7 @@ import {
   session,
   Tray
 } from 'electron'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { RecorderMode, Settings, UpdateState } from '../shared/types'
@@ -98,6 +98,28 @@ if (userDataOverride) {
   mkdirSync(userDataOverride, { recursive: true })
   app.setPath('userData', userDataOverride)
   app.setPath('sessionData', userDataOverride)
+}
+
+const INSTALL_REF_FILE = 'install-ref.txt'
+
+/**
+ * 安装器把自身命令行写到 userData（文件名里带 --ref=），首启在这里补读。
+ * 读不到返回空串；文件不存在是正常情况。
+ */
+function readInstallRef(): string {
+  try {
+    return readFileSync(join(app.getPath('userData'), INSTALL_REF_FILE), 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function clearInstallRef(): void {
+  try {
+    unlinkSync(join(app.getPath('userData'), INSTALL_REF_FILE))
+  } catch {
+    // 文件不存在或已被清理
+  }
 }
 
 const hadUncleanSession = hasUncleanSession()
@@ -396,18 +418,26 @@ function initServices(): void {
       logDiagnostic('license', `restore failed: ${String(error)}`, 'debug')
     })
   }
-  // 好友从分享链接安装：服务端按设备去重，重复启动/登录自启只会被忽略，不会重复计次。
-  // 参数带上 ref 说明这次是从分享链接启动的，弹框据此展示“已计入对方”的文案。
-  referralService.detectFriendLaunch(process.argv)
-  const friendCode = referralService.friendRefArg(process.argv)
+  // 好友从分享链接安装：ref 可能来自启动参数，也可能来自安装器写在 userData 的命令行文件。
+  // 服务端按设备去重，重复启动/登录自启只会被忽略，不会重复计次。
+  const argvFriendCode = referralService.friendRefArg(process.argv)
+  const installRefCode = argvFriendCode ? null : referralService.friendCode(readInstallRef())
+  const friendCode = argvFriendCode ?? installRefCode
+  referralService.detectFriendLaunch(process.argv, installRefCode)
   if (friendCode) {
     void referralService
       .registerFriend(friendCode)
-      .then(() => referralService.sync(true))
+      .then((payload) => {
+        // 网络失败（null）时保留安装 ref，下次启动再试；成功或 retryLater 都可清掉。
+        if (payload !== null) clearInstallRef()
+        return referralService.sync(true)
+      })
       .catch((error: unknown) => {
         logDiagnostic('referral', `friend register failed: ${String(error)}`, 'warn')
       })
   } else {
+    // 没有可用的安装 ref，清掉安装器留下的空命令行文件
+    clearInstallRef()
     // 之前因分享者额度已满被推迟的好友登记：每次启动排队补记
     void referralService.flushPendingFriend().catch(() => {})
   }

@@ -169,19 +169,9 @@ export function PurchaseApp(): JSX.Element {
       window.snapglass.settings.get().catch(() => null),
       window.snapglass.license.status().catch(() => null),
       window.snapglass.referral.progress().catch(() => null),
-      window.snapglass.referral.context().catch(() => null),
-      window.snapglass.purchase.referralQuote().catch(() => null)
-    ]).then(([nextUsage, nextSettings, nextStatus, nextReferral, nextContext, nextQuote]) => {
+      window.snapglass.referral.context().catch(() => null)
+    ]).then(([nextUsage, nextSettings, nextStatus, nextReferral, nextContext]) => {
       if (nextUsage) setUsage(nextUsage)
-      // 报价字段缺失或不是数字时按原价展示，避免界面出现 NaN
-      if (
-        nextQuote &&
-        Number.isFinite(nextQuote.priceCents) &&
-        Number.isFinite(nextQuote.amountCents) &&
-        Number.isFinite(nextQuote.creditCents)
-      ) {
-        setQuote(nextQuote)
-      }
       if (nextContext?.shareUrl) setShareUrl(nextContext.shareUrl)
       if (nextReferral && nextReferral.active) {
         setReferral(nextReferral)
@@ -206,6 +196,21 @@ export function PurchaseApp(): JSX.Element {
       }
       setBooted(true)
     })
+    // 分享抵扣报价走网络，不参与首帧门控：先把窗口显示出来，报价回来后再更新价格。
+    void window.snapglass.purchase
+      .referralQuote()
+      .then((nextQuote) => {
+        // 报价字段缺失或不是数字时按原价展示，避免界面出现 NaN
+        if (
+          nextQuote &&
+          Number.isFinite(nextQuote.priceCents) &&
+          Number.isFinite(nextQuote.amountCents) &&
+          Number.isFinite(nextQuote.creditCents)
+        ) {
+          setQuote(nextQuote)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // 等授权状态确定、会员页/购买页与窗口尺寸都渲染完成后，再让主进程显示窗口。

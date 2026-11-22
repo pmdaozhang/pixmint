@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { appIcon } from '../app-icon'
+import { logDiagnostic } from '../diagnostics'
 import { loadRoute } from './load'
 import { showWhenRendererReady } from './show-when-ready'
 import { disableWindowTransitions } from '../native-window'
@@ -16,6 +17,7 @@ function routeFor(feature?: string): string {
  * 单一实例；再次打开会更新 feature 参数并置顶，避免叠出多个窗口。
  */
 export function createPurchaseWindow(preloadPath: string, feature?: string): BrowserWindow {
+  const openedAt = Date.now()
   const route = routeFor(feature)
   if (purchaseWindow && !purchaseWindow.isDestroyed()) {
     loadRoute(purchaseWindow, route)
@@ -47,6 +49,12 @@ export function createPurchaseWindow(preloadPath: string, feature?: string): Bro
     }
   })
   purchaseWindow = window
+  window.webContents.once('did-finish-load', () =>
+    logDiagnostic('purchase', `did-finish-load ${Date.now() - openedAt}ms`)
+  )
+  window.once('ready-to-show', () =>
+    logDiagnostic('purchase', `ready-to-show ${Date.now() - openedAt}ms`)
+  )
   disableWindowTransitions(window.getNativeWindowHandle())
   window.setIcon(appIcon())
   window.setMenuBarVisibility(false)
@@ -59,6 +67,7 @@ export function createPurchaseWindow(preloadPath: string, feature?: string): Bro
     purchaseWindow.show()
     purchaseWindow.moveTop()
     purchaseWindow.focus()
+    logDiagnostic('purchase', `show timing total=${Date.now() - openedAt}ms`)
   }
   // 等渲染层确认授权状态、会员页/购买页和窗口尺寸都确定后再显示，
   // 避免会员先闪一下购买套餐页再切到恭喜页。

@@ -1,24 +1,24 @@
 {
-  "generatedAt": "2026-11-20T14:14:34.850Z",
+  "generatedAt": "2026-11-22T05:21:31.540Z",
   "project": {
     "name": "snapglass",
-    "version": "0.8.28",
+    "version": "0.8.30",
     "versionSource": "package.json",
     "path": "D:\\AI project\\audio_type\\_snapglass_app"
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "199f382",
-    "commitDate": "2026-11-20T22:07:35+08:00",
-    "lastTag": "v0.8.27",
-    "changedFiles": 23,
-    "insertions": 958,
-    "deletions": 99
+    "commit": "cd395fa",
+    "commitDate": "2026-11-21T16:59:58+08:00",
+    "lastTag": "v0.8.29",
+    "changedFiles": null,
+    "insertions": null,
+    "deletions": null
   },
   "source": {
     "files": 280,
-    "lines": 58653,
-    "testFiles": 49,
+    "lines": 58692,
+    "testFiles": 50,
     "todoCount": 11,
     "largest": [
       {
@@ -39,7 +39,7 @@
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
-        "lines": 1069
+        "lines": 1071
       }
     ]
   },
@@ -50,18 +50,18 @@
   "artifacts": {
     "currentVersion": [
       {
-        "path": "release\\Pixmint-Setup-0.8.28.exe",
-        "bytes": 159093791,
-        "modifiedAt": "2026-11-20T14:13:52.915Z"
+        "path": "release\\Pixmint-Setup-0.8.30.exe",
+        "bytes": 158816172,
+        "modifiedAt": "2026-11-22T05:11:31.628Z"
       }
     ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.8.28.exe",
-      "bytes": 159093791,
-      "modifiedAt": "2026-11-20T14:13:52.915Z"
+      "path": "release\\Pixmint-Setup-0.8.30.exe",
+      "bytes": 158816172,
+      "modifiedAt": "2026-11-22T05:11:31.628Z"
     },
-    "allCount": 39,
-    "allTotalBytes": 4828884586
+    "allCount": 41,
+    "allTotalBytes": 5146516220
   },
   "python": {
     "requirementLines": 0

@@ -67,9 +67,10 @@ export class ReferralService {
   /**
    * 读启动参数里的 ref。只把「路径可执行文件 + --ref=」这种安装后首次启动当成好友来源：
    * 登录自启、第二次启动也会带同样参数，不能每次都宣称“本次分享已计入对方”。
+   * installRefCode 来自安装器写在 userData 里的安装命令行，和参数里的 ref 等价。
    */
-  detectFriendLaunch(args: string[]): void {
-    this.friendIncoming = Boolean(this.friendRefArg(args))
+  detectFriendLaunch(args: string[], installRefCode?: string | null): void {
+    this.friendIncoming = Boolean(this.friendRefArg(args) || installRefCode)
   }
 
   /** 从完整启动参数里找 ref；用于首次启动登记与好友文案判断 */

@@ -1,0 +1,77 @@
+{
+  "version": "0.8.30",
+  "date": "2026-11-22",
+  "commit": "cd395fa",
+  "level": "b",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": [
+    "regression",
+    "performance",
+    "architecture",
+    "reversibility",
+    "test-coverage"
+  ],
+  "metrics": {
+    "installerBytes": 158816172,
+    "sourceFiles": 280,
+    "sourceLines": 58692,
+    "testFiles": 50,
+    "runtimeDependencies": 8,
+    "devDependencies": 12,
+    "changedFiles": 9,
+    "insertions": 104,
+    "deletions": 21
+  },
+  "evidence": {
+    "userVerified": [],
+    "automated": [
+      "pnpm typecheck exit 0",
+      "vitest 45 files / 304 tests pass",
+      "pnpm build pass",
+      "真实下载 0.8.30：文件名带 --ref，安装后首启调用 /referral/friend，服务端计数 1；测试数据已清理"
+    ],
+    "checks": [
+      {
+        "name": "typecheck",
+        "status": "pass",
+        "command": "pnpm typecheck",
+        "result": "pass"
+      },
+      {
+        "name": "unit",
+        "status": "pass",
+        "command": "pnpm test",
+        "result": "pass",
+        "detail": "45 files / 304 tests"
+      },
+      {
+        "name": "build",
+        "status": "pass",
+        "command": "pnpm build",
+        "result": "pass"
+      },
+      {
+        "name": "e2e",
+        "status": "pass",
+        "command": "真实下载 + 安装 + 首启",
+        "result": "pass",
+        "detail": "下载文件名 Pixmint-Setup-0.8.30 --ref=PMZXPSL8.exe；安装器写 install-ref.txt；客户端调用 /referral/friend，服务端 share_events 与 share_shares 各 +1；测试数据随后已清理"
+      }
+    ]
+  },
+  "changedFiles": [
+    "package.json",
+    "electron-builder.yml",
+    "build/installer.nsh",
+    "src/main/index.ts",
+    "src/main/referral-service.ts",
+    "src/main/windows/purchase-window.ts",
+    "src/renderer/src/purchase/PurchaseApp.tsx",
+    "tests/referral-install-ref.test.ts",
+    "docs/CHANGELOG.md"
+  ]
+}
