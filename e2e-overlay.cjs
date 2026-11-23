@@ -278,6 +278,8 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
   }
   await window.locator('.line-style-pop .ss-cell[title="细线"]').click()
 
+  // 聚光灯开启时，洞外会盖一层 rgba(0,0,0,0.55) 的半透明黑纱（alpha≈140）。
+  // 只统计接近不透明的像素（alpha>200）即可忽略黑纱，定位形状本身的边界。
   const paintedBounds = () =>
     window.evaluate(() => {
       const canvas = document.querySelector('.anno-canvas')
@@ -290,7 +292,7 @@ const ELECTRON = path.join(PROJECT, 'node_modules', 'electron', 'dist', 'electro
       let maxY = -1
       for (let y = 0; y < canvas.height; y += 1) {
         for (let x = 0; x < canvas.width; x += 1) {
-          if (data[(y * canvas.width + x) * 4 + 3] <= 12) continue
+          if (data[(y * canvas.width + x) * 4 + 3] <= 200) continue
           minX = Math.min(minX, x)
           minY = Math.min(minY, y)
           maxX = Math.max(maxX, x)

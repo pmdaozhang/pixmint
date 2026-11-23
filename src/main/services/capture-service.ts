@@ -1,4 +1,4 @@
-import { app, dialog, screen, type Display, type Tray } from 'electron'
+import { app, dialog, screen, type BrowserWindow, type Display, type Tray } from 'electron'
 import { join } from 'node:path'
 import type {
   DisplayCapture,
@@ -179,9 +179,14 @@ async function isFullscreenForeground(deps: CaptureDeps, display: Display): Prom
 export async function handleOverlayComplete(
   deps: CaptureDeps,
   payload: OverlayCompletePayload,
-  capture: DisplayCapture
+  capture: DisplayCapture,
+  parentWindow?: BrowserWindow
 ): Promise<void> {
   const image = imageFromBytes(payload.pngBytes)
+  logDiagnostic(
+    'save',
+    `overlay complete action=${payload.action} bytes=${payload.pngBytes.length} empty=${image.isEmpty()}`
+  )
   if (image.isEmpty()) return
   addBreadcrumb('action', payload.action, {
     width: payload.selection.width,
@@ -193,13 +198,22 @@ export async function handleOverlayComplete(
     return
   }
   if (payload.action === 'save') {
-    const result = await dialog.showSaveDialog({
+    const saveOptions = {
       title: t(deps.settingsStore.get().language, '保存截图'),
       defaultPath: join(app.getPath('pictures'), `Pixmint-${formatStamp()}.png`),
       filters: [
         { name: t(deps.settingsStore.get().language, 'PNG 图片'), extensions: ['png'] }
       ]
-    })
+    }
+    // 有父窗口时对话框以它为 owner 并显示在其上层，避免全屏应用在前台时对话框被遮挡。
+    logDiagnostic('save', `save dialog open parent=${Boolean(parentWindow)}`)
+    const result = parentWindow
+      ? await dialog.showSaveDialog(parentWindow, saveOptions)
+      : await dialog.showSaveDialog(saveOptions)
+    logDiagnostic(
+      'save',
+      `save dialog result canceled=${result.canceled} path=${result.filePath ? 'set' : 'none'}`
+    )
     if (!result.canceled && result.filePath) {
       saveImageBytes(payload.pngBytes, result.filePath)
       notify(

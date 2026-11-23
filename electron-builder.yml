@@ -5,6 +5,9 @@ artifactName: ${productName}-Setup-${version}.${ext}
 directories:
   output: release
 electronDist: node_modules/electron/dist
+electronLanguages:
+  - zh-CN
+  - en-US
 files:
   - out/**/*
   - package.json

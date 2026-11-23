@@ -119,7 +119,11 @@ export class OverlayManager {
   constructor(
     private readonly preloadPath: string,
     private readonly getSettings: () => Settings,
-    private readonly onComplete: (payload: OverlayCompletePayload, capture: DisplayCapture) => void,
+    private readonly onComplete: (
+      payload: OverlayCompletePayload,
+      capture: DisplayCapture,
+      parentWindow?: BrowserWindow
+    ) => void | Promise<void>,
     private readonly onCancel: () => void,
     private readonly onAbort: (message: string) => void
   ) {}
@@ -688,9 +692,28 @@ export class OverlayManager {
     this.park(entry)
   }
 
-  complete(payload: OverlayCompletePayload, webContentsId: number): void {
+  async complete(payload: OverlayCompletePayload, webContentsId: number): Promise<void> {
     const capture = this.captures.get(webContentsId)
     if (!capture) return
+    const entry = this.entries.get(webContentsId)
+    const parentWindow =
+      payload.action === 'save' && entry && !entry.window.isDestroyed() ? entry.window : undefined
+    logDiagnostic(
+      'overlay',
+      `complete action=${payload.action} entry=${Boolean(entry)} parent=${Boolean(parentWindow)}`
+    )
+    if (parentWindow) {
+      // 保存对话框必须在截图层仍处于前台时以它为父窗口弹出：
+      // 若先停靠（隐藏）截图层再弹无父窗口的对话框，全屏播放器回到前台会把它盖住，
+      // 用户看到的就是“点保存没反应、截图界面直接消失”。
+      try {
+        await this.onComplete(payload, capture, parentWindow)
+      } finally {
+        // 无论保存成功、取消还是异常，对话框关闭后都收起截图层。
+        this.hideAll()
+      }
+      return
+    }
     this.hideAll()
     this.onComplete(payload, capture)
   }

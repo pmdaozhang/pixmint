@@ -1,24 +1,24 @@
 {
-  "generatedAt": "2026-11-22T05:21:31.540Z",
+  "generatedAt": "2026-11-23T12:03:49.347Z",
   "project": {
     "name": "snapglass",
-    "version": "0.8.30",
+    "version": "0.8.31",
     "versionSource": "package.json",
-    "path": "D:\\AI project\\audio_type\\_snapglass_app"
+    "path": "D:\\AI project\\Pixmint"
   },
   "git": {
     "branch": "codex/pixmint-pin-text",
-    "commit": "cd395fa",
-    "commitDate": "2026-11-21T16:59:58+08:00",
+    "commit": "412f024",
+    "commitDate": "2026-11-22T13:27:41+08:00",
     "lastTag": "v0.8.29",
-    "changedFiles": null,
-    "insertions": null,
-    "deletions": null
+    "changedFiles": 12,
+    "insertions": 266,
+    "deletions": 40
   },
   "source": {
     "files": 280,
-    "lines": 58692,
-    "testFiles": 50,
+    "lines": 57384,
+    "testFiles": 49,
     "todoCount": 11,
     "largest": [
       {
@@ -30,16 +30,16 @@
         "lines": 2098
       },
       {
-        "path": "server\\vidgrab-license\\app.py",
-        "lines": 1872
-      },
-      {
         "path": "docs\\marketing\\capture\\.chrome-profile\\Default\\Extensions\\fldmhceldgbpfpkbgopacenieobmligc\\2.0.22_0\\background.js",
         "lines": 1598
       },
       {
         "path": "src\\renderer\\src\\overlay\\AnnotationCanvas.tsx",
         "lines": 1071
+      },
+      {
+        "path": "src\\renderer\\src\\overlay\\OverlayApp.tsx",
+        "lines": 1034
       }
     ]
   },
@@ -50,18 +50,18 @@
   "artifacts": {
     "currentVersion": [
       {
-        "path": "release\\Pixmint-Setup-0.8.30.exe",
-        "bytes": 158816172,
-        "modifiedAt": "2026-11-22T05:11:31.628Z"
+        "path": "release\\Pixmint-Setup-0.8.31.exe",
+        "bytes": 150736162,
+        "modifiedAt": "2026-11-23T12:03:18.084Z"
       }
     ],
     "largest": {
-      "path": "release\\Pixmint-Setup-0.8.30.exe",
-      "bytes": 158816172,
-      "modifiedAt": "2026-11-22T05:11:31.628Z"
+      "path": "release\\Pixmint-Setup-0.8.31.exe",
+      "bytes": 150736162,
+      "modifiedAt": "2026-11-23T12:03:18.084Z"
     },
-    "allCount": 41,
-    "allTotalBytes": 5146516220
+    "allCount": 2,
+    "allTotalBytes": 301750035
   },
   "python": {
     "requirementLines": 0

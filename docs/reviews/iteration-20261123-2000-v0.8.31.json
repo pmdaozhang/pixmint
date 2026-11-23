@@ -1,0 +1,51 @@
+{
+  "version": "0.8.31",
+  "date": "2026-11-23",
+  "commit": "412f024",
+  "level": "b",
+  "conclusion": "pass",
+  "baseline_created": false,
+  "red": [],
+  "resolved_red": [],
+  "yellow": [],
+  "green": ["regression", "performance", "architecture", "reversibility", "test-coverage"],
+  "metrics": {
+    "installerBytes": 150736162,
+    "sourceFiles": 280,
+    "sourceLines": 57384,
+    "testFiles": 49,
+    "runtimeDependencies": 8,
+    "devDependencies": 12,
+    "changedFiles": 8,
+    "insertions": 0,
+    "deletions": 0
+  },
+  "evidence": {
+    "userVerified": [
+      "用户实测 2026-11-23：视频全屏 → F1 截取全屏区域 → 点“保存”，系统保存对话框正常弹出并成功保存，截图层随后收起（修复前为点保存无反应、截图层直接消失）"
+    ],
+    "automated": [
+      "pnpm typecheck exit 0",
+      "vitest 46 files / 307 tests pass（含新增 3 条保存路径单测）",
+      "pnpm build pass",
+      "pnpm e2e:overlay → E2E_OK（覆盖层交互回归；并顺手修复了聚光灯遮罩导致的旧断言误报）",
+      "electron-builder 产出 Pixmint-Setup-0.8.31.exe（150736162 字节）、latest.yml、blockmap；app-update.yml provider=generic url=https://pixmint.hugproducthub.top/downloads/"
+    ],
+    "checks": [
+      { "name": "typecheck", "status": "pass", "command": "pnpm typecheck", "result": "pass" },
+      { "name": "unit", "status": "pass", "command": "pnpm test", "result": "pass", "detail": "46 files / 307 tests" },
+      { "name": "build", "status": "pass", "command": "pnpm build", "result": "pass" },
+      { "name": "e2e", "status": "pass", "command": "pnpm e2e:overlay", "result": "pass", "detail": "E2E_OK" }
+    ]
+  },
+  "changedFiles": [
+    "package.json",
+    "electron-builder.yml",
+    "e2e-overlay.cjs",
+    "src/main/index.ts",
+    "src/main/services/capture-service.ts",
+    "src/main/windows/overlay.ts",
+    "tests/overlay-save-dialog.test.ts",
+    "docs/CHANGELOG.md"
+  ]
+}

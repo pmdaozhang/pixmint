@@ -278,9 +278,8 @@ function initServices(): void {
   overlayManager = new OverlayManager(
     preloadPath,
     () => settingsStore.get(),
-    (payload, capture) => {
-      void handleOverlayComplete(captureDeps(), payload, capture)
-    },
+    (payload, capture, parentWindow) =>
+      handleOverlayComplete(captureDeps(), payload, capture, parentWindow),
     () => {},
     (message) => {
       recorderManager?.abortSession()
